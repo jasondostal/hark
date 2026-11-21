@@ -1,0 +1,47 @@
+name: Hark
+options:
+  bundleIdPrefix: dev.ducktyping
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  HarkCore:
+    path: HarkCore
+targets:
+  Hark:
+    type: application
+    platform: iOS
+    sources:
+      - path: Hark/Sources
+      - path: Hark/Resources
+      # Perch 2.0, fp16-safe Core ML build from ~/working/perch-spike (git-ignored, 196 MB). Xcode compiles it to Perch.mlmodelc.
+      - path: Models/Perch.mlpackage
+    dependencies:
+      - package: HarkCore
+    info:
+      path: Hark/Info.plist
+      properties:
+        CFBundleDisplayName: Hark
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSMicrophoneUsageDescription: Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.
+        NSLocationWhenInUseUsageDescription: Hark tags each sound it identifies with where you heard it, so your log shows place as well as time.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ducktyping.hark
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 8N87FTKWXL
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        COREML_CODEGEN_LANGUAGE: None

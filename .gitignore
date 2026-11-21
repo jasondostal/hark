@@ -1,0 +1,8 @@
+Models/
+DerivedData/
+DerivedData-sim/
+.build/
+HarkCore/.build/
+tools/data/
+*.xcuserstate
+xcuserdata/
