@@ -17,26 +17,30 @@ struct ListenView: View {
                         .listRowInsets(EdgeInsets())
                     controls
                 }
-                if listener.state == .listening || !listener.session.isEmpty {
+                if listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty {
                     Section("Hearing now") {
                         if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
                             Text(listener.state == .listening ? "Listening…" : "Stopped")
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(listener.hearingNow) { o in
-                            if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence) }
+                            if let l = listener.label(o.index) {
+                                NowRow(label: l, confidence: o.bestConfidence).muteSwipe(o.index)
+                            }
                         }
                         ForEach(listener.maybes) { m in
-                            if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m) }
+                            if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
                         }
                     }
+                    if !listener.session.isEmpty || !listener.manual.isEmpty {
                     Section("This session") {
                         ForEach(listener.manual) { d in ManualRow(detection: d) }
                         ForEach(listener.session) { o in
                             if let l = listener.label(o.index) {
-                                SessionRow(label: l, occurrence: o, detection: listener.detection(for: o))
+                                SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
                             }
                         }
+                    }
                     }
                 }
             }
@@ -46,8 +50,11 @@ struct ListenView: View {
                     Button { showSettings = true } label: { Image(systemName: "slider.horizontal.3") }
                 }
             }
-            .sheet(isPresented: $showSettings) { SettingsView().presentationDetents([.medium]) }
-            .onAppear { listener.modelContext = ctx }
+            .sheet(isPresented: $showSettings) { SettingsView().presentationDetents([.medium, .large]) }
+            .onAppear {
+                listener.modelContext = ctx
+                if ProcessInfo.processInfo.arguments.contains("-settings") { showSettings = true }   // screenshot aid
+            }
         }
     }
 
@@ -102,17 +109,21 @@ struct NowRow: View {
     }
 }
 
-/// Under the threshold but plausible. Faint, with a question mark; one tap logs it or logs it as seen.
+/// Not logged automatically; one tap logs it or logs it as seen.
+/// Maybe = plausible but under the threshold (faint, "?"). Unusual = confident but never recorded near you (orange flag).
 struct MaybeRow: View {
     @Environment(Listener.self) private var listener
     let label: HarkCore.Label
     let maybe: Maybe
     var body: some View {
         HStack {
-            Image(systemName: "questionmark.circle").frame(width: 28).foregroundStyle(.secondary)
+            Image(systemName: maybe.unusual ? "exclamationmark.triangle" : "questionmark.circle").frame(width: 28)
+                .foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
             VStack(alignment: .leading) {
-                Text("\(label.common)?").foregroundStyle(.secondary)
-                Text("maybe · \(Int(maybe.best * 100))%").font(.caption).foregroundStyle(.tertiary)
+                Text(maybe.unusual ? label.common : "\(label.common)?")
+                    .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                Text("\(maybe.unusual ? "unusual here" : "maybe") · \(Int(maybe.best * 100))%")
+                    .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
             }
             Spacer()
             Button("Log") { listener.logMaybe(maybe, confirmed: false) }
@@ -201,6 +212,21 @@ struct LevelBar: View {
     }
 }
 
+extension View {
+    /// Swipe left: "Never show" this species.
+    func muteSwipe(_ index: Int) -> some View { modifier(MuteSwipe(index: index)) }
+}
+
+private struct MuteSwipe: ViewModifier {
+    @Environment(Listener.self) private var listener
+    let index: Int
+    func body(content: Content) -> some View {
+        content.swipeActions(edge: .trailing) {
+            Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(Listener.self) private var listener
     var body: some View {
@@ -208,17 +234,33 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    VStack(alignment: .leading) {
-                        Text("Confidence threshold: \(Int(listener.threshold * 100))%")
-                        Slider(value: $listener.threshold, in: 0.1...0.9, step: 0.05)
-                    }
-                } footer: {
-                    Text("Confidence is a softmax over all 14,795 Perch classes. Lower shows more, with more wrong guesses. Species between half the threshold and the threshold show as faint \"maybe\" rows you can log by hand.")
+                    ForEach(ListenGroup.allCases, id: \.self) { g in GroupRow(group: g) }
+                } header: { Text("Listen for") } footer: {
+                    Text("Each group has its own confidence threshold (a softmax over all 14,795 Perch classes). Lower shows more, with more wrong guesses. Species between half the threshold and the threshold show as faint \"maybe\" rows you can log by hand. Non-animal sounds show but are never logged.")
                 }
                 Section {
-                    Toggle("Show non-animal sounds", isOn: $listener.showSounds)
-                } footer: {
-                    Text("Cars, dogs, voices and other sound events. They show while listening but are never logged.")
+                    Picker("Out-of-range species", selection: $listener.policy.rangeMode) {
+                        Text("Off").tag(RangeMode.off)
+                        Text("Flag").tag(RangeMode.flag)
+                        Text("Hide").tag(RangeMode.hide)
+                    }
+                    .pickerStyle(.segmented)
+                    LabeledContent("Status", value: rangeStatus)
+                } header: { Text("Location filter") } footer: {
+                    Text("Compares each ID with species recorded within roughly 150 km of you. Flag shows out-of-range IDs as \"unusual here\" and doesn't log them unless you tap Log; Hide drops them. Species with no records anywhere are never filtered. Range data: GBIF.org occurrence records.")
+                }
+                if !listener.mutedNames.isEmpty {
+                    Section {
+                        ForEach(listener.mutedNames, id: \.self) { name in
+                            HStack {
+                                Text(listener.commonName(name))
+                                Spacer()
+                                Button("Unmute") { listener.unmute(name) }.font(.caption).buttonStyle(.bordered)
+                            }
+                        }
+                    } header: { Text("Never show") } footer: {
+                        Text("Swipe left on any ID to add it here.")
+                    }
                 }
                 Section("Model") {
                     LabeledContent("Perch 2.0", value: "14,795 classes")
@@ -227,6 +269,33 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var rangeStatus: String {
+        if !listener.rangeAvailable { return "No range data in this build" }
+        if listener.policy.rangeMode == .off { return "Off" }
+        guard let r = listener.localRange else { return "Waiting for location" }
+        return "\(r.speciesHere.formatted()) species recorded here"
+    }
+}
+
+struct GroupRow: View {
+    @Environment(Listener.self) private var listener
+    let group: ListenGroup
+    var body: some View {
+        let s = listener.policy.setting(group)
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(isOn: Binding(get: { s.enabled }, set: { v in listener.policy.set(group, GroupSetting(enabled: v, threshold: s.threshold)) })) {
+                Label(group.title, systemImage: group.symbol)
+            }
+            if s.enabled {
+                HStack {
+                    Slider(value: Binding(get: { s.threshold }, set: { v in listener.policy.set(group, GroupSetting(enabled: true, threshold: v)) }),
+                           in: 0.1...0.9, step: 0.05)
+                    Text("\(Int(s.threshold * 100))%").font(.caption.monospacedDigit()).frame(width: 38, alignment: .trailing)
+                }
+            }
         }
     }
 }

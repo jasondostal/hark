@@ -20,6 +20,7 @@
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
 		AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = CF97FC47703776066607E58A /* Perch.mlpackage */; };
+		CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */ = {isa = PBXBuildFile; fileRef = C9DF49BC5773FE7D392E921C /* ranges.bin */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
 /* End PBXBuildFile section */
 
@@ -35,6 +36,7 @@
 		98AF485B90B0C27ACEE5E705 /* labels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels.json; sourceTree = "<group>"; };
 		A8032DCD59B9F6ABEDA20FFE /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
 		D75CA65E35D4012047FBC305 /* selftest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = selftest.json; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				98AF485B90B0C27ACEE5E705 /* labels.json */,
+				C9DF49BC5773FE7D392E921C /* ranges.bin */,
 				DE6827D3D2A7830D066C7F79 /* selftest.f32 */,
 				D75CA65E35D4012047FBC305 /* selftest.json */,
 			);
@@ -188,6 +191,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				166030FDDF7236F06318E02E /* labels.json in Resources */,
+				CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */,
 				5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */,
 				7DF59B52D29D99C1B4913F8C /* selftest.json in Resources */,
 			);

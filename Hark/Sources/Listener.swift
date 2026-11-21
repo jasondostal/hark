@@ -23,9 +23,11 @@ actor Inference {
     func classify(_ w: [Float]) throws -> PerchClassifier.Output { try classifier.classify(w) }
 }
 
-/// A species that scored under the threshold but above the maybe floor in the last 15 s.
+/// Heard in the last 15 s but not logged automatically: under the threshold ("maybe"),
+/// or confident but never recorded near you ("unusual here").
 struct Maybe: Identifiable, Equatable {
     let index: Int
+    var unusual = false
     var best: Float
     var firstSeen: Date
     var lastSeen: Date
@@ -41,19 +43,27 @@ final class Listener {
     private(set) var labels: LabelTable?
     private(set) var hearingNow: [DetectionTracker.Occurrence] = []
     private(set) var session: [DetectionTracker.Occurrence] = []
-    private(set) var maybes: [Maybe] = []
+    private(set) var maybes: [Maybe] = []         // includes the "unusual here" ones (flagged)
     private(set) var manual: [Detection] = []     // logged by hand from a maybe, this session
     let live = LiveSpectrogram()
     private(set) var levelDB: Float = -120
     private(set) var lastInferenceMs: Double = 0
 
     // Settings (persisted)
-    var threshold: Float = UserDefaults.standard.object(forKey: "threshold") as? Float ?? 0.3 {
-        didSet { UserDefaults.standard.set(threshold, forKey: "threshold") }
+    var policy: DetectionPolicy = UserDefaults.standard.data(forKey: "policy")
+        .flatMap { try? JSONDecoder().decode(DetectionPolicy.self, from: $0) } ?? DetectionPolicy() {
+        didSet { UserDefaults.standard.set(try? JSONEncoder().encode(policy), forKey: "policy") }
     }
-    var showSounds: Bool = UserDefaults.standard.object(forKey: "showSounds") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(showSounds, forKey: "showSounds") }
+    /// Muted species, by scientific name (stable if the label table changes).
+    private(set) var mutedNames: [String] = UserDefaults.standard.stringArray(forKey: "muted") ?? [] {
+        didSet { UserDefaults.standard.set(mutedNames, forKey: "muted"); refreshMuted() }
     }
+    private var muted: Set<Int> = []
+
+    // Location filter
+    private var ranges: RangeMap?
+    private(set) var localRange: LocalRange?
+    var rangeAvailable: Bool { ranges != nil }
 
     private var inference: Inference?
     private let store = AudioStore()
@@ -76,7 +86,8 @@ final class Listener {
                   let labelsURL = Bundle.main.url(forResource: "labels", withExtension: "json") else {
                 state = .failed("Model files missing from the app bundle"); return
             }
-            let (clf, table) = try await Task.detached(priority: .userInitiated) {
+            let rangesURL = Bundle.main.url(forResource: "ranges", withExtension: "bin")
+            let (clf, table, rm) = try await Task.detached(priority: .userInitiated) {
                 #if targetEnvironment(simulator)
                 let units: MLComputeUnits = .cpuOnly   // simulator: no ANE, and its GPU path gives wrong answers
                 #else
@@ -84,9 +95,10 @@ final class Listener {
                 #endif
                 let c = try PerchClassifier(url: modelURL, computeUnits: units)
                 _ = try c.classify([Float](repeating: 0, count: PerchClassifier.windowSamples))   // warm up / ANE compile
-                return (c, try LabelTable(contentsOf: labelsURL))
+                return (c, try LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
             }.value
-            inference = Inference(clf); labels = table
+            inference = Inference(clf); labels = table; ranges = rm
+            refreshMuted()
             state = .ready
         } catch {
             state = .failed("Couldn't load Perch: \(error.localizedDescription)")
@@ -138,8 +150,30 @@ final class Listener {
         hearingNow = []; maybes = []
     }
 
-    /// Lower bar for the maybe tier: under half the threshold is mostly noise.
-    var maybeFloor: Float { max(0.08, threshold * 0.5) }
+    private func refreshMuted() {
+        guard let labels else { return }
+        let names = Set(mutedNames)
+        muted = Set(labels.labels.indices.filter { names.contains(labels[$0].scientific) })
+    }
+
+    /// "Never show this species": drops it from the screen now and from scoring from here on.
+    func mute(_ index: Int) {
+        guard let l = label(index), !mutedNames.contains(l.scientific) else { return }
+        mutedNames.append(l.scientific)
+        hearingNow.removeAll { $0.index == index }
+        maybes.removeAll { $0.index == index }; recentMaybes[index] = nil
+    }
+    func unmute(_ scientific: String) { mutedNames.removeAll { $0 == scientific } }
+    func commonName(_ scientific: String) -> String {
+        labels?.labels.first { $0.scientific == scientific }?.common ?? scientific
+    }
+
+    /// Recompute the local species list when you move into a new grid cell (~150 km).
+    private func updateRange() {
+        guard let ranges, let loc = location.last else { return }
+        let c = ranges.cell(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude)
+        if localRange?.cell != c { localRange = ranges.local(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude) }
+    }
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
@@ -150,26 +184,29 @@ final class Listener {
         guard let out = try? await inference.classify(w) else { return }
         lastInferenceMs = Date().timeIntervalSince(t0) * 1000
         let scores = Scoring.softmax(out.logits)
-        var result = WindowResult(time: .now, scores: scores, threshold: threshold)
-        if !showSounds { result = WindowResult(time: result.time, hits: result.hits.filter { labels[$0.index].group.isSpecies }) }
+        updateRange()
+        let triage = policy.triage(scores: scores, labels: labels, range: localRange, muted: muted)
+        let result = WindowResult(time: .now, hits: triage.hits)
         if ProcessInfo.processInfo.arguments.contains("-autolisten") {
             NSLog("HARK-WINDOW %.0f ms: %@", lastInferenceMs, result.hits.map { "\(labels[$0.index].common) \(Int($0.confidence * 100))%" }.joined(separator: ", "))
         }
         for change in tracker.add(result) { log(change, labels) }
         hearingNow = tracker.active(at: .now)
         session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
-        updateMaybes(scores, labels, at: result.time)
+        updateMaybes(triage, at: result.time)
     }
 
-    private func updateMaybes(_ scores: [Float], _ labels: LabelTable, at now: Date) {
+    private func updateMaybes(_ t: DetectionPolicy.Triage, at now: Date) {
         let known = Set(tracker.occurrences.map(\.index)).union(manualIndices)
-        for i in Scoring.topK(scores, 10) where scores[i] >= maybeFloor && scores[i] < threshold
-            && labels[i].group.isSpecies && !known.contains(i) {
-            if var m = recentMaybes[i] { m.best = max(m.best, scores[i]); m.lastSeen = now; recentMaybes[i] = m }
-            else { recentMaybes[i] = Maybe(index: i, best: scores[i], firstSeen: now, lastSeen: now) }
+        let fresh = t.unusual.map { ($0.index, $0.confidence, true) } + t.maybes.map { ($0.index, $0.confidence, false) }
+        for (i, p, unusual) in fresh where !known.contains(i) {
+            if var m = recentMaybes[i] {
+                m.best = max(m.best, p); m.lastSeen = now; m.unusual = m.unusual || unusual; recentMaybes[i] = m
+            } else { recentMaybes[i] = Maybe(index: i, unusual: unusual, best: p, firstSeen: now, lastSeen: now) }
         }
-        recentMaybes = recentMaybes.filter { now.timeIntervalSince($0.value.lastSeen) < 15 && !known.contains($0.key) }
-        maybes = recentMaybes.values.sorted { $0.best > $1.best }.prefix(4).map { $0 }
+        recentMaybes = recentMaybes.filter { now.timeIntervalSince($0.value.lastSeen) < 15 && !known.contains($0.key) && !muted.contains($0.key) }
+        // unusual first (they were confident), then maybes by score
+        maybes = recentMaybes.values.sorted { ($0.unusual ? 1 : 0, $0.best) > ($1.unusual ? 1 : 0, $1.best) }.prefix(5).map { $0 }
     }
 
     private func log(_ change: DetectionTracker.Change, _ labels: LabelTable) {
@@ -195,7 +232,7 @@ final class Listener {
         guard let ctx = modelContext, let l = label(m.index) else { return }
         let loc = location.last?.coordinate
         let d = Detection(label: l, confidence: Double(m.best), at: m.firstSeen,
-                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "maybe")
+                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: m.unusual ? "unusual" : "maybe")
         d.lastHeard = m.lastSeen
         d.confirmed = confirmed
         ctx.insert(d)

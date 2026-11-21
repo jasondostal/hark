@@ -17,7 +17,7 @@ final class Detection {
     var longitude: Double?
     var confirmed: Bool             // "I saw it": the person verified the ID
     var sessionID: UUID
-    var source: String              // "live" or "maybe" (logged by hand from under the threshold)
+    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range)
 
     init(id: UUID = UUID(), label: HarkCore.Label, confidence: Double, at: Date, windows: Int = 1,
          latitude: Double?, longitude: Double?, sessionID: UUID, source: String) {

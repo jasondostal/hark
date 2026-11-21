@@ -6,3 +6,4 @@ HarkCore/.build/
 tools/data/
 *.xcuserstate
 xcuserdata/
+tools/.venv/

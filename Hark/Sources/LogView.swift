@@ -73,7 +73,7 @@ struct LogRow: View {
             Spacer()
             VStack(alignment: .trailing) {
                 Text(detection.firstHeard.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit())
-                Text("\(Int(detection.confidence * 100))%\(detection.source == "maybe" ? " · maybe" : "")")
+                Text("\(Int(detection.confidence * 100))%\(detection.source == "live" ? "" : " · \(detection.source)")")
                     .font(.caption2).foregroundStyle(.secondary)
                 if detection.latitude != nil { Image(systemName: "location.fill").font(.caption2).foregroundStyle(.tertiary) }
             }

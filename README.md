@@ -13,6 +13,9 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
   threshold and the threshold in the last 15 s, loggable by hand), live FFT spectrogram (independent of Perch), Log tab.
 - `Models/Perch.mlpackage`: git-ignored. Build it with ~/working/perch-spike (`./build.sh`), then
   `cp -R ../perch-spike/models/perch_v2_full_fp16.mlpackage Models/Perch.mlpackage`.
+- `tools/gbif_ranges.py`: location filter data. Per Perch species, GBIF backbone match + global density map
+  (1.40625-degree cells, >= 2 records, solid cells also mark their neighbors) -> `Hark/Resources/ranges.bin`.
+  `fetch` takes ~70 min (cached/resumable in tools/data/gbif/), `build` is instant. Credit GBIF.org in the app.
 - `tools/make_labels.py`: label table from Perch labels + OpenFauna names/classes (data copied from birdnet-go's
   vendored snapshot on CORTEX into tools/data/). OpenFauna's license still needs checking before any public release.
 
