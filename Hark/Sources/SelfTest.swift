@@ -30,10 +30,10 @@ enum SelfTest {
                         }
                     }
                     ms.sort()
-                    print("HARK-SELFTEST \(unitName): load \(String(format: "%.1f", load)) s, top-1 \(agree)/\(refs.count), median \(String(format: "%.1f", ms[ms.count / 2])) ms/window")
+                    NSLog("HARK-SELFTEST \(unitName): load \(String(format: "%.1f", load)) s, top-1 \(agree)/\(refs.count), median \(String(format: "%.1f", ms[ms.count / 2])) ms/window")
                 }
-                print("HARK-SELFTEST done")
-            } catch { print("HARK-SELFTEST error: \(error)") }
+                NSLog("HARK-SELFTEST done")
+            } catch { NSLog("HARK-SELFTEST error: \(error)") }
         }
     }
 }

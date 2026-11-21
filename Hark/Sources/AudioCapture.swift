@@ -31,7 +31,27 @@ final class AudioCapture {
         try engine.start()
     }
 
+    /// Testing aid (`-feedfile a.wav,b.wav`): stream files in real time through the same convert path as the mic.
+    private var feedTask: Task<Void, Never>?
+    func startFiles(_ urls: [URL]) {
+        feedTask = Task.detached { [weak self] in
+            for url in urls {
+                guard let f = try? AVAudioFile(forReading: url) else { NSLog("HARK feedfile: can't open \(url.path)"); continue }
+                self?.converter = AVAudioConverter(from: f.processingFormat, to: self!.outFormat)
+                let chunk: AVAudioFrameCount = 4096
+                while !Task.isCancelled, let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: chunk) {
+                    do { try f.read(into: buf, frameCount: chunk) } catch { break }
+                    if buf.frameLength == 0 { break }
+                    self?.convert(buf)
+                    try? await Task.sleep(for: .seconds(Double(buf.frameLength) / f.processingFormat.sampleRate))
+                }
+            }
+            NSLog("HARK feedfile: done")
+        }
+    }
+
     func stop() {
+        if let t = feedTask { t.cancel(); feedTask = nil; return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)

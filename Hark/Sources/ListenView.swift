@@ -58,13 +58,15 @@ struct ListenView: View {
                 Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.footnote)
             default: EmptyView()
             }
-            HStack(spacing: 16) {
+            VStack(spacing: 10) {
                 Button {
                     Task { await listener.toggle() }
                 } label: {
                     Label(listener.state == .listening ? "Stop" : "Listen",
                           systemImage: listener.state == .listening ? "stop.fill" : "ear")
-                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(listener.state == .listening ? .red : .accentColor)
@@ -74,7 +76,8 @@ struct ListenView: View {
                     Task { await listener.captureLast15s() }
                 } label: {
                     Label("What was that?", systemImage: "gobackward.15")
-                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity).padding(.vertical, 4)
                 }
                 .buttonStyle(.bordered)
                 .disabled(listener.state != .listening)
