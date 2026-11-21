@@ -13,6 +13,7 @@
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
+		2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941B45C78432B52FF73B873 /* Style.swift */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
 		34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A371842CFB8FC187A89231 /* TodayWidget.swift */; };
 		5087266A6689366211647496 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
@@ -23,6 +24,7 @@
 		7FD45C007008A852A54909C7 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B48A5AE947C4689B53B3004 /* ListenView.swift */; };
 		83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DDD14312784E530E18C727 /* HarkApp.swift */; };
 		88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B724A1122028E8DD168A59D /* HarkWidgets.swift */; };
+		927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
 		A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46339CF0455911EAAB8F7134 /* Clips.swift */; };
@@ -84,11 +86,13 @@
 		AD0866C9EDC3F7F622E07C87 /* RewindView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindView.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0A371842CFB8FC187A89231 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarkWidgets.entitlements; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
 		D75CA65E35D4012047FBC305 /* selftest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = selftest.json; sourceTree = "<group>"; };
+		D941B45C78432B52FF73B873 /* Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Style.swift; sourceTree = "<group>"; };
 		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		DE6827D3D2A7830D066C7F79 /* selftest.f32 */ = {isa = PBXFileReference; path = selftest.f32; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -168,7 +172,9 @@
 				AD0866C9EDC3F7F622E07C87 /* RewindView.swift */,
 				2E9BF582C048F510851B11AB /* SelfTest.swift */,
 				9E7771A2D007367737E31C57 /* SessionsView.swift */,
+				BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */,
 				180D52A9CD94D53DCE390487 /* SpectrogramView.swift */,
+				D941B45C78432B52FF73B873 /* Style.swift */,
 				32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */,
 			);
 			path = Sources;
@@ -333,7 +339,9 @@
 				F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */,
 				14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */,
 				D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */,
+				927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */,
 				2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */,
+				2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */,
 				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
 				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
 			);

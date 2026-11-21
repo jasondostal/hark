@@ -42,7 +42,7 @@ final class SpectrogramDSP {
         }
         var bands = [Float](repeating: 0, count: Self.bins)
         vDSP_mmul(Self.mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
-        let span: Float = 36
+        let span = SpectrogramStyle.shared.span
         for b in 0..<Self.bins {
             let db = 10 * log10f(bands[b] + 1e-12)
             if warm < 30 { floorDB[b] = warm == 0 ? db : min(floorDB[b], db) + 0.3 }
@@ -71,6 +71,7 @@ final class SpectrogramDSP {
         let r = (range ?? 0..<columns).clamped(to: 0..<columns)
         guard !r.isEmpty else { return nil }
         let w = r.count, h = bins
+        let lut = SpectrogramStyle.shared.lut
         var px = [UInt32](repeating: lut[0], count: w * h)
         for x in 0..<w {
             let base = (r.lowerBound + x) * h
@@ -109,19 +110,10 @@ final class SpectrogramDSP {
         return m
     }
 
-    static let lut: [UInt32] = (0..<256).map { i in
-        let (r, g, b) = palette(Float(i) / 255)
-        return UInt32(r) | UInt32(g) << 8 | UInt32(b) << 16 | 0xFF00_0000
-    }
-
-    // Dark blue -> teal -> yellow (perceptually ordered, readable on black).
-    static func palette(_ t: Float) -> (UInt8, UInt8, UInt8) {
-        let stops: [(Float, Float, Float)] = [(0.02, 0.02, 0.08), (0.10, 0.20, 0.45), (0.10, 0.55, 0.55), (0.55, 0.80, 0.30), (0.99, 0.91, 0.15)]
-        let x = t * Float(stops.count - 1)
-        let i = min(Int(x), stops.count - 2), f = x - Float(i)
-        let a = stops[i], b = stops[i + 1]
-        func c(_ p: Float, _ q: Float) -> UInt8 { UInt8(max(0, min(255, (p + (q - p) * f) * 255))) }
-        return (c(a.0, b.0), c(a.1, b.1), c(a.2, b.2))
+    /// Height fraction (0 = bottom) of a frequency on the display's mel axis.
+    static func yFraction(hz: Float) -> CGFloat {
+        func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
+        return CGFloat((mel(hz) - mel(150)) / (mel(15_000) - mel(150)))
     }
 }
 
@@ -178,12 +170,13 @@ final class LiveSpectrogram: @unchecked Sendable {
 
         let w = Self.visible, h = Self.bins
         let end = Int(playhead)
-        var px = [UInt32](repeating: SpectrogramDSP.lut[0], count: w * h)
+        let lut = SpectrogramStyle.shared.lut
+        var px = [UInt32](repeating: lut[0], count: w * h)
         for x in 0..<w {
             let c = end - w + x
             guard c >= 0, c > produced - Self.capacity else { continue }
             let base = (c % Self.capacity) * h
-            for b in 0..<h { px[(h - 1 - b) * w + x] = SpectrogramDSP.lut[Int(ring[base + b])] }
+            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(ring[base + b])] }
         }
         return SpectrogramDSP.cgImage(&px, w, h)
     }
@@ -192,16 +185,37 @@ final class LiveSpectrogram: @unchecked Sendable {
 struct SpectrogramView: View {
     let source: LiveSpectrogram
     let running: Bool
+    var palette: SpectrogramPalette = .aurora
+    var frequencyLabels = true
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !running)) { tl in
             ZStack {
-                Color.black
+                palette.background
                 if let img = source.image(now: tl.date.timeIntervalSinceReferenceDate) {
                     Image(decorative: img, scale: 1).resizable().interpolation(.medium)
                 } else {
-                    Text("Spectrogram").font(.caption).foregroundStyle(.white.opacity(0.4))
+                    Text("Tap Listen to start").font(.callout).foregroundStyle(palette.labelColor)
                 }
             }
         }
+        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor) } }
+    }
+}
+
+/// kHz ticks on the mel axis, so you can tell a 2 kHz owl from an 8 kHz warbler.
+struct FrequencyAxis: View {
+    var color: Color = .white.opacity(0.7)
+    var body: some View {
+        GeometryReader { g in
+            ForEach([1, 2, 4, 8], id: \.self) { k in
+                let y = g.size.height * (1 - SpectrogramDSP.yFraction(hz: Float(k * 1000)))
+                HStack(spacing: 3) {
+                    Rectangle().fill(color.opacity(0.6)).frame(width: 6, height: 1)
+                    Text("\(k)k").font(.system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(color)
+                }
+                .position(x: 16, y: y)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

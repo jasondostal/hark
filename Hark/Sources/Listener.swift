@@ -103,6 +103,25 @@ final class Listener {
         didSet { UserDefaults.standard.set(keepScreenOn, forKey: "keepScreenOn")
                  if state == .listening { UIApplication.shared.isIdleTimerDisabled = keepScreenOn } }
     }
+    // Spectrogram + audio options (persisted)
+    var palette: SpectrogramPalette = SpectrogramPalette(rawValue: UserDefaults.standard.string(forKey: "palette") ?? "") ?? .aurora {
+        didSet { UserDefaults.standard.set(palette.rawValue, forKey: "palette"); SpectrogramStyle.shared.set(palette: palette) }
+    }
+    var contrast: Double = UserDefaults.standard.object(forKey: "contrast") as? Double ?? 0.6 {
+        didSet { UserDefaults.standard.set(contrast, forKey: "contrast"); SpectrogramStyle.shared.set(contrast: contrast) }
+    }
+    var frequencyLabels: Bool = UserDefaults.standard.object(forKey: "frequencyLabels") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(frequencyLabels, forKey: "frequencyLabels") }
+    }
+    /// High-pass cutoff in Hz (0 = off): 80 trims wind and handling noise, 200 trims road rumble.
+    var rumbleFilter: Double = UserDefaults.standard.object(forKey: "rumbleFilter") as? Double ?? 0 {
+        didSet { UserDefaults.standard.set(rumbleFilter, forKey: "rumbleFilter"); audio.setHighPass(rumbleFilter) }
+    }
+    /// Preferred input port UID (nil = automatic). Applies next time listening starts.
+    var inputUID: String? = UserDefaults.standard.string(forKey: "inputUID") {
+        didSet { UserDefaults.standard.set(inputUID, forKey: "inputUID"); audio.preferredInputUID = inputUID }
+    }
+
     /// Safety net for walk mode: stop after this many minutes (0 = never).
     var stopAfterMinutes: Int = UserDefaults.standard.object(forKey: "stopAfterMinutes") as? Int ?? 60 {
         didSet { UserDefaults.standard.set(stopAfterMinutes, forKey: "stopAfterMinutes") }
@@ -119,6 +138,10 @@ final class Listener {
 
     init() {
         ClipPlayer.shared.onPlay = { [weak self] d in self?.quietUntil = .now.addingTimeInterval(d + 5.5) }
+        SpectrogramStyle.shared.set(palette: palette)
+        SpectrogramStyle.shared.set(contrast: contrast)
+        audio.setHighPass(rumbleFilter)
+        audio.preferredInputUID = inputUID
     }
 
     static let hop: Duration = .seconds(1)
@@ -139,7 +162,7 @@ final class Listener {
                 #endif
                 let c = try PerchClassifier(url: modelURL, computeUnits: units)
                 _ = try c.classify([Float](repeating: 0, count: PerchClassifier.windowSamples))   // warm up / ANE compile
-                return (c, try LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
+                return (c, try HarkCore.Label.table ?? LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
             }.value
             inference = Inference(clf); labels = table; ranges = rm
             refreshMuted()

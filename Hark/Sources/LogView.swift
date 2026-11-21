@@ -7,6 +7,7 @@ import HarkCore
 struct LogView: View {
     @Query(sort: \Detection.firstHeard, order: .reverse) private var all: [Detection]
     @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
     @State private var mode: Mode = .timeline
     @State private var confirmedOnly = false
     @State private var search = ""
@@ -41,8 +42,10 @@ struct LogView: View {
             }
             .navigationTitle("Log")
             .searchable(text: $search, prompt: "Search species")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Picker("Group", selection: $group) {
                             Text("Everything").tag(ListenGroup?.none)
@@ -132,8 +135,8 @@ private struct TimelineList: View {
 struct LogRow: View {
     let detection: Detection
     var body: some View {
-        HStack {
-            ClipButton(file: detection.clipFile, symbol: detection.taxon.symbol)
+        HStack(spacing: 12) {
+            TaxonIcon(emoji: detection.icon, group: detection.taxon)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) {
                     Text(detection.common).font(.headline)
@@ -149,6 +152,7 @@ struct LogRow: View {
                     .font(.caption2).foregroundStyle(.secondary)
                 if detection.latitude != nil { Image(systemName: "location.fill").font(.caption2).foregroundStyle(.tertiary) }
             }
+            if detection.clipFile != nil { ClipButton(file: detection.clipFile, symbol: "") }
         }
     }
 }
@@ -175,7 +179,7 @@ struct ClipButton: View {
             }
             .buttonStyle(.borderless)
             .frame(width: 32)
-        } else {
+        } else if !symbol.isEmpty {
             Image(systemName: symbol).frame(width: 32).foregroundStyle(.secondary)
         }
     }
@@ -236,8 +240,8 @@ private struct SpeciesList: View {
             }
             ForEach(rows) { r in
                 NavigationLink(value: SpeciesKey(scientific: r.scientific)) {
-                    HStack {
-                        Image(systemName: r.group.symbol).frame(width: 28).foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        TaxonIcon(emoji: HarkCore.Label.table?.label(scientific: r.scientific)?.icon ?? "❔", group: r.group)
                         VStack(alignment: .leading) {
                             HStack(spacing: 6) {
                                 Text(r.common).font(.headline)
@@ -280,10 +284,12 @@ struct SpeciesPage: View {
         List {
             if let first = detections.last {
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label(first.taxon.rawValue.capitalized, systemImage: first.taxon.symbol).font(.caption).foregroundStyle(.secondary)
-                        Text(first.common).font(.title.bold())
-                        Text(scientific).italic().foregroundStyle(.secondary)
+                    HStack(spacing: 14) {
+                        TaxonIcon(emoji: first.icon, group: first.taxon, size: 56)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(first.common).font(.title2.bold())
+                            Text(scientific).italic().foregroundStyle(.secondary)
+                        }
                     }
                     LabeledContent("Times heard", value: "\(detections.count)")
                     LabeledContent("First heard", value: first.firstHeard.formatted(date: .abbreviated, time: .shortened))
@@ -323,7 +329,8 @@ struct SpeciesPage: View {
                 ForEach(detections) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
             Section {
-                if let url = URL(string: "https://www.inaturalist.org/search?q=" + (scientific.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")) {
+                if let url = URL(string: detections.first?.inat.map { "https://www.inaturalist.org/taxa/\($0)" }
+                                 ?? "https://www.inaturalist.org/search?q=" + (scientific.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")) {
                     Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
                 }
                 if listener.mutedNames.contains(scientific) {
@@ -348,9 +355,12 @@ struct DetectionDetail: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack { Text(detection.common).font(.title2.bold()); if detection.isFirst { NewBadge() } }
-                    Text(detection.scientific).italic().foregroundStyle(.secondary)
+                HStack(spacing: 14) {
+                    TaxonIcon(emoji: detection.icon, group: detection.taxon, size: 52)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack { Text(detection.common).font(.title2.bold()); if detection.isFirst { NewBadge() } }
+                        Text(detection.scientific).italic().foregroundStyle(.secondary)
+                    }
                 }
                 NavigationLink(value: SpeciesKey(scientific: detection.scientific)) { Text("All \(detection.common) detections") }
             }

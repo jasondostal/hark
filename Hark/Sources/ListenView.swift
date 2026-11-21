@@ -2,131 +2,205 @@ import SwiftUI
 import SwiftData
 import HarkCore
 
+/// Home: a big live spectrogram on top, what's being heard in the middle, and a camera-style bar at the bottom
+/// (Log · Listen · Settings) where the thumb already is.
 struct ListenView: View {
     @Environment(Listener.self) private var listener
     @Environment(\.modelContext) private var ctx
-    @State private var showSettings = false
+    @State private var showSettings = ProcessInfo.processInfo.arguments.contains("-settings")   // screenshot aids
+    @State private var showLog = ProcessInfo.processInfo.arguments.contains("-logtab")
 
     var body: some View {
         @Bindable var listener = listener
-        NavigationStack {
-            List {
-                Section {
-                    SpectrogramView(source: listener.live, running: listener.state == .listening)
-                        .frame(height: 130)
-                        .overlay(alignment: .topTrailing) {
-                            if listener.canRewind {
-                                Label("Rewind", systemImage: "gobackward")
-                                    .font(.caption2.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(.ultraThinMaterial.opacity(0.6), in: Capsule()).padding(8)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { listener.openRewind() }
-                        .listRowInsets(EdgeInsets())
-                    controls
-                }
-                if listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty {
-                    Section("Hearing now") {
-                        if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
-                            Text(listener.state == .listening ? "Listening…" : "Stopped")
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(listener.hearingNow) { o in
-                            if let l = listener.label(o.index) {
-                                NowRow(label: l, confidence: o.bestConfidence).muteSwipe(o.index)
-                            }
-                        }
-                        ForEach(listener.maybes) { m in
-                            if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
-                        }
-                    }
-                    if !listener.session.isEmpty || !listener.manual.isEmpty {
-                    Section("This session") {
-                        ForEach(listener.manual) { d in ManualRow(detection: d) }
-                        ForEach(listener.session) { o in
-                            if let l = listener.label(o.index) {
-                                SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
-                            }
-                        }
-                    }
-                    }
-                }
-            }
+        VStack(spacing: 0) {
+            spectrogramPanel
+            List { content }
+                .listStyle(.insetGrouped)
+                .contentMargins(.top, 8, for: .scrollContent)
+        }
+        .background(Color(.systemGroupedBackground))
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
+        .animation(.spring, value: listener.celebration?.id)
+        .sheet(item: $listener.rewind) { RewindView(clip: $0) }
+        .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(isPresented: $showLog) { LogView() }
+        .onAppear {
+            listener.modelContext = ctx
+            WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
+        }
+    }
+
+    // MARK: Spectrogram
+
+    private var spectrogramPanel: some View {
+        SpectrogramView(source: listener.live, running: listener.state == .listening,
+                        palette: listener.palette, frequencyLabels: listener.frequencyLabels)
+            .frame(height: 250)
+            .contentShape(Rectangle())
+            .onTapGesture { if listener.canRewind { listener.openRewind() } }
             .overlay(alignment: .bottom) {
-                if let c = listener.celebration {
-                    HStack(spacing: 10) {
-                        Image(systemName: "sparkles").font(.title2).foregroundStyle(.yellow)
-                        VStack(alignment: .leading) {
-                            Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.orange)
-                            Text(c.name).font(.headline)
+                HStack(spacing: 12) {
+                    Button { listener.openRewind() } label: {
+                        Label("Rewind", systemImage: "gobackward")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 6).padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(listener.palette == .paper ? .black : .white)
+                    .disabled(!listener.canRewind)
+                    Spacer()
+                    if listener.state == .listening {
+                        LevelBar(db: listener.levelDB).frame(width: 70)
+                        Text(String(format: "%.0f ms", listener.lastInferenceMs))
+                            .font(.caption2.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .background(LinearGradient(colors: [.clear, .black.opacity(listener.palette == .paper ? 0 : 0.45)],
+                                           startPoint: .top, endPoint: .bottom))
+            }
+    }
+
+    // MARK: Hearing now / this session
+
+    @ViewBuilder private var content: some View {
+        switch listener.state {
+        case .loading:
+            Section { HStack(spacing: 10) { ProgressView(); Text("Getting Perch ready… (the first launch takes a moment)").font(.callout) } }
+        case .failed(let msg):
+            Section { Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout) }
+        default: EmptyView()
+        }
+        let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty
+        if !active && listener.state == .ready {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Hear something?").font(.title3.bold())
+                    Tip(symbol: "ear", text: "Tap **Listen**. Birds, frogs, insects and mammals show up here as Hark hears them.")
+                    Tip(symbol: "gobackward", text: "Missed it? **Rewind** the last minute and pick out the call.")
+                    Tip(symbol: "button.horizontal.top.press", text: "Put **Start Listening** on your Action Button. See Settings.")
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        if active {
+            Section("Hearing now") {
+                if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
+                    Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
+                }
+                ForEach(listener.hearingNow) { o in
+                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence).muteSwipe(o.index) }
+                }
+                ForEach(listener.maybes) { m in
+                    if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
+                }
+            }
+            if !listener.session.isEmpty || !listener.manual.isEmpty {
+                Section("This session") {
+                    ForEach(listener.manual) { d in ManualRow(detection: d) }
+                    ForEach(listener.session) { o in
+                        if let l = listener.label(o.index) {
+                            SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
                         }
                     }
-                    .padding(.horizontal, 18).padding(.vertical, 12)
-                    .background(.regularMaterial, in: Capsule())
-                    .shadow(radius: 8).padding(.bottom, 16)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-            }
-            .animation(.spring, value: listener.celebration?.id)
-            .navigationTitle("Hark")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "slider.horizontal.3") }
-                }
-            }
-            .sheet(item: $listener.rewind) { RewindView(clip: $0) }
-            .sheet(isPresented: $showSettings) { SettingsView().presentationDetents([.medium, .large]) }
-            .onAppear {
-                listener.modelContext = ctx
-                WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
-                if ProcessInfo.processInfo.arguments.contains("-settings") { showSettings = true }   // screenshot aid
             }
         }
     }
 
-    @ViewBuilder private var controls: some View {
-        VStack(spacing: 12) {
-            switch listener.state {
-            case .loading:
-                HStack { ProgressView(); Text("Loading Perch… (first launch compiles the model)") }
-                    .font(.footnote).foregroundStyle(.secondary)
-            case .failed(let msg):
-                Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.footnote)
-            default: EmptyView()
-            }
-            Button {
-                Task { await listener.toggle() }
-            } label: {
-                Label(listener.state == .listening ? "Stop" : "Listen",
-                      systemImage: listener.state == .listening ? "stop.fill" : "ear")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(listener.state == .listening ? .red : .accentColor)
-            .disabled(listener.state == .loading)
+    // MARK: Bottom bar
 
-            if listener.state == .listening {
-                HStack {
-                    LevelBar(db: listener.levelDB)
-                    Text(String(format: "%.0f ms", listener.lastInferenceMs))
-                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+    private var bottomBar: some View {
+        HStack(alignment: .center) {
+            BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
+            Spacer()
+            ListenButton()
+            Spacer()
+            BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
+        }
+        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 2)
+        .background(.bar)
+    }
+
+    @ViewBuilder private var celebration: some View {
+        if let c = listener.celebration {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles").font(.title2).foregroundStyle(.yellow)
+                VStack(alignment: .leading) {
+                    Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.orange)
+                    Text(c.name).font(.headline)
                 }
             }
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            .background(.regularMaterial, in: Capsule())
+            .shadow(radius: 8)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-        .padding(.vertical, 4)
     }
 }
+
+private struct Tip: View {
+    let symbol: String
+    let text: LocalizedStringKey
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(Color.accentColor).frame(width: 22)
+            Text(text).font(.callout).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// The shutter-style Listen / Stop button.
+struct ListenButton: View {
+    @Environment(Listener.self) private var listener
+    var body: some View {
+        let listening = listener.state == .listening
+        Button { Task { await listener.toggle() } } label: {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.15), lineWidth: 4).frame(width: 78, height: 78)
+                Circle().fill(listening ? Color.red : Color.green).frame(width: 66, height: 66)
+                if listener.state == .loading {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: listening ? "stop.fill" : "ear")
+                        .font(.system(size: listening ? 24 : 28, weight: .semibold)).foregroundStyle(.white)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(listener.state == .loading)
+        .accessibilityLabel(listening ? "Stop listening" : "Start listening")
+        .sensoryFeedback(.impact(weight: .medium), trigger: listening)
+    }
+}
+
+private struct BarButton: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: symbol).font(.title2).frame(height: 28)
+                Text(title).font(.caption2.weight(.medium))
+            }
+            .frame(width: 66, height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+    }
+}
+
+// MARK: Rows
 
 struct NowRow: View {
     let label: HarkCore.Label
     let confidence: Float
     var body: some View {
-        HStack {
-            Image(systemName: label.group.symbol).frame(width: 28).foregroundStyle(label.group.isSpecies ? Color.accentColor : .secondary)
+        HStack(spacing: 12) {
+            TaxonIcon(emoji: label.icon, group: label.group)
             VStack(alignment: .leading) {
                 Text(label.common).font(.headline)
                 if label.group.isSpecies { Text(label.scientific).font(.caption).italic().foregroundStyle(.secondary) }
@@ -138,15 +212,19 @@ struct NowRow: View {
 }
 
 /// Not logged automatically; one tap logs it or logs it as seen.
-/// Maybe = plausible but under the threshold (faint, "?"). Unusual = confident but never recorded near you (orange flag).
+/// Maybe = plausible but under the threshold (faint, "?"). Unusual = confident but never recorded near you (orange).
 struct MaybeRow: View {
     @Environment(Listener.self) private var listener
     let label: HarkCore.Label
     let maybe: Maybe
     var body: some View {
-        HStack {
-            Image(systemName: maybe.unusual ? "exclamationmark.triangle" : "questionmark.circle").frame(width: 28)
-                .foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+        HStack(spacing: 12) {
+            TaxonIcon(emoji: label.icon, group: label.group, faint: !maybe.unusual)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
+                        .font(.caption).foregroundStyle(.white, maybe.unusual ? Color.orange : Color.gray)
+                        .offset(x: 3, y: 3)
+                }
             VStack(alignment: .leading) {
                 Text(maybe.unusual ? label.common : "\(label.common)?")
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
@@ -154,10 +232,10 @@ struct MaybeRow: View {
                     .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
             }
             Spacer()
-            Button("Log") { listener.logMaybe(maybe, confirmed: false) }
-                .buttonStyle(.bordered).font(.caption)
-            Button { listener.logMaybe(maybe, confirmed: true) } label: { Label("I saw it", systemImage: "eye") }
-                .buttonStyle(.bordered).tint(.green).font(.caption)
+            Button { listener.logMaybe(maybe, confirmed: false) } label: { Image(systemName: "plus") }
+                .buttonStyle(.bordered).accessibilityLabel("Log it")
+            Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
+                .buttonStyle(.bordered).tint(.green).accessibilityLabel("I saw it")
         }
     }
 }
@@ -165,11 +243,11 @@ struct MaybeRow: View {
 struct ManualRow: View {
     let detection: Detection
     var body: some View {
-        HStack {
-            Image(systemName: "hand.tap").frame(width: 28).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            TaxonIcon(emoji: detection.icon, group: detection.taxon)
             VStack(alignment: .leading) {
-                Text(detection.common)
-                Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged from maybe · \(Int(detection.confidence * 100))%")
+                HStack(spacing: 6) { Text(detection.common); if detection.isFirst { NewBadge() } }
+                Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(Int(detection.confidence * 100))%")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -183,8 +261,8 @@ struct SessionRow: View {
     let occurrence: DetectionTracker.Occurrence
     let detection: Detection?
     var body: some View {
-        HStack {
-            Image(systemName: label.group.symbol).frame(width: 28).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            TaxonIcon(emoji: label.icon, group: label.group)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) { Text(label.common); if detection?.isFirst == true { NewBadge() } }
                 Text("\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · best \(Int(occurrence.bestConfidence * 100))% · \(occurrence.windows)×")
@@ -219,7 +297,7 @@ struct ConfidenceBar: View {
                     Capsule().fill(Color.accentColor).frame(width: g.size.width * CGFloat(min(max(value, 0), 1)))
                 }
             }
-            .frame(width: 60, height: 6)
+            .frame(width: 56, height: 6)
             Text("\(Int(value * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
         }
     }
@@ -231,11 +309,11 @@ struct LevelBar: View {
         let v = CGFloat(min(max((db + 80) / 70, 0), 1))
         GeometryReader { g in
             ZStack(alignment: .leading) {
-                Capsule().fill(.quaternary)
+                Capsule().fill(.white.opacity(0.25))
                 Capsule().fill(.green.gradient).frame(width: g.size.width * v)
             }
         }
-        .frame(height: 4)
+        .frame(height: 5)
         .animation(.linear(duration: 0.1), value: v)
     }
 }
@@ -251,101 +329,6 @@ private struct MuteSwipe: ViewModifier {
     func body(content: Content) -> some View {
         content.swipeActions(edge: .trailing) {
             Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
-        }
-    }
-}
-
-struct SettingsView: View {
-    @Environment(Listener.self) private var listener
-    var body: some View {
-        @Bindable var listener = listener
-        NavigationStack {
-            Form {
-                Section {
-                    ForEach(ListenGroup.allCases, id: \.self) { g in GroupRow(group: g) }
-                } header: { Text("Listen for") } footer: {
-                    Text("Each group has its own confidence threshold (a softmax over all 14,795 Perch classes). Lower shows more, with more wrong guesses. Species between half the threshold and the threshold show as faint \"maybe\" rows you can log by hand. Non-animal sounds show but are never logged.")
-                }
-                Section {
-                    Picker("Out-of-range species", selection: $listener.policy.rangeMode) {
-                        Text("Off").tag(RangeMode.off)
-                        Text("Flag").tag(RangeMode.flag)
-                        Text("Hide").tag(RangeMode.hide)
-                    }
-                    .pickerStyle(.segmented)
-                    LabeledContent("Status", value: rangeStatus)
-                } header: { Text("Location filter") } footer: {
-                    Text("Compares each ID with species recorded within roughly 150 km of you. Flag shows out-of-range IDs as \"unusual here\" and doesn't log them unless you tap Log; Hide drops them. Species with no records anywhere are never filtered. Range data: GBIF.org occurrence records.")
-                }
-                Section {
-                    Toggle("Keep screen on", isOn: $listener.keepScreenOn)
-                    Picker("Stop listening after", selection: $listener.stopAfterMinutes) {
-                        Text("15 min").tag(15); Text("30 min").tag(30); Text("1 hour").tag(60)
-                        Text("2 hours").tag(120); Text("4 hours").tag(240); Text("Never").tag(0)
-                    }
-                } header: { Text("Listening") } footer: {
-                    Text("Hark keeps listening and logging with the screen locked, shown on the Lock Screen and Dynamic Island. A new species buzzes the phone.")
-                }
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Action Button", systemImage: "button.horizontal.top.press").font(.headline)
-                        Text("Settings › Action Button › Controls (or Shortcut) › Hark › Start Listening")
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Control Center or Lock Screen", systemImage: "switch.2").font(.headline)
-                        Text("Edit Control Center or your Lock Screen, add a control, search for Hark.")
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
-                    Text("Or ask Siri: \"Listen with Hark.\"").font(.callout).foregroundStyle(.secondary)
-                } header: { Text("Start listening in one press") }
-                if !listener.mutedNames.isEmpty {
-                    Section {
-                        ForEach(listener.mutedNames, id: \.self) { name in
-                            HStack {
-                                Text(listener.commonName(name))
-                                Spacer()
-                                Button("Unmute") { listener.unmute(name) }.font(.caption).buttonStyle(.bordered)
-                            }
-                        }
-                    } header: { Text("Never show") } footer: {
-                        Text("Swipe left on any ID to add it here.")
-                    }
-                }
-                Section("Model") {
-                    LabeledContent("Perch 2.0", value: "14,795 classes")
-                    LabeledContent("Last window", value: String(format: "%.1f ms", listener.lastInferenceMs))
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    private var rangeStatus: String {
-        if !listener.rangeAvailable { return "No range data in this build" }
-        if listener.policy.rangeMode == .off { return "Off" }
-        guard let r = listener.localRange else { return "Waiting for location" }
-        return "\(r.speciesHere.formatted()) species recorded here"
-    }
-}
-
-struct GroupRow: View {
-    @Environment(Listener.self) private var listener
-    let group: ListenGroup
-    var body: some View {
-        let s = listener.policy.setting(group)
-        VStack(alignment: .leading, spacing: 4) {
-            Toggle(isOn: Binding(get: { s.enabled }, set: { v in listener.policy.set(group, GroupSetting(enabled: v, threshold: s.threshold)) })) {
-                Label(group.title, systemImage: group.symbol)
-            }
-            if s.enabled {
-                HStack {
-                    Slider(value: Binding(get: { s.threshold }, set: { v in listener.policy.set(group, GroupSetting(enabled: true, threshold: v)) }),
-                           in: 0.1...0.9, step: 0.05)
-                    Text("\(Int(s.threshold * 100))%").font(.caption.monospacedDigit()).frame(width: 38, alignment: .trailing)
-                }
-            }
         }
     }
 }

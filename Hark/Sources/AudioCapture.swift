@@ -10,6 +10,42 @@ final class AudioCapture {
     /// Called on the audio thread with converted samples and the chunk's RMS in dBFS.
     var onSamples: (([Float], Float) -> Void)?
 
+    // Rumble filter: 2nd-order Butterworth high-pass on the 32 kHz stream (feeds both Perch and the spectrogram).
+    private let filterLock = NSLock()
+    private var wantHz: Double = 0, haveHz: Double = -1
+    private var biquad: vDSP_biquad_Setup?
+    private var delay = [Float](repeating: 0, count: 4)
+    /// 0 = off. Takes effect on the next chunk.
+    func setHighPass(_ hz: Double) { filterLock.lock(); wantHz = hz; filterLock.unlock() }
+
+    private func highPass(_ x: inout [Float]) {
+        filterLock.lock(); let hz = wantHz; filterLock.unlock()
+        if hz != haveHz {
+            if let b = biquad { vDSP_biquad_DestroySetup(b); biquad = nil }
+            delay = [0, 0, 0, 0]; haveHz = hz
+            if hz > 0 {
+                let w0 = 2 * Double.pi * hz / 32_000, cs = cos(w0), alpha = sin(w0) / (2 * 0.70710678)
+                let a0 = 1 + alpha
+                let c = [(1 + cs) / 2 / a0, -(1 + cs) / a0, (1 + cs) / 2 / a0, -2 * cs / a0, (1 - alpha) / a0]
+                biquad = vDSP_biquad_CreateSetup(c, 1)
+            }
+        }
+        guard let b = biquad else { return }
+        var y = [Float](repeating: 0, count: x.count)
+        vDSP_biquad(b, &delay, x, 1, &y, 1, vDSP_Length(x.count))
+        x = y
+    }
+
+    /// External mics (USB-C, wired). Built-in is "Automatic".
+    static func inputs() -> [AVAudioSessionPortDescription] {
+        let s = AVAudioSession.sharedInstance()
+        if s.category != .playAndRecord {
+            try? s.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+        }
+        return s.availableInputs ?? []
+    }
+    var preferredInputUID: String?
+
     static func requestPermission() async -> Bool {
         await AVAudioApplication.requestRecordPermission()
     }
@@ -20,6 +56,8 @@ final class AudioCapture {
         // never pull the mic over to a hands-free headset.
         try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothA2DP])
         try session.setPreferredSampleRate(48_000)
+        let port = session.availableInputs?.first { $0.uid == preferredInputUID }
+        try? session.setPreferredInput(port)       // nil = automatic
         try session.setActive(true)
 
         let input = engine.inputNode
@@ -74,9 +112,10 @@ final class AudioCapture {
         }
         guard err == nil, let ch = out.floatChannelData?[0], out.frameLength > 0 else { return }
         let n = Int(out.frameLength)
-        let samples = Array(UnsafeBufferPointer(start: ch, count: n))
+        var samples = Array(UnsafeBufferPointer(start: ch, count: n))
+        highPass(&samples)
         var rms: Float = 0
-        vDSP_rmsqv(ch, 1, &rms, vDSP_Length(n))
+        vDSP_rmsqv(samples, 1, &rms, vDSP_Length(n))
         onSamples?(samples, 20 * log10(max(rms, 1e-7)))
     }
 }

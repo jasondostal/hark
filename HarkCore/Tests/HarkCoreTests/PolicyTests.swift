@@ -49,6 +49,27 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(t.hits.map(\.index), [1])
     }
 
+    func testPresets() {
+        var p = DetectionPolicy()
+        XCTAssertEqual(p.preset, .balanced)                 // defaults are Balanced
+        p.set(.insect, GroupSetting(enabled: false, threshold: 0.4))
+        p.apply(.strict)
+        XCTAssertEqual(p.preset, .strict)
+        XCTAssertEqual(p.setting(.bird).threshold, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(p.setting(.insect).threshold, 0.6, accuracy: 1e-6)
+        XCTAssertFalse(p.setting(.insect).enabled)          // switches survive a preset
+        p.set(.bird, GroupSetting(threshold: 0.42))
+        XCTAssertNil(p.preset)                              // fine-tuned = Custom
+    }
+
+    func testLabelEmojiAndLookup() throws {
+        let json = #"[{"s":"Strix varia","c":"Barred Owl","g":"bird","e":"🦉","i":19893},{"s":"Car","c":"Car","g":"sound"}]"#
+        let t = LabelTable(labels: try JSONDecoder().decode([Label].self, from: Data(json.utf8)))
+        XCTAssertEqual(t.label(scientific: "Strix varia")?.icon, "🦉")
+        XCTAssertEqual(t.label(scientific: "Strix varia")?.inat, 19893)
+        XCTAssertEqual(t[1].icon, "❔")
+    }
+
     func testPolicyRoundTripsThroughJSON() throws {
         var p = DetectionPolicy(rangeMode: .hide)
         p.set(.amphibian, GroupSetting(enabled: false, threshold: 0.55))

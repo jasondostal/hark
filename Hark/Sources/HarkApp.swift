@@ -4,14 +4,10 @@ import SwiftData
 @main
 struct HarkApp: App {
     @State private var listener = Listener.shared
-    @State private var tab = ProcessInfo.processInfo.arguments.contains("-logtab") ? 1 : 0   // screenshot aid
     init() { SelfTest.runIfRequested() }
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $tab) {
-                ListenView().tabItem { Label("Listen", systemImage: "ear") }.tag(0)
-                LogView().tabItem { Label("Log", systemImage: "list.bullet.rectangle") }.tag(1)
-            }
+            ListenView()
             .environment(listener)
             .onOpenURL { url in
                 if url.host == "listen" { Task { await listener.requestStart() } }
