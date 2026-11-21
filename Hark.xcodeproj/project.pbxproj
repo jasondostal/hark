@@ -13,7 +13,6 @@
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
 		5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */ = {isa = PBXBuildFile; fileRef = DE6827D3D2A7830D066C7F79 /* selftest.f32 */; };
-		6823D13146976115C57DAC60 /* CaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E7F93AF788D97748C8D7E6 /* CaptureSheet.swift */; };
 		70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E46536FADF19B7CD2B045E /* AudioCapture.swift */; };
 		7DF59B52D29D99C1B4913F8C /* selftest.json in Resources */ = {isa = PBXBuildFile; fileRef = D75CA65E35D4012047FBC305 /* selftest.json */; };
 		7FD45C007008A852A54909C7 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B48A5AE947C4689B53B3004 /* ListenView.swift */; };
@@ -26,7 +25,6 @@
 
 /* Begin PBXFileReference section */
 		00375AF7ACBCAB26D38963C6 /* HarkCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HarkCore; path = HarkCore; sourceTree = SOURCE_ROOT; };
-		02E7F93AF788D97748C8D7E6 /* CaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSheet.swift; sourceTree = "<group>"; };
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
@@ -94,7 +92,6 @@
 			isa = PBXGroup;
 			children = (
 				58E46536FADF19B7CD2B045E /* AudioCapture.swift */,
-				02E7F93AF788D97748C8D7E6 /* CaptureSheet.swift */,
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
 				D3DDD14312784E530E18C727 /* HarkApp.swift */,
 				32AAC1FC7177CAC93C91360C /* Listener.swift */,
@@ -204,7 +201,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */,
-				6823D13146976115C57DAC60 /* CaptureSheet.swift in Sources */,
 				2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */,
 				83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */,
 				7FD45C007008A852A54909C7 /* ListenView.swift in Sources */,

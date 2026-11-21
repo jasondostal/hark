@@ -9,7 +9,8 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
   optional rest logit for regional slices), LabelTable, PerchClassifier (Core ML), DetectionTracker (occurrences with 60 s gaps).
   `GoldenParityTests` runs the real model on 12 backyard windows and requires TF-reference top-1 on ANE and GPU.
 - `Hark/`: SwiftUI app. AudioCapture (AVAudioEngine, .measurement mode, -> 32 kHz mono), Listener (scores the newest
-  5 s once a second, logs to SwiftData), "What was that?" (re-scores the last 15 s), Log tab.
+  5 s once a second, logs to SwiftData), "maybe" tier (species between half the
+  threshold and the threshold in the last 15 s, loggable by hand), live FFT spectrogram (independent of Perch), Log tab.
 - `Models/Perch.mlpackage`: git-ignored. Build it with ~/working/perch-spike (`./build.sh`), then
   `cp -R ../perch-spike/models/perch_v2_full_fp16.mlpackage Models/Perch.mlpackage`.
 - `tools/make_labels.py`: label table from Perch labels + OpenFauna names/classes (data copied from birdnet-go's

@@ -23,10 +23,13 @@ actor Inference {
     func classify(_ w: [Float]) throws -> PerchClassifier.Output { try classifier.classify(w) }
 }
 
-struct CaptureResult: Identifiable {
-    let id = UUID()
-    let time: Date
-    let hits: [(label: HarkCore.Label, confidence: Float)]
+/// A species that scored under the threshold but above the maybe floor in the last 15 s.
+struct Maybe: Identifiable, Equatable {
+    let index: Int
+    var best: Float
+    var firstSeen: Date
+    var lastSeen: Date
+    var id: Int { index }
 }
 
 @MainActor
@@ -38,10 +41,11 @@ final class Listener {
     private(set) var labels: LabelTable?
     private(set) var hearingNow: [DetectionTracker.Occurrence] = []
     private(set) var session: [DetectionTracker.Occurrence] = []
-    private(set) var spectrogram: [Float]?       // newest 5 s window, 500 x 128
+    private(set) var maybes: [Maybe] = []
+    private(set) var manual: [Detection] = []     // logged by hand from a maybe, this session
+    let live = LiveSpectrogram()
     private(set) var levelDB: Float = -120
     private(set) var lastInferenceMs: Double = 0
-    var capture: CaptureResult?
 
     // Settings (persisted)
     var threshold: Float = UserDefaults.standard.object(forKey: "threshold") as? Float ?? 0.3 {
@@ -59,6 +63,8 @@ final class Listener {
     private var loop: Task<Void, Never>?
     private var sessionID = UUID()
     private var logged: [UUID: Detection] = [:]   // occurrence id -> its log row
+    private var recentMaybes: [Int: Maybe] = [:]
+    private var manualIndices: Set<Int> = []
     var modelContext: ModelContext?
 
     static let hop: Duration = .seconds(1)
@@ -99,10 +105,12 @@ final class Listener {
             state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; hearingNow = []; session = []
-        store.reset()
-        let store = self.store
+        recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
+        store.reset(); live.reset()
+        let store = self.store, live = self.live
         audio.onSamples = { [weak self] s, db in
             store.append(s)
+            live.append(s)
             Task { @MainActor in self?.levelDB = db }
         }
         let args = ProcessInfo.processInfo.arguments
@@ -127,8 +135,11 @@ final class Listener {
         audio.stop(); location.stop()
         UIApplication.shared.isIdleTimerDisabled = false
         if state == .listening { state = .ready }
-        hearingNow = []
+        hearingNow = []; maybes = []
     }
+
+    /// Lower bar for the maybe tier: under half the threshold is mostly noise.
+    var maybeFloor: Float { max(0.08, threshold * 0.5) }
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
@@ -138,7 +149,6 @@ final class Listener {
         let t0 = Date()
         guard let out = try? await inference.classify(w) else { return }
         lastInferenceMs = Date().timeIntervalSince(t0) * 1000
-        spectrogram = out.spectrogram
         let scores = Scoring.softmax(out.logits)
         var result = WindowResult(time: .now, scores: scores, threshold: threshold)
         if !showSounds { result = WindowResult(time: result.time, hits: result.hits.filter { labels[$0.index].group.isSpecies }) }
@@ -148,6 +158,18 @@ final class Listener {
         for change in tracker.add(result) { log(change, labels) }
         hearingNow = tracker.active(at: .now)
         session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
+        updateMaybes(scores, labels, at: result.time)
+    }
+
+    private func updateMaybes(_ scores: [Float], _ labels: LabelTable, at now: Date) {
+        let known = Set(tracker.occurrences.map(\.index)).union(manualIndices)
+        for i in Scoring.topK(scores, 10) where scores[i] >= maybeFloor && scores[i] < threshold
+            && labels[i].group.isSpecies && !known.contains(i) {
+            if var m = recentMaybes[i] { m.best = max(m.best, scores[i]); m.lastSeen = now; recentMaybes[i] = m }
+            else { recentMaybes[i] = Maybe(index: i, best: scores[i], firstSeen: now, lastSeen: now) }
+        }
+        recentMaybes = recentMaybes.filter { now.timeIntervalSince($0.value.lastSeen) < 15 && !known.contains($0.key) }
+        maybes = recentMaybes.values.sorted { $0.best > $1.best }.prefix(4).map { $0 }
     }
 
     private func log(_ change: DetectionTracker.Change, _ labels: LabelTable) {
@@ -168,29 +190,17 @@ final class Listener {
 
     func detection(for o: DetectionTracker.Occurrence) -> Detection? { logged[o.id] }
 
-    /// "What was that?": score the last 15 s (5 overlapping windows), keep the best score per class.
-    func captureLast15s() async {
-        guard let inference, let labels, state == .listening else { return }
-        let n = PerchClassifier.windowSamples
-        let audio = store.latest(32_000 * 15)
-        var best = [Float](repeating: 0, count: labels.count)
-        for start in stride(from: 0, through: audio.count - n, by: 40_000) {   // every 1.25 s
-            guard let out = try? await inference.classify(Array(audio[start..<(start + n)])) else { continue }
-            let p = Scoring.softmax(out.logits)
-            for i in p.indices where p[i] > best[i] { best[i] = p[i] }
-        }
-        let floor = min(threshold, 0.15)
-        let hits = Scoring.topK(best, 8).filter { best[$0] >= floor }.map { (labels[$0], best[$0]) }
-        capture = CaptureResult(time: .now, hits: hits)
-    }
-
-    /// Log a species from the capture sheet (optionally already confirmed).
-    func logFromCapture(_ l: HarkCore.Label, confidence: Float, confirmed: Bool) {
-        guard let ctx = modelContext else { return }
+    /// Log a maybe by hand ("Log", or "I saw it" = logged and confirmed).
+    func logMaybe(_ m: Maybe, confirmed: Bool) {
+        guard let ctx = modelContext, let l = label(m.index) else { return }
         let loc = location.last?.coordinate
-        let d = Detection(label: l, confidence: Double(confidence), at: capture?.time ?? .now,
-                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "capture")
+        let d = Detection(label: l, confidence: Double(m.best), at: m.firstSeen,
+                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "maybe")
+        d.lastHeard = m.lastSeen
         d.confirmed = confirmed
         ctx.insert(d)
+        manual.insert(d, at: 0); manualIndices.insert(m.index)
+        recentMaybes[m.index] = nil
+        maybes.removeAll { $0.index == m.index }
     }
 }
