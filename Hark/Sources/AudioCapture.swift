@@ -35,6 +35,7 @@ final class AudioCapture {
 
     /// Testing aid (`-feedfile a.wav,b.wav`): stream files in real time through the same convert path as the mic.
     private var feedTask: Task<Void, Never>?
+    var onFilesDone: (() -> Void)?
     func startFiles(_ urls: [URL]) {
         feedTask = Task.detached { [weak self] in
             for url in urls {
@@ -49,6 +50,7 @@ final class AudioCapture {
                 }
             }
             NSLog("HARK feedfile: done")
+            if !Task.isCancelled { self?.onFilesDone?() }
         }
     }
 

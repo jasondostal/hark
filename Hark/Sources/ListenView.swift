@@ -80,6 +80,7 @@ struct ListenView: View {
             .sheet(isPresented: $showSettings) { SettingsView().presentationDetents([.medium, .large]) }
             .onAppear {
                 listener.modelContext = ctx
+                WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
                 if ProcessInfo.processInfo.arguments.contains("-settings") { showSettings = true }   // screenshot aid
             }
         }

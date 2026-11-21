@@ -8,9 +8,18 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
 - `HarkCore/`: Swift package, testable on the Mac (`cd HarkCore && swift test`). RingBuffer, Scoring (softmax,
   optional rest logit for regional slices), LabelTable, PerchClassifier (Core ML), DetectionTracker (occurrences with 60 s gaps).
   `GoldenParityTests` runs the real model on 12 backyard windows and requires TF-reference top-1 on ANE and GPU.
-- `Hark/`: SwiftUI app. AudioCapture (AVAudioEngine, .measurement mode, -> 32 kHz mono), Listener (scores the newest
-  5 s once a second, logs to SwiftData), "maybe" tier (species between half the
-  threshold and the threshold in the last 15 s, loggable by hand), live FFT spectrogram (independent of Perch), Log tab.
+- `Hark/`: SwiftUI app.
+  - Listen: AudioCapture (AVAudioEngine, .measurement, -> 32 kHz mono), Listener (scores the newest 5 s once a
+    second; DetectionPolicy triage -> hits are logged, maybes / unusual-here shown for logging by hand), live FFT
+    spectrogram (SpectrogramDSP, independent of Perch), Rewind (last 60 s: drag to select, play, analyze).
+  - Every logged detection keeps a clip (ClipStore, AAC m4a). ListeningSession records each listen + its route.
+  - Log: Timeline / Sessions (route map + species timeline chart) / Species (life list, growth curve, species pages
+    with time-of-day + month charts) / Map. Search + group filter.
+  - Walk mode: background audio + location, Live Activity (LiveActivityController) with Stop, buzz on new species,
+    auto-stop setting. Perch runs on CPU+ANE only (no GPU in background).
+- `Hark/Shared/`: compiled into the app and HarkWidgets. StartListeningIntent (Action Button / Control Center /
+  Siri), StopListeningIntent (Live Activity), ListeningAttributes, WidgetSnapshot (App Group JSON for widgets).
+- `HarkWidgets/`: widget extension. Today widget (small/medium/Lock Screen), Start Listening control, Live Activity.
 - `Models/Perch.mlpackage`: git-ignored. Build it with ~/working/perch-spike (`./build.sh`), then
   `cp -R ../perch-spike/models/perch_v2_full_fp16.mlpackage Models/Perch.mlpackage`.
 - `tools/gbif_ranges.py`: location filter data. Per Perch species, GBIF backbone match + global density map
@@ -27,4 +36,5 @@ xcodebuild -project Hark.xcodeproj -scheme Hark -destination 'generic/platform=i
 xcrun devicectl device install app --device <udid> DerivedData/Build/Products/Release-iphoneos/Hark.app
 xcrun devicectl device process launch --console --device <udid> dev.ducktyping.hark -selftest   # ANE parity + timing
 ```
-Launch args: `-selftest` (golden windows on ANE/GPU/CPU, prints HARK-SELFTEST lines), `-autolisten` (start listening on launch).
+Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-rewind`,
+`-settings`, `-logtab`, `-opensession`, `-selftest` (golden windows on ANE/GPU/CPU, prints HARK-SELFTEST lines), `-autolisten` (start listening on launch).

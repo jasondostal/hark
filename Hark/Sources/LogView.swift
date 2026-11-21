@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import MapKit
+import Charts
 import HarkCore
 
 struct LogView: View {
@@ -8,13 +9,24 @@ struct LogView: View {
     @Environment(\.modelContext) private var ctx
     @State private var mode: Mode = .timeline
     @State private var confirmedOnly = false
+    @State private var search = ""
+    @State private var group: ListenGroup?
+    @State private var path = NavigationPath()
+    @Query(sort: \ListeningSession.started, order: .reverse) private var records: [ListeningSession]
 
-    enum Mode: String, CaseIterable { case timeline = "Timeline", species = "Species", map = "Map" }
+    enum Mode: String, CaseIterable { case timeline = "Timeline", sessions = "Sessions", species = "Species", map = "Map" }
 
-    private var shown: [Detection] { confirmedOnly ? all.filter(\.confirmed) : all }
+    private var shown: [Detection] {
+        let q = search.trimmingCharacters(in: .whitespaces)
+        return all.filter { d in
+            (!confirmedOnly || d.confirmed)
+            && (group == nil || ListenGroup(d.taxon) == group)
+            && (q.isEmpty || d.common.localizedCaseInsensitiveContains(q) || d.scientific.localizedCaseInsensitiveContains(q))
+        }
+    }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 Picker("View", selection: $mode) {
                     ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -22,12 +34,34 @@ struct LogView: View {
                 .pickerStyle(.segmented).padding(.horizontal).padding(.bottom, 6)
                 switch mode {
                 case .timeline: TimelineList(detections: shown, all: all, confirmedOnly: $confirmedOnly)
-                case .species: SpeciesList(detections: shown, confirmedOnly: $confirmedOnly)
+                case .sessions: SessionsList(detections: shown)
+                case .species: SpeciesList(detections: shown, all: all, confirmedOnly: $confirmedOnly)
                 case .map: LogMap(detections: shown)
                 }
             }
             .navigationTitle("Log")
+            .searchable(text: $search, prompt: "Search species")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("Group", selection: $group) {
+                            Text("Everything").tag(ListenGroup?.none)
+                            ForEach(ListenGroup.allCases.filter { $0 != .sound }, id: \.self) { g in
+                                Label(g.title, systemImage: g.symbol).tag(ListenGroup?.some(g))
+                            }
+                        }
+                    } label: {
+                        Image(systemName: group == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    }
+                }
+            }
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
+            .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
+            .onAppear {   // screenshot aid
+                if ProcessInfo.processInfo.arguments.contains("-opensession"), let s = SessionSummary.build(all, records).first {
+                    mode = .sessions; path.append(s)
+                }
+            }
             .navigationDestination(for: SpeciesKey.self) { SpeciesPage(scientific: $0.scientific) }
         }
     }
@@ -40,6 +74,7 @@ struct SpeciesKey: Hashable { let scientific: String }
     if ClipPlayer.shared.playingID == d.clipFile { ClipPlayer.shared.stop() }
     ClipStore.delete(d.clipFile)
     ctx.delete(d)
+    WidgetBridge.refresh(ctx, listening: Listener.shared.state == .listening)
 }
 
 // MARK: Timeline
@@ -150,6 +185,7 @@ struct ClipButton: View {
 
 private struct SpeciesList: View {
     let detections: [Detection]
+    let all: [Detection]
     @Binding var confirmedOnly: Bool
     @State private var sort: Sort = .recent
     enum Sort: String, CaseIterable { case recent = "Recent", count = "Most heard", name = "A–Z" }
@@ -172,12 +208,32 @@ private struct SpeciesList: View {
         }
     }
 
+    /// Cumulative distinct species over time (whole log, not the current filter).
+    private var growth: [(Date, Int)] {
+        var seen = Set<String>(), out: [(Date, Int)] = []
+        for d in all.sorted(by: { $0.firstHeard < $1.firstHeard }) where seen.insert(d.scientific).inserted {
+            out.append((d.firstHeard, seen.count))
+        }
+        if let last = out.last { out.append((.now, last.1)) }
+        return out
+    }
+
     var body: some View {
         List {
             Section {
                 Toggle("Only ones I saw", isOn: $confirmedOnly)
                 Picker("Sort", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
             } footer: { Text("\(rows.count) species") }
+            if growth.count > 1 {
+                Section("Life list") {
+                    Chart(growth, id: \.0) { p in
+                        LineMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
+                        AreaMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
+                            .foregroundStyle(Color.accentColor.opacity(0.15))
+                    }
+                    .frame(height: 120)
+                }
+            }
             ForEach(rows) { r in
                 NavigationLink(value: SpeciesKey(scientific: r.scientific)) {
                     HStack {
@@ -209,6 +265,15 @@ struct SpeciesPage: View {
         _detections = Query(filter: #Predicate<Detection> { $0.scientific == scientific }, sort: \.firstHeard, order: .reverse)
     }
 
+    private var hours: [(Int, Int)] {
+        let c = Dictionary(grouping: detections) { Calendar.current.component(.hour, from: $0.firstHeard) }.mapValues(\.count)
+        return (0..<24).map { ($0, c[$0] ?? 0) }
+    }
+    private var months: [(Date, Int)] {
+        Dictionary(grouping: detections) { Calendar.current.dateInterval(of: .month, for: $0.firstHeard)!.start }
+            .map { ($0.key, $0.value.count) }.sorted { $0.0 < $1.0 }
+    }
+
     private var best: Detection? { detections.filter { $0.clipFile != nil }.max { $0.confidence < $1.confidence } }
 
     var body: some View {
@@ -228,6 +293,27 @@ struct SpeciesPage: View {
             }
             if let best, let file = best.clipFile {
                 Section("Best recording") { ClipSpectrogram(file: file); HStack { ClipButton(file: file, symbol: "waveform"); Text("\(Int(best.confidence * 100))% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.caption) } }
+            }
+            if detections.count >= 2 {
+                Section("Time of day") {
+                    Chart(hours, id: \.0) { h in
+                        BarMark(x: .value("Hour", h.0), y: .value("Detections", h.1)).foregroundStyle(Color.accentColor)
+                    }
+                    .chartXScale(domain: 0...23)
+                    .chartXAxis { AxisMarks(values: [0, 6, 12, 18, 23]) { v in
+                        AxisGridLine()
+                        AxisValueLabel { if let h = v.as(Int.self) { Text(h == 0 ? "12a" : h == 12 ? "12p" : h < 12 ? "\(h)a" : "\(h - 12)p") } }
+                    } }
+                    .frame(height: 110)
+                }
+                if Set(detections.map { Calendar.current.component(.month, from: $0.firstHeard) }).count > 1 {
+                    Section("Through the year") {
+                        Chart(months, id: \.0) { m in
+                            BarMark(x: .value("Month", m.0, unit: .month), y: .value("Detections", m.1)).foregroundStyle(Color.accentColor)
+                        }
+                        .frame(height: 110)
+                    }
+                }
             }
             let located = detections.filter { $0.latitude != nil }
             if !located.isEmpty {

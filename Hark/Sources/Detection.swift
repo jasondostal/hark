@@ -32,3 +32,15 @@ final class Detection {
 
     var taxon: TaxonGroup { TaxonGroup(rawValue: group) ?? .unknown }
 }
+
+/// One press of Listen: when, how long, and the route walked (sampled about every 30 s while moving).
+@Model
+final class ListeningSession {
+    var id: UUID
+    var started: Date
+    var ended: Date
+    var trackLat: [Double] = []
+    var trackLon: [Double] = []
+
+    init(id: UUID, started: Date) { self.id = id; self.started = started; ended = started }
+}

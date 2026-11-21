@@ -5,6 +5,7 @@ import AppIntents
 @main
 struct HarkWidgets: WidgetBundle {
     var body: some Widget {
+        TodayWidget()
         ListenControl()
         ListeningLiveActivity()
     }

@@ -4,6 +4,7 @@ import SwiftData
 import UIKit
 import HarkCore
 import CoreML
+import CoreLocation
 
 /// Holds the newest 60 s of 32 kHz audio (Rewind reaches back this far). Appended synchronously on the audio thread (so chunks stay in order;
 /// hopping through Tasks could reorder them), read by the scoring loop.
@@ -94,6 +95,8 @@ final class Listener {
     private var startedAt = Date()
     private var sessionSpecies: Set<Int> = []
     private let liveActivity = LiveActivityController()
+    private var sessionRecord: ListeningSession?
+    private var lastTrackPoint: CLLocation?
 
     // Listening options (persisted)
     var keepScreenOn: Bool = UserDefaults.standard.object(forKey: "keepScreenOn") as? Bool ?? true {
@@ -170,6 +173,7 @@ final class Listener {
         }
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-feedfile"), i + 1 < args.count {
+            audio.onFilesDone = { [weak self] in Task { @MainActor in try? await Task.sleep(for: .seconds(3)); self?.stop() } }
             audio.startFiles(args[i + 1].split(separator: ",").map { URL(fileURLWithPath: String($0)) })
         } else { do { try audio.start() } catch {
             state = .failed("Couldn't start the microphone: \(error.localizedDescription)"); return
@@ -178,6 +182,10 @@ final class Listener {
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
         state = .listening
         liveActivity.start()
+        let rec = ListeningSession(id: sessionID, started: startedAt)
+        modelContext?.insert(rec); sessionRecord = rec; lastTrackPoint = nil
+        try? modelContext?.save()
+        WidgetBridge.refresh(modelContext, listening: true, now: true)
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.hop)
@@ -185,6 +193,7 @@ final class Listener {
                 if self.stopAfterMinutes > 0, Date().timeIntervalSince(self.startedAt) > Double(self.stopAfterMinutes) * 60 {
                     self.stop(); return
                 }
+                self.updateSessionRecord()
                 await self.scoreLatest()
             }
         }
@@ -194,9 +203,23 @@ final class Listener {
         loop?.cancel(); loop = nil
         audio.stop(); location.stop()
         liveActivity.end()
+        sessionRecord?.ended = .now; sessionRecord = nil
+        try? modelContext?.save()
+        WidgetBridge.refresh(modelContext, listening: false, now: true)
         UIApplication.shared.isIdleTimerDisabled = false
         if state == .listening { state = .ready }
         hearingNow = []; maybes = []
+    }
+
+    /// Extend the session's end time, and add a route point when we've moved more than 25 m.
+    private func updateSessionRecord() {
+        guard let rec = sessionRecord else { return }
+        rec.ended = .now
+        if Int(rec.ended.timeIntervalSince(rec.started)) % 10 == 0, modelContext?.hasChanges == true { try? modelContext?.save() }
+        guard let loc = location.last, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 100 else { return }
+        if let last = lastTrackPoint, loc.distance(from: last) < 25 { return }
+        rec.trackLat.append(loc.coordinate.latitude); rec.trackLon.append(loc.coordinate.longitude)
+        lastTrackPoint = loc
     }
 
     private func refreshMuted() {
@@ -270,6 +293,8 @@ final class Listener {
                               latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "live")
             let firstEver = markIfNew(d)
             ctx.insert(d); logged[o.id] = d
+            try? ctx.save()       // don't rely on autosave: iOS can kill a backgrounded walk at any time
+            WidgetBridge.refresh(ctx, listening: true)
             if sessionSpecies.insert(o.index).inserted {
                 newSpeciesHeard(l, firstEver: firstEver)
             }
@@ -326,6 +351,8 @@ final class Listener {
         d.confirmed = confirmed
         markIfNew(d)
         ctx.insert(d)
+        try? ctx.save()
+        WidgetBridge.refresh(ctx, listening: state == .listening)
         manual.insert(d, at: 0); manualIndices.insert(index)
         let clip = Array(samples.suffix(32_000 * 15))
         Task { d.clipFile = await ClipStore.save(clip) }
@@ -368,6 +395,8 @@ final class Listener {
         d.confirmed = confirmed
         markIfNew(d)
         ctx.insert(d)
+        try? ctx.save()
+        WidgetBridge.refresh(ctx, listening: state == .listening)
         manual.insert(d, at: 0); manualIndices.insert(m.index)
         let secs = min(15, Date().timeIntervalSince(m.firstSeen) + 5)
         let clip = store.latest(Int(secs * 32_000))

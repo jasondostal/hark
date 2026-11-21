@@ -14,6 +14,8 @@
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
+		34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A371842CFB8FC187A89231 /* TodayWidget.swift */; };
+		5087266A6689366211647496 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
 		5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
 		5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */ = {isa = PBXBuildFile; fileRef = DE6827D3D2A7830D066C7F79 /* selftest.f32 */; };
 		70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E46536FADF19B7CD2B045E /* AudioCapture.swift */; };
@@ -27,9 +29,12 @@
 		AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = CF97FC47703776066607E58A /* Perch.mlpackage */; };
 		BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */; };
 		C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
+		C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
 		CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */ = {isa = PBXBuildFile; fileRef = C9DF49BC5773FE7D392E921C /* ranges.bin */; };
+		D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E7771A2D007367737E31C57 /* SessionsView.swift */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
 		F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0866C9EDC3F7F622E07C87 /* RewindView.swift */; };
+		FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,10 +63,12 @@
 
 /* Begin PBXFileReference section */
 		00375AF7ACBCAB26D38963C6 /* HarkCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HarkCore; path = HarkCore; sourceTree = SOURCE_ROOT; };
+		02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HarkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
+		32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		32AAC1FC7177CAC93C91360C /* Listener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listener.swift; sourceTree = "<group>"; };
 		38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkShortcuts.swift; sourceTree = "<group>"; };
 		46339CF0455911EAAB8F7134 /* Clips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clips.swift; sourceTree = "<group>"; };
@@ -72,9 +79,12 @@
 		86872589C4BEEAB5C631E619 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		98AF485B90B0C27ACEE5E705 /* labels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels.json; sourceTree = "<group>"; };
 		9B724A1122028E8DD168A59D /* HarkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkWidgets.swift; sourceTree = "<group>"; };
+		9E7771A2D007367737E31C57 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		A8032DCD59B9F6ABEDA20FFE /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
 		AD0866C9EDC3F7F622E07C87 /* RewindView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindView.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0A371842CFB8FC187A89231 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarkWidgets.entitlements; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
@@ -128,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */,
+				02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -156,7 +167,9 @@
 				5B1093B1BA56386EE9987A87 /* LogView.swift */,
 				AD0866C9EDC3F7F622E07C87 /* RewindView.swift */,
 				2E9BF582C048F510851B11AB /* SelfTest.swift */,
+				9E7771A2D007367737E31C57 /* SessionsView.swift */,
 				180D52A9CD94D53DCE390487 /* SpectrogramView.swift */,
+				32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -175,8 +188,10 @@
 		B5134FF71586D8D84D28ABB4 /* HarkWidgets */ = {
 			isa = PBXGroup;
 			children = (
+				BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */,
 				9B724A1122028E8DD168A59D /* HarkWidgets.swift */,
 				4ABE86294712AED10BE46526 /* Info.plist */,
+				B0A371842CFB8FC187A89231 /* TodayWidget.swift */,
 			);
 			path = HarkWidgets;
 			sourceTree = "<group>";
@@ -294,6 +309,8 @@
 			files = (
 				5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */,
 				88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */,
+				34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */,
+				5087266A6689366211647496 /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -315,7 +332,10 @@
 				AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */,
 				F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */,
 				14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */,
+				D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */,
 				2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */,
+				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
+				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

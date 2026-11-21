@@ -20,6 +20,12 @@ targets:
     dependencies:
       - package: HarkCore
       - target: HarkWidgets
+    # App Group (widget "today" data) needs an Xcode account signed in: wildcard profile can't carry it and the
+    # ASC key can't provision. Widgets fall back to Listen-button-only without it. Uncomment once signed in.
+    # entitlements:
+    #   path: Hark/Hark.entitlements
+    #   properties:
+    #     com.apple.security.application-groups: [group.dev.ducktyping.hark]
     info:
       path: Hark/Info.plist
       properties:
@@ -29,6 +35,9 @@ targets:
         NSMicrophoneUsageDescription: Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.
         NSLocationWhenInUseUsageDescription: Hark tags each sound it identifies with where you heard it, so your log shows place as well as time.
         UILaunchScreen: {}
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.ducktyping.hark
+            CFBundleURLSchemes: [hark]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
@@ -58,6 +67,12 @@ targets:
     sources:
       - path: HarkWidgets
       - path: Hark/Shared
+    # App Group (widget "today" data) needs an Xcode account signed in: wildcard profile can't carry it and the
+    # ASC key can't provision. Widgets fall back to Listen-button-only without it. Uncomment once signed in.
+    # entitlements:
+    #   path: HarkWidgets/HarkWidgets.entitlements
+    #   properties:
+    #     com.apple.security.application-groups: [group.dev.ducktyping.hark]
     info:
       path: HarkWidgets/Info.plist
       properties:
