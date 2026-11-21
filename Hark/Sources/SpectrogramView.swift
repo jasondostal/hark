@@ -120,10 +120,11 @@ final class SpectrogramDSP {
 /// Real-time scrolling spectrogram, separate from Perch. Fed on the audio thread, drawn at display rate.
 /// The playhead trails the newest audio by about 200 ms so the mic's ~100 ms chunk bursts scroll smoothly.
 final class LiveSpectrogram: @unchecked Sendable {
-    static let visible = 500                  // 5 s on screen, the same span as one Perch window
+    static let maxSeconds = 30
     private static let bins = SpectrogramDSP.bins
-    private static let capacity = visible + 128
+    private static let capacity = maxSeconds * SpectrogramDSP.columnsPerSecond + 128
     private static let lag = 20.0             // columns (200 ms)
+    private static let maxImageWidth = 600    // wider spans pool neighboring columns (max) down to this
 
     private let lock = NSLock()
     private let dsp = SpectrogramDSP()
@@ -132,6 +133,10 @@ final class LiveSpectrogram: @unchecked Sendable {
     private var produced = 0
     private var playhead = 0.0
     private var lastDraw: Double = 0
+    private var seconds = 10
+
+    /// How much time fits across the screen (5...30 s).
+    func setSeconds(_ s: Int) { lock.lock(); seconds = min(max(s, 1), Self.maxSeconds); lock.unlock() }
 
     func reset() {
         lock.lock(); defer { lock.unlock() }
@@ -156,29 +161,46 @@ final class LiveSpectrogram: @unchecked Sendable {
         if off > 0 { tail.removeFirst(off) }
     }
 
-    /// Main thread, once per display frame: the newest 5 s as an image.
-    func image(now: Double) -> CGImage? {
+    struct Frame { let image: CGImage; let groups: Int; let fraction: CGFloat }
+
+    /// Main thread, once per display frame. The image holds groups+1 columns (each the max of k raw columns,
+    /// grouped on absolute column numbers so they don't shimmer); draw it groups+1 wide and shift it left by
+    /// `fraction` of a column so scrolling is smooth even when one image column spans several pixels.
+    func frame(now: Double) -> Frame? {
         lock.lock(); defer { lock.unlock() }
         guard produced > 0 else { return nil }
         let dt = lastDraw == 0 ? 0 : min(max(now - lastDraw, 0), 0.1)
         lastDraw = now
         let target = Double(produced) - Self.lag
-        playhead += dt * 100                                  // real time: 100 columns per second
-        playhead += (target - playhead) * 0.06                // ease toward the newest audio
-        if abs(target - playhead) > 60 { playhead = target }  // far off (start, resume): jump
+        playhead += dt * Double(SpectrogramDSP.columnsPerSecond)   // real time
+        playhead += (target - playhead) * 0.06                     // ease toward the newest audio
+        if abs(target - playhead) > 60 { playhead = target }       // far off (start, resume): jump
         playhead = min(playhead, Double(produced))
 
-        let w = Self.visible, h = Self.bins
-        let end = Int(playhead)
+        let visible = seconds * SpectrogramDSP.columnsPerSecond
+        let k = max(1, Int((Double(visible) / Double(Self.maxImageWidth)).rounded(.up)))
+        let n = visible / k
+        let pos = max(playhead, 0) / Double(k)
+        let endGroup = Int(pos.rounded(.down))
+        let w = n + 1, h = Self.bins
         let lut = SpectrogramStyle.shared.lut
         var px = [UInt32](repeating: lut[0], count: w * h)
+        var col = [UInt8](repeating: 0, count: h)
+        let oldest = produced - Self.capacity
         for x in 0..<w {
-            let c = end - w + x
-            guard c >= 0, c > produced - Self.capacity else { continue }
-            let base = (c % Self.capacity) * h
-            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(ring[base + b])] }
+            let g = endGroup - n + x
+            for b in 0..<h { col[b] = 0 }
+            var any = false
+            for c in (g * k)..<(g * k + k) where c >= 0 && c > oldest && c < produced {
+                let base = (c % Self.capacity) * h
+                for b in 0..<h where ring[base + b] > col[b] { col[b] = ring[base + b] }
+                any = true
+            }
+            guard any else { continue }
+            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(col[b])] }
         }
-        return SpectrogramDSP.cgImage(&px, w, h)
+        guard let img = SpectrogramDSP.cgImage(&px, w, h) else { return nil }
+        return Frame(image: img, groups: n, fraction: CGFloat(pos - Double(endGroup)))
     }
 }
 
@@ -189,13 +211,20 @@ struct SpectrogramView: View {
     var frequencyLabels = true
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !running)) { tl in
-            ZStack {
-                palette.background
-                if let img = source.image(now: tl.date.timeIntervalSinceReferenceDate) {
-                    Image(decorative: img, scale: 1).resizable().interpolation(.medium)
-                } else {
-                    Text("Tap Listen to start").font(.callout).foregroundStyle(palette.labelColor)
+            GeometryReader { g in
+                ZStack(alignment: .topLeading) {
+                    palette.background
+                    if let f = source.frame(now: tl.date.timeIntervalSinceReferenceDate) {
+                        let colW = g.size.width / CGFloat(f.groups)
+                        Image(decorative: f.image, scale: 1).resizable().interpolation(.medium)
+                            .frame(width: g.size.width + colW, height: g.size.height)
+                            .offset(x: -f.fraction * colW)
+                    } else {
+                        Text("Tap Listen to start").font(.callout).foregroundStyle(palette.labelColor)
+                            .frame(width: g.size.width, height: g.size.height)
+                    }
                 }
+                .clipped()
             }
         }
         .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor) } }

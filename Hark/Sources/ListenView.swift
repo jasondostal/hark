@@ -51,9 +51,9 @@ struct ListenView: View {
                     .disabled(!listener.canRewind)
                     Spacer()
                     if listener.state == .listening {
+                        Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
                         LevelBar(db: listener.levelDB).frame(width: 70)
-                        Text(String(format: "%.0f ms", listener.lastInferenceMs))
-                            .font(.caption2.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
+                            .accessibilityLabel("Microphone level")
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 10)

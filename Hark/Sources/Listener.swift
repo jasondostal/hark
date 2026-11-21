@@ -110,6 +110,10 @@ final class Listener {
     var contrast: Double = UserDefaults.standard.object(forKey: "contrast") as? Double ?? 0.6 {
         didSet { UserDefaults.standard.set(contrast, forKey: "contrast"); SpectrogramStyle.shared.set(contrast: contrast) }
     }
+    /// Seconds of audio across the live spectrogram.
+    var spectrogramSeconds: Int = UserDefaults.standard.object(forKey: "spectrogramSeconds") as? Int ?? 10 {
+        didSet { UserDefaults.standard.set(spectrogramSeconds, forKey: "spectrogramSeconds"); live.setSeconds(spectrogramSeconds) }
+    }
     var frequencyLabels: Bool = UserDefaults.standard.object(forKey: "frequencyLabels") as? Bool ?? true {
         didSet { UserDefaults.standard.set(frequencyLabels, forKey: "frequencyLabels") }
     }
@@ -140,6 +144,7 @@ final class Listener {
         ClipPlayer.shared.onPlay = { [weak self] d in self?.quietUntil = .now.addingTimeInterval(d + 5.5) }
         SpectrogramStyle.shared.set(palette: palette)
         SpectrogramStyle.shared.set(contrast: contrast)
+        live.setSeconds(spectrogramSeconds)
         audio.setHighPass(rumbleFilter)
         audio.preferredInputUID = inputUID
     }

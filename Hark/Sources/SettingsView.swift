@@ -109,6 +109,10 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.navigationLink)
+            Picker("Time shown", selection: $listener.spectrogramSeconds) {
+                Text("5 s").tag(5); Text("10 s").tag(10); Text("15 s").tag(15); Text("30 s").tag(30)
+            }
+            .pickerStyle(.segmented)
             VStack(alignment: .leading) {
                 HStack { Text("Contrast"); Spacer(); Text(listener.contrast < 0.34 ? "Soft" : listener.contrast > 0.67 ? "Punchy" : "Medium").foregroundStyle(.secondary) }
                 Slider(value: $listener.contrast, in: 0...1)
