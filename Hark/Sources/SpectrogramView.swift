@@ -2,74 +2,37 @@ import SwiftUI
 import Accelerate
 import CoreGraphics
 
-/// Real-time scrolling spectrogram, separate from Perch: a 1024-point FFT every 10 ms (hop 320 at 32 kHz),
-/// 128 mel bands (150 Hz to 15 kHz), log power over a slowly adapting noise floor.
-/// It's fed on the audio thread and drawn at display rate. The playhead trails the newest audio by about
-/// 200 ms so the mic's ~100 ms chunk bursts scroll smoothly instead of stepping.
-final class LiveSpectrogram: @unchecked Sendable {
-    static let visible = 500                  // 5 s on screen, the same span as one Perch window
-    static let bins = 128
-    private static let n = 1024, hop = 320, log2n: vDSP_Length = 10
+/// Spectrogram math shared by the live view and Rewind: a 1024-point FFT every 10 ms (hop 320 at 32 kHz),
+/// 128 mel bands (150 Hz to 15 kHz), log power over a per-band noise floor. Steady background (road rumble,
+/// wind, furnace) fades to dark, and so does the natural low-frequency tilt. Each floor follows quiet quickly
+/// and loud slowly (about 3 s), so a call doesn't raise its own floor. Not thread-safe; one per stream.
+final class SpectrogramDSP {
+    static let bins = 128, n = 1024, hop = 320
+    static let columnsPerSecond = 100
+    private static let log2n: vDSP_Length = 10
     private static let sr: Float = 32_000
-    private static let capacity = visible + 128
-    private static let lag = 20.0             // columns (200 ms)
+    private static let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: n, isHalfWindow: false)
+    private static let mel = melBank()
 
-    private let lock = NSLock()
-    private var tail: [Float] = []
-    private var ring = [UInt8](repeating: 0, count: capacity * bins)   // per column: 128 levels, low band first
-    private var produced = 0
-    private var playhead = 0.0
-    private var lastDraw: Double = 0
-    private var floorDB = [Float](repeating: -100, count: bins)   // per-band noise floor
+    private let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+    private var floorDB = [Float](repeating: -100, count: bins)
     private var warm = 0
 
-    private let setup: FFTSetup
-    private let window: [Float]
-    private let mel: [Float]                  // bins x (n/2), row-major
-    private let lut: [UInt32]
-
-    init() {
-        setup = vDSP_create_fftsetup(Self.log2n, FFTRadix(kFFTRadix2))!
-        window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: Self.n, isHalfWindow: false)
-        mel = Self.melBank()
-        lut = (0..<256).map { i in
-            let (r, g, b) = Self.palette(Float(i) / 255)
-            return UInt32(r) | UInt32(g) << 8 | UInt32(b) << 16 | 0xFF00_0000
-        }
-    }
     deinit { vDSP_destroy_fftsetup(setup) }
 
-    var isEmpty: Bool { lock.lock(); defer { lock.unlock() }; return produced == 0 }
+    func reset() { floorDB = [Float](repeating: -100, count: Self.bins); warm = 0 }
 
-    func reset() {
-        lock.lock(); defer { lock.unlock() }
-        tail = []; produced = 0; playhead = 0; lastDraw = 0; warm = 0
-        floorDB = [Float](repeating: -100, count: Self.bins)
-        for i in ring.indices { ring[i] = 0 }
-    }
-
-    /// Audio thread: 32 kHz mono samples in, spectrogram columns out.
-    func append(_ s: [Float]) {
-        lock.lock(); defer { lock.unlock() }
-        tail += s
-        var off = 0
-        while tail.count - off >= Self.n {
-            column(at: off)
-            off += Self.hop
-        }
-        if off > 0 { tail.removeFirst(off) }
-    }
-
-    private func column(at off: Int) {
+    /// One column of 128 display levels (0...255, low band first) from n samples starting at `frame`.
+    func column(_ frame: UnsafePointer<Float>, into out: UnsafeMutablePointer<UInt8>) {
         let n = Self.n, half = n / 2
-        var frame = [Float](repeating: 0, count: n)
-        tail.withUnsafeBufferPointer { p in vDSP_vmul(p.baseAddress! + off, 1, window, 1, &frame, 1, vDSP_Length(n)) }
+        var windowed = [Float](repeating: 0, count: n)
+        vDSP_vmul(frame, 1, Self.window, 1, &windowed, 1, vDSP_Length(n))
         var re = [Float](repeating: 0, count: half), im = [Float](repeating: 0, count: half)
         var power = [Float](repeating: 0, count: half)
         re.withUnsafeMutableBufferPointer { rp in
             im.withUnsafeMutableBufferPointer { ip in
                 var split = DSPSplitComplex(realp: rp.baseAddress!, imagp: ip.baseAddress!)
-                frame.withUnsafeBytes { fb in
+                windowed.withUnsafeBytes { fb in
                     vDSP_ctoz(fb.bindMemory(to: DSPComplex.self).baseAddress!, 2, &split, 1, vDSP_Length(half))
                 }
                 vDSP_fft_zrip(setup, &split, 1, Self.log2n, FFTDirection(FFT_FORWARD))
@@ -78,46 +41,46 @@ final class LiveSpectrogram: @unchecked Sendable {
             }
         }
         var bands = [Float](repeating: 0, count: Self.bins)
-        vDSP_mmul(mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
-
-        let db = bands.map { 10 * log10f($0 + 1e-12) }
-        // Per-band noise floor: steady background (road rumble, wind, furnace) fades to dark, and so does
-        // the natural low-frequency tilt. Each floor follows quiet quickly and loud slowly (about 3 s), so a call
-        // doesn't raise its own floor. The first 0.3 s seeds the floors directly.
-        let base = (produced % Self.capacity) * Self.bins
+        vDSP_mmul(Self.mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
         let span: Float = 36
         for b in 0..<Self.bins {
-            if warm < 30 { floorDB[b] = warm == 0 ? db[b] : min(floorDB[b], db[b]) + 0.3 }
-            else { floorDB[b] += (db[b] - floorDB[b]) * (db[b] < floorDB[b] ? 0.03 : 0.003) }
-            let t = min(max((db[b] - floorDB[b] - 4) / span, 0), 1)
-            ring[base + b] = UInt8(t * 255)
+            let db = 10 * log10f(bands[b] + 1e-12)
+            if warm < 30 { floorDB[b] = warm == 0 ? db : min(floorDB[b], db) + 0.3 }
+            else { floorDB[b] += (db - floorDB[b]) * (db < floorDB[b] ? 0.03 : 0.003) }
+            out[b] = UInt8(min(max((db - floorDB[b] - 4) / span, 0), 1) * 255)
         }
         warm += 1
-        produced += 1
     }
 
-    /// Main thread, once per display frame: the newest 5 s as an image.
-    func image(now: Double) -> CGImage? {
-        lock.lock(); defer { lock.unlock() }
-        guard produced > 0 else { return nil }
-        let dt = lastDraw == 0 ? 0 : min(max(now - lastDraw, 0), 0.1)
-        lastDraw = now
-        let target = Double(produced) - Self.lag
-        playhead += dt * 100                                  // real time: 100 columns per second
-        playhead += (target - playhead) * 0.06                // ease toward the newest audio
-        if abs(target - playhead) > 60 { playhead = target }  // far off (start, resume): jump
-        playhead = min(playhead, Double(produced))
+    /// Whole-clip spectrogram (Rewind, saved clips): column-major levels, 128 per column.
+    static func levels(of samples: [Float]) -> (data: [UInt8], columns: Int) {
+        guard samples.count >= n else { return ([], 0) }
+        let cols = (samples.count - n) / hop + 1
+        var data = [UInt8](repeating: 0, count: cols * bins)
+        let dsp = SpectrogramDSP()
+        samples.withUnsafeBufferPointer { s in
+            data.withUnsafeMutableBufferPointer { d in
+                for c in 0..<cols { dsp.column(s.baseAddress! + c * hop, into: d.baseAddress! + c * bins) }
+            }
+        }
+        return (data, cols)
+    }
 
-        let w = Self.visible, h = Self.bins
-        let end = Int(playhead)
+    /// Image of columns `range` from column-major levels (low band at the bottom).
+    static func image(_ levels: [UInt8], columns: Int, range: Range<Int>? = nil) -> CGImage? {
+        let r = (range ?? 0..<columns).clamped(to: 0..<columns)
+        guard !r.isEmpty else { return nil }
+        let w = r.count, h = bins
         var px = [UInt32](repeating: lut[0], count: w * h)
         for x in 0..<w {
-            let c = end - w + x
-            guard c >= 0, c > produced - Self.capacity else { continue }
-            let base = (c % Self.capacity) * h
-            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(ring[base + b])] }
+            let base = (r.lowerBound + x) * h
+            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(levels[base + b])] }
         }
-        return px.withUnsafeMutableBytes { buf in
+        return cgImage(&px, w, h)
+    }
+
+    static func cgImage(_ px: inout [UInt32], _ w: Int, _ h: Int) -> CGImage? {
+        px.withUnsafeMutableBytes { buf in
             CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                       space: CGColorSpaceCreateDeviceRGB(),
                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
@@ -146,6 +109,11 @@ final class LiveSpectrogram: @unchecked Sendable {
         return m
     }
 
+    static let lut: [UInt32] = (0..<256).map { i in
+        let (r, g, b) = palette(Float(i) / 255)
+        return UInt32(r) | UInt32(g) << 8 | UInt32(b) << 16 | 0xFF00_0000
+    }
+
     // Dark blue -> teal -> yellow (perceptually ordered, readable on black).
     static func palette(_ t: Float) -> (UInt8, UInt8, UInt8) {
         let stops: [(Float, Float, Float)] = [(0.02, 0.02, 0.08), (0.10, 0.20, 0.45), (0.10, 0.55, 0.55), (0.55, 0.80, 0.30), (0.99, 0.91, 0.15)]
@@ -154,6 +122,70 @@ final class LiveSpectrogram: @unchecked Sendable {
         let a = stops[i], b = stops[i + 1]
         func c(_ p: Float, _ q: Float) -> UInt8 { UInt8(max(0, min(255, (p + (q - p) * f) * 255))) }
         return (c(a.0, b.0), c(a.1, b.1), c(a.2, b.2))
+    }
+}
+
+/// Real-time scrolling spectrogram, separate from Perch. Fed on the audio thread, drawn at display rate.
+/// The playhead trails the newest audio by about 200 ms so the mic's ~100 ms chunk bursts scroll smoothly.
+final class LiveSpectrogram: @unchecked Sendable {
+    static let visible = 500                  // 5 s on screen, the same span as one Perch window
+    private static let bins = SpectrogramDSP.bins
+    private static let capacity = visible + 128
+    private static let lag = 20.0             // columns (200 ms)
+
+    private let lock = NSLock()
+    private let dsp = SpectrogramDSP()
+    private var tail: [Float] = []
+    private var ring = [UInt8](repeating: 0, count: capacity * bins)
+    private var produced = 0
+    private var playhead = 0.0
+    private var lastDraw: Double = 0
+
+    func reset() {
+        lock.lock(); defer { lock.unlock() }
+        tail = []; produced = 0; playhead = 0; lastDraw = 0; dsp.reset()
+        for i in ring.indices { ring[i] = 0 }
+    }
+
+    /// Audio thread: 32 kHz mono samples in, spectrogram columns out.
+    func append(_ s: [Float]) {
+        lock.lock(); defer { lock.unlock() }
+        tail += s
+        var off = 0
+        tail.withUnsafeBufferPointer { t in
+            ring.withUnsafeMutableBufferPointer { r in
+                while t.count - off >= SpectrogramDSP.n {
+                    dsp.column(t.baseAddress! + off, into: r.baseAddress! + (produced % Self.capacity) * Self.bins)
+                    produced += 1
+                    off += SpectrogramDSP.hop
+                }
+            }
+        }
+        if off > 0 { tail.removeFirst(off) }
+    }
+
+    /// Main thread, once per display frame: the newest 5 s as an image.
+    func image(now: Double) -> CGImage? {
+        lock.lock(); defer { lock.unlock() }
+        guard produced > 0 else { return nil }
+        let dt = lastDraw == 0 ? 0 : min(max(now - lastDraw, 0), 0.1)
+        lastDraw = now
+        let target = Double(produced) - Self.lag
+        playhead += dt * 100                                  // real time: 100 columns per second
+        playhead += (target - playhead) * 0.06                // ease toward the newest audio
+        if abs(target - playhead) > 60 { playhead = target }  // far off (start, resume): jump
+        playhead = min(playhead, Double(produced))
+
+        let w = Self.visible, h = Self.bins
+        let end = Int(playhead)
+        var px = [UInt32](repeating: SpectrogramDSP.lut[0], count: w * h)
+        for x in 0..<w {
+            let c = end - w + x
+            guard c >= 0, c > produced - Self.capacity else { continue }
+            let base = (c % Self.capacity) * h
+            for b in 0..<h { px[(h - 1 - b) * w + x] = SpectrogramDSP.lut[Int(ring[base + b])] }
+        }
+        return SpectrogramDSP.cgImage(&px, w, h)
     }
 }
 

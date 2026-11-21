@@ -8,38 +8,78 @@
 
 /* Begin PBXBuildFile section */
 		081C408439612913D2882248 /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1093B1BA56386EE9987A87 /* LogView.swift */; };
+		0BA0CC6E03A216F009583ECB /* HarkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86872589C4BEEAB5C631E619 /* LiveActivityController.swift */; };
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
+		5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
 		5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */ = {isa = PBXBuildFile; fileRef = DE6827D3D2A7830D066C7F79 /* selftest.f32 */; };
 		70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E46536FADF19B7CD2B045E /* AudioCapture.swift */; };
 		7DF59B52D29D99C1B4913F8C /* selftest.json in Resources */ = {isa = PBXBuildFile; fileRef = D75CA65E35D4012047FBC305 /* selftest.json */; };
 		7FD45C007008A852A54909C7 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B48A5AE947C4689B53B3004 /* ListenView.swift */; };
 		83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DDD14312784E530E18C727 /* HarkApp.swift */; };
+		88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B724A1122028E8DD168A59D /* HarkWidgets.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
+		A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46339CF0455911EAAB8F7134 /* Clips.swift */; };
 		AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = CF97FC47703776066607E58A /* Perch.mlpackage */; };
+		BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */; };
+		C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
 		CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */ = {isa = PBXBuildFile; fileRef = C9DF49BC5773FE7D392E921C /* ranges.bin */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
+		F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0866C9EDC3F7F622E07C87 /* RewindView.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5B6A193E32462BB4A387A190 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F994798E314E32B5A537CD69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 986FAE26757B5698BC119FAA;
+			remoteInfo = HarkWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		59242E1533B95826EBCA1BE6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0BA0CC6E03A216F009583ECB /* HarkWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00375AF7ACBCAB26D38963C6 /* HarkCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HarkCore; path = HarkCore; sourceTree = SOURCE_ROOT; };
+		06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HarkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		32AAC1FC7177CAC93C91360C /* Listener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listener.swift; sourceTree = "<group>"; };
+		38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkShortcuts.swift; sourceTree = "<group>"; };
+		46339CF0455911EAAB8F7134 /* Clips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clips.swift; sourceTree = "<group>"; };
+		4ABE86294712AED10BE46526 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		58E46536FADF19B7CD2B045E /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		5B1093B1BA56386EE9987A87 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		7F04DC862C13853B63457E26 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
+		86872589C4BEEAB5C631E619 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		98AF485B90B0C27ACEE5E705 /* labels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels.json; sourceTree = "<group>"; };
+		9B724A1122028E8DD168A59D /* HarkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkWidgets.swift; sourceTree = "<group>"; };
 		A8032DCD59B9F6ABEDA20FFE /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
+		AD0866C9EDC3F7F622E07C87 /* RewindView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindView.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
 		D75CA65E35D4012047FBC305 /* selftest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = selftest.json; sourceTree = "<group>"; };
+		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		DE6827D3D2A7830D066C7F79 /* selftest.f32 */ = {isa = PBXFileReference; path = selftest.f32; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -59,6 +99,7 @@
 			isa = PBXGroup;
 			children = (
 				B3782DD2C0359787FA4B59BC /* Resources */,
+				776CE869EF55910D393492FF /* Shared */,
 				AAF268D3E22324E60FD21A31 /* Sources */,
 			);
 			path = Hark;
@@ -68,6 +109,7 @@
 			isa = PBXGroup;
 			children = (
 				01C065E861F05A8CE67870D0 /* Hark */,
+				B5134FF71586D8D84D28ABB4 /* HarkWidgets */,
 				68BF8EC1596406579C8E6944 /* Models */,
 				C83323F30257A40D4BCCD831 /* Packages */,
 				A3E087A5235D23542E878BE7 /* Products */,
@@ -82,10 +124,19 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		776CE869EF55910D393492FF /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		A3E087A5235D23542E878BE7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				B04E37DE3CF665C023C142F1 /* Hark.app */,
+				06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -94,12 +145,16 @@
 			isa = PBXGroup;
 			children = (
 				58E46536FADF19B7CD2B045E /* AudioCapture.swift */,
+				46339CF0455911EAAB8F7134 /* Clips.swift */,
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
 				D3DDD14312784E530E18C727 /* HarkApp.swift */,
+				38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */,
 				32AAC1FC7177CAC93C91360C /* Listener.swift */,
 				1B48A5AE947C4689B53B3004 /* ListenView.swift */,
+				86872589C4BEEAB5C631E619 /* LiveActivityController.swift */,
 				7F04DC862C13853B63457E26 /* LocationProvider.swift */,
 				5B1093B1BA56386EE9987A87 /* LogView.swift */,
+				AD0866C9EDC3F7F622E07C87 /* RewindView.swift */,
 				2E9BF582C048F510851B11AB /* SelfTest.swift */,
 				180D52A9CD94D53DCE390487 /* SpectrogramView.swift */,
 			);
@@ -117,6 +172,15 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		B5134FF71586D8D84D28ABB4 /* HarkWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				9B724A1122028E8DD168A59D /* HarkWidgets.swift */,
+				4ABE86294712AED10BE46526 /* Info.plist */,
+			);
+			path = HarkWidgets;
+			sourceTree = "<group>";
+		};
 		C83323F30257A40D4BCCD831 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -128,6 +192,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		986FAE26757B5698BC119FAA /* HarkWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A81BD47B8C9FAF62C62D1EA /* Build configuration list for PBXNativeTarget "HarkWidgets" */;
+			buildPhases = (
+				34A13F1D9D4A83BAF7E79B2C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HarkWidgets;
+			packageProductDependencies = (
+			);
+			productName = HarkWidgets;
+			productReference = 06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F50646F1C542E6AA12C12FE2 /* Hark */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5395FA0185C91D0F1BD6F906 /* Build configuration list for PBXNativeTarget "Hark" */;
@@ -135,10 +216,12 @@
 				608A1E32CABF574DB2655562 /* Sources */,
 				F966FE0ADDB782608D5B5651 /* Resources */,
 				043E3F3C42CD0156C936D85D /* Frameworks */,
+				59242E1533B95826EBCA1BE6 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				13A08A34EFD7FD8A5991F423 /* PBXTargetDependency */,
 			);
 			name = Hark;
 			packageProductDependencies = (
@@ -157,6 +240,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					986FAE26757B5698BC119FAA = {
+						DevelopmentTeam = 8N87FTKWXL;
+						ProvisioningStyle = Automatic;
+					};
 					F50646F1C542E6AA12C12FE2 = {
 						DevelopmentTeam = 8N87FTKWXL;
 						ProvisioningStyle = Automatic;
@@ -181,6 +268,7 @@
 			projectRoot = "";
 			targets = (
 				F50646F1C542E6AA12C12FE2 /* Hark */,
+				986FAE26757B5698BC119FAA /* HarkWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -200,24 +288,46 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		34A13F1D9D4A83BAF7E79B2C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */,
+				88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		608A1E32CABF574DB2655562 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */,
+				A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */,
 				2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */,
 				83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */,
+				C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */,
+				BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */,
 				7FD45C007008A852A54909C7 /* ListenView.swift in Sources */,
 				9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */,
+				1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */,
 				F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */,
 				081C408439612913D2882248 /* LogView.swift in Sources */,
 				AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */,
+				F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */,
 				14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */,
 				2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		13A08A34EFD7FD8A5991F423 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 986FAE26757B5698BC119FAA /* HarkWidgets */;
+			targetProxy = 5B6A193E32462BB4A387A190 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		55649635AA6AA231F5425FD5 /* Release */ = {
@@ -237,6 +347,7 @@
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -287,7 +398,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -297,6 +408,26 @@
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
+		};
+		837C0ABF43E7E177D45ABC4B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8N87FTKWXL;
+				INFOPLIST_FILE = HarkWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		A5B3B55BFAFB80D01B2D07F1 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -315,6 +446,7 @@
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -371,7 +503,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -383,9 +515,38 @@
 			};
 			name = Debug;
 		};
+		E782CE55348CBA1C6F9420C3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8N87FTKWXL;
+				INFOPLIST_FILE = HarkWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2A81BD47B8C9FAF62C62D1EA /* Build configuration list for PBXNativeTarget "HarkWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				837C0ABF43E7E177D45ABC4B /* Debug */,
+				E782CE55348CBA1C6F9420C3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		5395FA0185C91D0F1BD6F906 /* Build configuration list for PBXNativeTarget "Hark" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

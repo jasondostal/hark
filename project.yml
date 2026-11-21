@@ -2,7 +2,7 @@ name: Hark
 options:
   bundleIdPrefix: dev.ducktyping
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "18.0"
   createIntermediateGroups: true
 packages:
   HarkCore:
@@ -14,10 +14,12 @@ targets:
     sources:
       - path: Hark/Sources
       - path: Hark/Resources
+      - path: Hark/Shared
       # Perch 2.0, fp16-safe Core ML build from ~/working/perch-spike (git-ignored, 196 MB). Xcode compiles it to Perch.mlmodelc.
       - path: Models/Perch.mlpackage
     dependencies:
       - package: HarkCore
+      - target: HarkWidgets
     info:
       path: Hark/Info.plist
       properties:
@@ -35,6 +37,10 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
+        UIBackgroundModes:
+          - audio
+          - location
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ducktyping.hark
@@ -45,3 +51,27 @@ targets:
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
         COREML_CODEGEN_LANGUAGE: None
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) HARK_APP"
+  HarkWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: HarkWidgets
+      - path: Hark/Shared
+    info:
+      path: HarkWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Hark
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ducktyping.hark.widgets
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 8N87FTKWXL
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"

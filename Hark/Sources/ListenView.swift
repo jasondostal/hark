@@ -14,6 +14,16 @@ struct ListenView: View {
                 Section {
                     SpectrogramView(source: listener.live, running: listener.state == .listening)
                         .frame(height: 130)
+                        .overlay(alignment: .topTrailing) {
+                            if listener.canRewind {
+                                Label("Rewind", systemImage: "gobackward")
+                                    .font(.caption2.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(.ultraThinMaterial.opacity(0.6), in: Capsule()).padding(8)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { listener.openRewind() }
                         .listRowInsets(EdgeInsets())
                     controls
                 }
@@ -44,12 +54,29 @@ struct ListenView: View {
                     }
                 }
             }
+            .overlay(alignment: .bottom) {
+                if let c = listener.celebration {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles").font(.title2).foregroundStyle(.yellow)
+                        VStack(alignment: .leading) {
+                            Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.orange)
+                            Text(c.name).font(.headline)
+                        }
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 12)
+                    .background(.regularMaterial, in: Capsule())
+                    .shadow(radius: 8).padding(.bottom, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.spring, value: listener.celebration?.id)
             .navigationTitle("Hark")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "slider.horizontal.3") }
                 }
             }
+            .sheet(item: $listener.rewind) { RewindView(clip: $0) }
             .sheet(isPresented: $showSettings) { SettingsView().presentationDetents([.medium, .large]) }
             .onAppear {
                 listener.modelContext = ctx
@@ -158,7 +185,7 @@ struct SessionRow: View {
         HStack {
             Image(systemName: label.group.symbol).frame(width: 28).foregroundStyle(.secondary)
             VStack(alignment: .leading) {
-                Text(label.common)
+                HStack(spacing: 6) { Text(label.common); if detection?.isFirst == true { NewBadge() } }
                 Text("\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · best \(Int(occurrence.bestConfidence * 100))% · \(occurrence.windows)×")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -249,6 +276,28 @@ struct SettingsView: View {
                 } header: { Text("Location filter") } footer: {
                     Text("Compares each ID with species recorded within roughly 150 km of you. Flag shows out-of-range IDs as \"unusual here\" and doesn't log them unless you tap Log; Hide drops them. Species with no records anywhere are never filtered. Range data: GBIF.org occurrence records.")
                 }
+                Section {
+                    Toggle("Keep screen on", isOn: $listener.keepScreenOn)
+                    Picker("Stop listening after", selection: $listener.stopAfterMinutes) {
+                        Text("15 min").tag(15); Text("30 min").tag(30); Text("1 hour").tag(60)
+                        Text("2 hours").tag(120); Text("4 hours").tag(240); Text("Never").tag(0)
+                    }
+                } header: { Text("Listening") } footer: {
+                    Text("Hark keeps listening and logging with the screen locked, shown on the Lock Screen and Dynamic Island. A new species buzzes the phone.")
+                }
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Action Button", systemImage: "button.horizontal.top.press").font(.headline)
+                        Text("Settings › Action Button › Controls (or Shortcut) › Hark › Start Listening")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Control Center or Lock Screen", systemImage: "switch.2").font(.headline)
+                        Text("Edit Control Center or your Lock Screen, add a control, search for Hark.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    Text("Or ask Siri: \"Listen with Hark.\"").font(.callout).foregroundStyle(.secondary)
+                } header: { Text("Start listening in one press") }
                 if !listener.mutedNames.isEmpty {
                     Section {
                         ForEach(listener.mutedNames, id: \.self) { name in

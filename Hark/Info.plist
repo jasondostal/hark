@@ -26,6 +26,13 @@
 	<string>Hark tags each sound it identifies with where you heard it, so your log shows place as well as time.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>location</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

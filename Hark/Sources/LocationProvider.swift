@@ -10,11 +10,15 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
-    func start() {
+    /// background: keep tagging detections while the screen is locked (walk mode). When-in-use authorization
+    /// is enough because updates start in the foreground; iOS shows the blue location pill meanwhile.
+    func start(background: Bool = false) {
         if manager.authorizationStatus == .notDetermined { manager.requestWhenInUseAuthorization() }
+        manager.allowsBackgroundLocationUpdates = background
+        manager.showsBackgroundLocationIndicator = background
         manager.startUpdatingLocation()
     }
-    func stop() { manager.stopUpdatingLocation() }
+    func stop() { manager.stopUpdatingLocation(); manager.allowsBackgroundLocationUpdates = false }
     func locationManager(_ m: CLLocationManager, didUpdateLocations locs: [CLLocation]) { last = locs.last }
     func locationManagerDidChangeAuthorization(_ m: CLLocationManager) {
         if m.authorizationStatus == .authorizedWhenInUse || m.authorizationStatus == .authorizedAlways { m.startUpdatingLocation() }

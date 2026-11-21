@@ -5,10 +5,11 @@ import UIKit
 import HarkCore
 import CoreML
 
-/// Holds the newest 20 s of 32 kHz audio. Appended synchronously on the audio thread (so chunks stay in order;
+/// Holds the newest 60 s of 32 kHz audio (Rewind reaches back this far). Appended synchronously on the audio thread (so chunks stay in order;
 /// hopping through Tasks could reorder them), read by the scoring loop.
 final class AudioStore: @unchecked Sendable {
-    private var ring = RingBuffer(capacity: 32_000 * 20)
+    static let seconds = 60
+    private var ring = RingBuffer(capacity: 32_000 * seconds)
     private let lock = NSLock()
     func append(_ s: [Float]) { lock.lock(); ring.append(s); lock.unlock() }
     func latest(_ n: Int) -> [Float] { lock.lock(); defer { lock.unlock() }; return ring.latest(n) }
@@ -21,6 +22,15 @@ actor Inference {
     let classifier: PerchClassifier
     init(_ c: PerchClassifier) { classifier = c }
     func classify(_ w: [Float]) throws -> PerchClassifier.Output { try classifier.classify(w) }
+}
+
+/// A frozen copy of recent audio for Rewind. `end` is when the last sample was heard.
+struct RewindClip: Identifiable {
+    let id = UUID()
+    let samples: [Float]
+    let end: Date
+    var duration: TimeInterval { Double(samples.count) / 32_000 }
+    func time(atSample i: Int) -> Date { end.addingTimeInterval(-Double(samples.count - i) / 32_000) }
 }
 
 /// Heard in the last 15 s but not logged automatically: under the threshold ("maybe"),
@@ -37,6 +47,7 @@ struct Maybe: Identifiable, Equatable {
 @MainActor
 @Observable
 final class Listener {
+    static let shared = Listener()
     enum State: Equatable { case loading, ready, listening, failed(String) }
 
     private(set) var state: State = .loading
@@ -75,7 +86,37 @@ final class Listener {
     private var logged: [UUID: Detection] = [:]   // occurrence id -> its log row
     private var recentMaybes: [Int: Maybe] = [:]
     private var manualIndices: Set<Int> = []
+    private var clipBest: [UUID: Float] = [:]      // occurrence id -> confidence of its saved clip
+    private var quietUntil = Date.distantPast     // ignore the mic while Hark plays audio
     var modelContext: ModelContext?
+    var rewind: RewindClip?
+    private var pendingStart = false
+    private var startedAt = Date()
+    private var sessionSpecies: Set<Int> = []
+    private let liveActivity = LiveActivityController()
+
+    // Listening options (persisted)
+    var keepScreenOn: Bool = UserDefaults.standard.object(forKey: "keepScreenOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(keepScreenOn, forKey: "keepScreenOn")
+                 if state == .listening { UIApplication.shared.isIdleTimerDisabled = keepScreenOn } }
+    }
+    /// Safety net for walk mode: stop after this many minutes (0 = never).
+    var stopAfterMinutes: Int = UserDefaults.standard.object(forKey: "stopAfterMinutes") as? Int ?? 60 {
+        didSet { UserDefaults.standard.set(stopAfterMinutes, forKey: "stopAfterMinutes") }
+    }
+
+    /// Action Button / Control Center / Siri: start now, or as soon as the model has loaded.
+    func requestStart() async {
+        switch state {
+        case .ready: await start()
+        case .loading: pendingStart = true
+        default: break
+        }
+    }
+
+    init() {
+        ClipPlayer.shared.onPlay = { [weak self] d in self?.quietUntil = .now.addingTimeInterval(d + 5.5) }
+    }
 
     static let hop: Duration = .seconds(1)
 
@@ -91,7 +132,7 @@ final class Listener {
                 #if targetEnvironment(simulator)
                 let units: MLComputeUnits = .cpuOnly   // simulator: no ANE, and its GPU path gives wrong answers
                 #else
-                let units: MLComputeUnits = .all       // device: Neural Engine
+                let units: MLComputeUnits = .cpuAndNeuralEngine   // device: ANE; no GPU, so it keeps working in the background
                 #endif
                 let c = try PerchClassifier(url: modelURL, computeUnits: units)
                 _ = try c.classify([Float](repeating: 0, count: PerchClassifier.windowSamples))   // warm up / ANE compile
@@ -100,6 +141,7 @@ final class Listener {
             inference = Inference(clf); labels = table; ranges = rm
             refreshMuted()
             state = .ready
+            if pendingStart { pendingStart = false; await start() }
         } catch {
             state = .failed("Couldn't load Perch: \(error.localizedDescription)")
         }
@@ -116,7 +158,8 @@ final class Listener {
         guard allowed else {
             state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
         }
-        sessionID = UUID(); tracker.reset(); logged = [:]; hearingNow = []; session = []
+        sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
+        sessionSpecies = []; startedAt = .now
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
         store.reset(); live.reset()
         let store = self.store, live = self.live
@@ -131,13 +174,18 @@ final class Listener {
         } else { do { try audio.start() } catch {
             state = .failed("Couldn't start the microphone: \(error.localizedDescription)"); return
         } }
-        location.start()
-        UIApplication.shared.isIdleTimerDisabled = true
+        location.start(background: true)
+        UIApplication.shared.isIdleTimerDisabled = keepScreenOn
         state = .listening
+        liveActivity.start()
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.hop)
-                await self?.scoreLatest()
+                guard let self else { return }
+                if self.stopAfterMinutes > 0, Date().timeIntervalSince(self.startedAt) > Double(self.stopAfterMinutes) * 60 {
+                    self.stop(); return
+                }
+                await self.scoreLatest()
             }
         }
     }
@@ -145,6 +193,7 @@ final class Listener {
     func stop() {
         loop?.cancel(); loop = nil
         audio.stop(); location.stop()
+        liveActivity.end()
         UIApplication.shared.isIdleTimerDisabled = false
         if state == .listening { state = .ready }
         hearingNow = []; maybes = []
@@ -179,6 +228,7 @@ final class Listener {
     private func scoreLatest() async {
         guard let inference, let labels, state == .listening else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
+        guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)
         let t0 = Date()
         guard let out = try? await inference.classify(w) else { return }
@@ -218,14 +268,95 @@ final class Listener {
             let loc = location.last?.coordinate
             let d = Detection(label: l, confidence: Double(o.bestConfidence), at: o.firstHeard,
                               latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "live")
+            let firstEver = markIfNew(d)
             ctx.insert(d); logged[o.id] = d
+            if sessionSpecies.insert(o.index).inserted {
+                newSpeciesHeard(l, firstEver: firstEver)
+            }
+            saveClip(for: d, occurrence: o)
         case .updated(let o):
             guard let d = logged[o.id] else { return }
             d.lastHeard = o.lastHeard; d.windows = o.windows; d.confidence = Double(o.bestConfidence)
+            if o.bestConfidence >= (clipBest[o.id] ?? 0) + 0.05 { saveClip(for: d, occurrence: o) }
         }
     }
 
+    /// Keep the 5 s window Perch was most confident about as the detection's clip.
+    private func saveClip(for d: Detection, occurrence o: DetectionTracker.Occurrence) {
+        clipBest[o.id] = o.bestConfidence
+        let audio = store.latest(PerchClassifier.windowSamples)
+        Task {
+            guard let name = await ClipStore.save(audio) else { return }
+            let old = d.clipFile
+            d.clipFile = name
+            if old != name { ClipStore.delete(old) }
+        }
+    }
+
+    // MARK: Rewind
+
+    var canRewind: Bool { state == .listening || store.count >= 32_000 }
+
+    /// Freeze the last minute for Rewind.
+    func openRewind() {
+        let n = min(store.count, 32_000 * AudioStore.seconds)
+        guard n >= 32_000 else { return }
+        rewind = RewindClip(samples: store.latest(n), end: .now)
+    }
+
+    /// Score any stretch of audio: 5 s windows (padded or overlapping), best score per class across windows.
+    func analyze(_ samples: [Float]) async -> DetectionPolicy.Triage? {
+        guard let inference, let labels else { return nil }
+        var rows: [[Float]] = []
+        for st in Windowing.starts(length: samples.count) {
+            guard let out = try? await inference.classify(Windowing.window(samples, start: st)) else { continue }
+            rows.append(Scoring.softmax(out.logits))
+        }
+        guard !rows.isEmpty else { return nil }
+        updateRange()
+        return policy.triage(scores: Windowing.maxPool(rows), labels: labels, range: localRange, muted: muted, topK: 15)
+    }
+
+    /// Log a species picked out in Rewind, with the selection as its clip.
+    func logSelection(_ index: Int, confidence: Float, samples: [Float], at: Date, confirmed: Bool) {
+        guard let ctx = modelContext, let l = label(index) else { return }
+        let loc = location.last?.coordinate
+        let d = Detection(label: l, confidence: Double(confidence), at: at,
+                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "rewind")
+        d.confirmed = confirmed
+        markIfNew(d)
+        ctx.insert(d)
+        manual.insert(d, at: 0); manualIndices.insert(index)
+        let clip = Array(samples.suffix(32_000 * 15))
+        Task { d.clipFile = await ClipStore.save(clip) }
+    }
+
     func detection(for o: DetectionTracker.Occurrence) -> Detection? { logged[o.id] }
+
+    /// "New for you!": flag the first-ever detection of a species, celebrate it on screen (or on the Lock Screen).
+    private(set) var celebration: (id: UUID, name: String)?
+    @discardableResult
+    private func markIfNew(_ d: Detection) -> Bool {
+        guard let ctx = modelContext else { return false }
+        let s = d.scientific
+        let n = (try? ctx.fetchCount(FetchDescriptor<Detection>(predicate: #Predicate { $0.scientific == s }))) ?? 1
+        guard n == 0 else { return false }
+        d.isFirst = true
+        let c = (UUID(), d.common)
+        celebration = c
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Task { try? await Task.sleep(for: .seconds(5)); if celebration?.id == c.0 { celebration = nil } }
+        return true
+    }
+
+    /// First time a species is heard this session: a tap in the hand, and the Live Activity updates
+    /// (lighting the Lock Screen and buzzing if Hark is in the background).
+    private func newSpeciesHeard(_ l: HarkCore.Label, firstEver: Bool) {
+        if !firstEver, UIApplication.shared.applicationState == .active {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        liveActivity.newSpecies(l.common, symbol: l.group.symbol, count: sessionSpecies.count, firstEver: firstEver)
+    }
 
     /// Log a maybe by hand ("Log", or "I saw it" = logged and confirmed).
     func logMaybe(_ m: Maybe, confirmed: Bool) {
@@ -235,8 +366,12 @@ final class Listener {
                           latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: m.unusual ? "unusual" : "maybe")
         d.lastHeard = m.lastSeen
         d.confirmed = confirmed
+        markIfNew(d)
         ctx.insert(d)
         manual.insert(d, at: 0); manualIndices.insert(m.index)
+        let secs = min(15, Date().timeIntervalSince(m.firstSeen) + 5)
+        let clip = store.latest(Int(secs * 32_000))
+        Task { d.clipFile = await ClipStore.save(clip) }
         recentMaybes[m.index] = nil
         maybes.removeAll { $0.index == m.index }
     }

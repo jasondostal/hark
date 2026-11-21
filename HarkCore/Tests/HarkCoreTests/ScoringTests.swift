@@ -50,3 +50,19 @@ final class TrackerTests: XCTestCase {
         XCTAssertEqual(tr.active(at: t0 + 21, within: 8).map(\.index), [3])
     }
 }
+
+final class WindowingTests: XCTestCase {
+    func testShortStretchIsCenteredAndPadded() {
+        XCTAssertEqual(Windowing.starts(length: 100, window: 10, hop: 5), [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90])
+        XCTAssertEqual(Windowing.starts(length: 4, window: 10, hop: 5), [-3])
+        let w = Windowing.window([1, 2, 3, 4], start: -3, window: 10)
+        XCTAssertEqual(w, [0, 0, 0, 1, 2, 3, 4, 0, 0, 0])
+    }
+    func testLastWindowAlignsToEnd() {
+        XCTAssertEqual(Windowing.starts(length: 23, window: 10, hop: 5), [0, 5, 10, 13])
+        XCTAssertEqual(Windowing.window(Array(1...23).map(Float.init), start: 13, window: 10).last, 23)
+    }
+    func testMaxPool() {
+        XCTAssertEqual(Windowing.maxPool([[0.1, 0.9], [0.5, 0.2]]), [0.5, 0.9])
+    }
+}

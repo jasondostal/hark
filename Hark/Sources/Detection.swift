@@ -17,7 +17,9 @@ final class Detection {
     var longitude: Double?
     var confirmed: Bool             // "I saw it": the person verified the ID
     var sessionID: UUID
-    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range)
+    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "rewind"
+    var clipFile: String?           // saved audio in ClipStore.directory
+    var isFirst: Bool = false       // the first time this species ever entered the log
 
     init(id: UUID = UUID(), label: HarkCore.Label, confidence: Double, at: Date, windows: Int = 1,
          latitude: Double?, longitude: Double?, sessionID: UUID, source: String) {

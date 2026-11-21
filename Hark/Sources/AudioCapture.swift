@@ -16,7 +16,9 @@ final class AudioCapture {
 
     func start() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .measurement, options: [])
+        // playAndRecord so Rewind and saved clips can play while listening; A2DP only, so Bluetooth headphones
+        // never pull the mic over to a hands-free headset.
+        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothA2DP])
         try session.setPreferredSampleRate(48_000)
         try session.setActive(true)
 
