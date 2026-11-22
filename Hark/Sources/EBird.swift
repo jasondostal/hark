@@ -20,7 +20,7 @@ final class EBird {
         set {
             let k = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if k.isEmpty { Keychain.delete("ebirdKey"); cache = nil; Self.saveCache(nil) } else { Keychain.set(k, for: "ebirdKey") }
-            lastError = nil
+            lastError = nil; retryAfter = .distantPast   // a corrected key is tried right away
         }
     }
 
