@@ -191,11 +191,8 @@ struct SelectionSection: View {
         Section {
             if selection.range.isEmpty {
                 Text("Drag across a call to identify it, or tap to grab 5 seconds.").foregroundStyle(.secondary)
-            } else {
-                hearRow
-                if selection.analyzing {
-                    HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
-                }
+            } else if selection.analyzing {
+                HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
             }
             if let t = selection.result, !selection.analyzing {
                 if t.hits.isEmpty && t.unusual.isEmpty && t.maybes.isEmpty {
@@ -208,19 +205,6 @@ struct SelectionSection: View {
         } header: { Text("Selection") } footer: {
             if selection.isWidened && !selection.range.isEmpty {
                 Text("Short selections are scored with the 5 seconds around them; Perch needs the context.")
-            }
-        }
-    }
-
-    private var hearRow: some View {
-        let player = ClipPlayer.shared
-        let playing = player.playingID == selection.playID
-        return Button { player.toggle(id: selection.playID, samples: selection.selectedSamples) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: playing ? "stop.circle.fill" : "speaker.wave.2.circle.fill").font(.title2)
-                Text(playing ? "Stop" : "Hear the selection")
-                Spacer()
-                Text(selection.caption).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
         }
     }

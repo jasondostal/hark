@@ -12,6 +12,7 @@
 		1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86872589C4BEEAB5C631E619 /* LiveActivityController.swift */; };
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
+		1E8954544904735CBCC7EB66 /* HarkTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AC110F30116630F06E8831 /* HarkTips.swift */; };
 		2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941B45C78432B52FF73B873 /* Style.swift */; };
@@ -77,6 +78,7 @@
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		32AAC1FC7177CAC93C91360C /* Listener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listener.swift; sourceTree = "<group>"; };
+		34AC110F30116630F06E8831 /* HarkTips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkTips.swift; sourceTree = "<group>"; };
 		38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkShortcuts.swift; sourceTree = "<group>"; };
 		46339CF0455911EAAB8F7134 /* Clips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clips.swift; sourceTree = "<group>"; };
 		4ABE86294712AED10BE46526 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
 				D3DDD14312784E530E18C727 /* HarkApp.swift */,
 				38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */,
+				34AC110F30116630F06E8831 /* HarkTips.swift */,
 				32AAC1FC7177CAC93C91360C /* Listener.swift */,
 				1B48A5AE947C4689B53B3004 /* ListenView.swift */,
 				86872589C4BEEAB5C631E619 /* LiveActivityController.swift */,
@@ -349,6 +352,7 @@
 				83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */,
 				C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */,
 				BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */,
+				1E8954544904735CBCC7EB66 /* HarkTips.swift in Sources */,
 				7FD45C007008A852A54909C7 /* ListenView.swift in Sources */,
 				9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */,
 				1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */,

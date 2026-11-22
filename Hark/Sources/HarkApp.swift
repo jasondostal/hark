@@ -4,7 +4,7 @@ import SwiftData
 @main
 struct HarkApp: App {
     @State private var listener = Listener.shared
-    init() { SelfTest.runIfRequested() }
+    init() { SelfTest.runIfRequested(); HarkTips.configure() }
     var body: some Scene {
         WindowGroup {
             ListenView()

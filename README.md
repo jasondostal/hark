@@ -36,5 +36,5 @@ xcodebuild -project Hark.xcodeproj -scheme Hark -destination 'generic/platform=i
 xcrun devicectl device install app --device <udid> DerivedData/Build/Products/Release-iphoneos/Hark.app
 xcrun devicectl device process launch --console --device <udid> dev.ducktyping.hark -selftest   # ANE parity + timing
 ```
-Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-select` (freeze + identify 9 s in),
+Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-select` (freeze + identify 9 s in), `-resettips` (first-run tips again), `-notips`,
 `-settings`, `-logtab`, `-opensession`, `-selftest` (golden windows on ANE/GPU/CPU, prints HARK-SELFTEST lines), `-autolisten` (start listening on launch).

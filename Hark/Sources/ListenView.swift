@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import HarkCore
 
 /// Home: a big live spectrogram on top, what's being heard in the middle, and a camera-style bar at the bottom
@@ -24,7 +25,17 @@ struct ListenView: View {
         .animation(.spring, value: listener.celebration?.id)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showLog) { LogView() }
-        .onChange(of: listener.state) { _, s in if s == .listening { listener.selection.unfreeze() } }
+        .onChange(of: listener.state) { _, s in
+            if s == .listening { listener.selection.unfreeze(); SelectTip.listening = true }
+        }
+        .onChange(of: selection.isFrozen) { _, frozen in
+            if frozen { SelectTip().invalidate(reason: .actionPerformed) } else { HearTip.hasSelection = false }
+        }
+        .onChange(of: selection.range) { _, r in
+            guard !r.isEmpty else { return }
+            HearTip.hasSelection = true
+            Task { await ModeTip.selected.donate() }
+        }
         .onAppear {
             listener.modelContext = ctx
             WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
@@ -52,6 +63,7 @@ struct ListenView: View {
                 .onEnded { v in touchEnded(v, width: g.size.width) })
         }
         .frame(height: 250)
+        .popoverTip(SelectTip(), arrowEdge: .top)
         .overlay(alignment: .top) {
             if selection.isFrozen && selection.canPan {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
@@ -95,6 +107,7 @@ struct ListenView: View {
             }
             .buttonStyle(.bordered)
             .tint(overlayTint)
+            .popoverTip(ModeTip(), arrowEdge: .bottom)
             .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
             Spacer()
             if listener.state == .listening {
@@ -112,14 +125,33 @@ struct ListenView: View {
             Button { selection.unfreeze() } label: {
                 Label("Back to live", systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 6).padding(.vertical, 4)
+                    .padding(.horizontal, 4).padding(.vertical, 4)
+                    .fixedSize()
             }
             .buttonStyle(.bordered)
             .tint(overlayTint)
-            Spacer()
             Text(selection.range.isEmpty ? "Paused · drag across a call" : selection.caption)
                 .font(.caption.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
+                .lineLimit(1).minimumScaleFactor(0.6)
                 .allowsHitTesting(false)
+            Spacer(minLength: 0)
+            if !selection.range.isEmpty {
+                let player = ClipPlayer.shared
+                let playing = player.playingID == selection.playID
+                Button {
+                    player.toggle(id: selection.playID, samples: selection.selectedSamples)
+                    HearTip().invalidate(reason: .actionPerformed)
+                } label: {
+                    Label(playing ? "Stop" : "Hear it", systemImage: playing ? "stop.fill" : "speaker.wave.2.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 4).padding(.vertical, 4)
+                        .fixedSize()
+                }
+                .buttonStyle(.bordered)
+                .tint(overlayTint)
+                .popoverTip(HearTip(), arrowEdge: .bottom)
+                .accessibilityLabel(playing ? "Stop playback" : "Hear the selection")
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .background(overlayShade.allowsHitTesting(false))
