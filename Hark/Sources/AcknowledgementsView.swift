@@ -9,6 +9,8 @@ struct AcknowledgementsView: View {
     private let credits: [Credit] = [
         Credit(name: "Perch 2.0", use: "The sound-identification model (Google DeepMind).",
                license: "Apache License 2.0", url: "https://www.kaggle.com/models/google/bird-vocalization-classifier"),
+        Credit(name: "BirdNET+ 3.0", use: "The second sound-identification model (K. Lisa Yang Center for Conservation Bioacoustics, Cornell Lab of Ornithology, and Chemnitz University of Technology).",
+               license: "Apache License 2.0", url: "https://github.com/birdnet-team/model-converter"),
         Credit(name: "BirdNET+ Geomodel 3.0.4", use: "Which species occur where, week by week (K. Lisa Yang Center for Conservation Bioacoustics, Cornell Lab of Ornithology, and Chemnitz University of Technology).",
                license: "Apache License 2.0", url: "https://github.com/birdnet-team/geomodel"),
         Credit(name: "GBIF", use: "Occurrence records behind the range map. GBIF.org, via the GBIF maps API.",

@@ -34,7 +34,8 @@ final class GoldenParityTests: XCTestCase {
         var agree = 0
         for (w, r) in zip(windows, refs) {
             let out = try clf.classify(w)
-            XCTAssertEqual(out.logits.count, labels.count)
+            XCTAssertEqual(out.logits.count, 14_795)                 // Perch outputs; labels.json appends BirdNET+-only species after them
+            XCTAssertGreaterThanOrEqual(labels.count, out.logits.count)
             let top = Scoring.topK(out.logits, 5)
             if top[0] == r.top1 { agree += 1 } else {
                 print("[\(name)] \(r.species): got \(labels[top[0]].scientific), want \(labels[r.top1].scientific)")
@@ -52,7 +53,7 @@ final class GoldenParityTests: XCTestCase {
 
     func testLabelsCoverLocalMultiTaxa() throws {
         let labels = try fixtures().labels
-        XCTAssertEqual(labels.count, 14_795)
+        XCTAssertEqual(labels.count, 15_335)                 // 14,795 Perch + 540 BirdNET+-only (tools/make_birdnet3_map.py)
         let want: [String: (String, TaxonGroup)] = [
             "Bubo virginianus": ("Great Horned Owl", .bird), "Canis latrans": ("Coyote", .mammal),
             "Sciurus carolinensis": ("Eastern Gray Squirrel", .mammal), "Hyla versicolor": ("Gray Treefrog", .amphibian),

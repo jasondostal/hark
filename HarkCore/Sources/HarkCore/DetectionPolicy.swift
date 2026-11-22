@@ -111,16 +111,31 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
         public var maybes: [(index: Int, confidence: Float)] = []
         /// confident but never recorded near you (rangeMode .flag): shown flagged, logged only by hand
         public var unusual: [(index: Int, confidence: Float)] = []
+        /// Both models: hits both models backed (the rest were one model being sure).
+        public var agreed: Set<Int> = []
     }
 
-    public func triage(scores: [Float], labels: LabelTable, context: LocalContext?, muted: Set<Int> = [], topK: Int = 12) -> Triage {
+    /// `scores` are on Hark's (Perch) scale, one per label. With `second` (BirdNET+ on the same scale, Both mode), a
+    /// species is a hit when the two agree or either is sure (Fusion), and its confidence is the stronger of the two.
+    public func triage(scores: [Float], second: [Float]? = nil, labels: LabelTable, context: LocalContext?,
+                       muted: Set<Int> = [], topK: Int = 12) -> Triage {
         var t = Triage()
-        for i in Scoring.topK(scores, topK) {
+        var candidates = Scoring.topK(scores, topK)
+        if let second { candidates = Array(Set(candidates).union(Scoring.topK(second, topK))).sorted() }
+        for i in candidates where i < labels.count {
             let label = labels[i]
             let g = ListenGroup(label.group)
             let s = setting(g)
             guard s.enabled, !muted.contains(i) else { continue }
-            let p = scores[i]
+            var p = i < scores.count ? scores[i] : 0
+            if let second {
+                let q = i < second.count ? second[i] : 0
+                let both = Fusion.agree(p, q, threshold: s.threshold)
+                let hit = both || Fusion.sure(p, q, threshold: s.threshold)
+                // A hit is reported at or above the threshold; a non-hit stays below it (at most a maybe).
+                p = hit ? max(max(p, q), s.threshold) : min(max(p, q), s.threshold * 0.999)
+                if hit && both { t.agreed.insert(i) }
+            }
             let status: LocalContext.Status = (rangeMode == .off || !label.group.isSpecies) ? .unknown : (context?.status(i) ?? .unknown)
             let unlikely = status == .outOfRange || status == .outOfSeason
             if p >= s.threshold {

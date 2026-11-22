@@ -32,6 +32,30 @@ enum SelfTest {
                     ms.sort()
                     NSLog("HARK-SELFTEST \(unitName): load \(String(format: "%.1f", load)) s, top-1 \(agree)/\(refs.count), median \(String(format: "%.1f", ms[ms.count / 2])) ms/window")
                 }
+                if let url = BirdNET3Classifier.bundledURL,
+                   let refURL = b.url(forResource: "birdnet3_selftest", withExtension: "json") {
+                    struct BRef: Decodable { let top1: Int }
+                    let brefs = try JSONDecoder().decode([BRef].self, from: Data(contentsOf: refURL))
+                    let m = BirdNET3Classifier.windowSamples
+                    for (unitName, units) in [("ANE", MLComputeUnitsBox.ane), ("GPU", .gpu), ("CPU", .cpu)] {
+                        let t0 = Date()
+                        let clf = try BirdNET3Classifier(url: url, computeUnits: units.value)
+                        let load = Date().timeIntervalSince(t0)
+                        _ = try clf.classify(Array(all[0..<m]))
+                        var agree = 0; var ms: [Double] = []
+                        for rep in 0..<3 {
+                            for (i, r) in brefs.enumerated() {
+                                let w = Array(all[(i * n)..<(i * n + m)])
+                                let t = Date()
+                                let out = try clf.classify(w)
+                                ms.append(Date().timeIntervalSince(t) * 1000)
+                                if rep == 0, let top = out.indices.max(by: { out[$0] < out[$1] }), top == r.top1 { agree += 1 }
+                            }
+                        }
+                        ms.sort()
+                        NSLog("HARK-SELFTEST BirdNET+ \(unitName): load \(String(format: "%.1f", load)) s, top-1 \(agree)/\(brefs.count), median \(String(format: "%.1f", ms[ms.count / 2])) ms/window")
+                    }
+                }
                 NSLog("HARK-SELFTEST done")
             } catch { NSLog("HARK-SELFTEST error: \(error)") }
         }

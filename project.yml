@@ -19,6 +19,8 @@ targets:
       - path: Models/Perch.mlpackage
       # BirdNET+ Geomodel V3.0.4 (Apache 2.0), from tools/convert_geomodel.py (git-ignored, 15 MB).
       - path: Models/Geo.mlpackage
+      # BirdNET+ V3.0 Global 12K (Apache 2.0), from tools/convert_birdnet3.py (git-ignored).
+      - path: Models/BirdNET3.mlpackage
     dependencies:
       - package: HarkCore
       - target: HarkWidgets

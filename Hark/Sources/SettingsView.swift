@@ -42,8 +42,24 @@ struct SettingsView: View {
         Binding(get: { listener.policy.preset }, set: { if let p = $0 { listener.policy.apply(p) } })
     }
 
+    private var modelBlurb: String {
+        switch listener.model {
+        case .perch: "Google's Perch 2.0 alone. Strongest on distant, noisy backyard audio."
+        case .birdnet: "BirdNET+ 3.0 alone. Strongest on close, clean recordings."
+        case .both: "Both listen. An ID counts when they agree, or when either is very sure. In tests this caught 6–7 more of every 100 calls than Perch alone, with no extra noise."
+        }
+    }
+
     private var detection: some View {
         Section {
+            if listener.birdnetAvailable {
+                @Bindable var listener = listener
+                Picker("Model", selection: $listener.model) {
+                    Text("Perch").tag(Fusion.Model.perch); Text("BirdNET+").tag(Fusion.Model.birdnet); Text("Both").tag(Fusion.Model.both)
+                }
+                .pickerStyle(.segmented)
+                Text(modelBlurb).font(.callout).foregroundStyle(.secondary)
+            }
             Picker("How picky", selection: presetBinding) {
                 ForEach(Preset.allCases, id: \.self) { Text($0.title).tag(Preset?.some($0)) }
                 if listener.policy.preset == nil { Text("Custom").tag(Preset?.none) }
@@ -52,7 +68,7 @@ struct SettingsView: View {
             Text(listener.policy.preset?.blurb ?? "You've fine-tuned the thresholds below. Pick a preset to reset them.")
                 .font(.callout).foregroundStyle(.secondary)
         } header: { Text("Detection") } footer: {
-            Text("Why the numbers look low: Perch splits 100% across 14,795 sounds, so its confidence runs far below BirdNET's. On 48 backyard recordings BirdNET-Go logged at 80–100%, Perch scored a median of 70%. A 30% bar (Balanced) would have logged 75% of them; an 85% bar only 25%.")
+            Text("Why the numbers look low: confidence is on Perch's scale, which splits 100% across 14,795 sounds, so it runs far below BirdNET's. BirdNET+ scores are converted to the same scale (its 75% is about Perch's 30%), so these settings mean the same in every model mode.")
         }
     }
 
@@ -221,7 +237,7 @@ struct SettingsView: View {
 
     private var about: some View {
         Section {
-            LabeledContent("Model", value: "Google Perch 2.0 · 14,795 sounds")
+            LabeledContent("Model", value: ["perch": "Perch 2.0", "birdnet": "BirdNET+ 3.0", "both": "Perch 2.0 + BirdNET+ 3.0"][listener.model.rawValue] ?? "")
             LabeledContent("Speed", value: listener.lastInferenceMs > 0 ? String(format: "%.1f ms per 5 s of audio", listener.lastInferenceMs) : "—")
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
             NavigationLink("Acknowledgements") { AcknowledgementsView() }

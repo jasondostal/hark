@@ -244,7 +244,7 @@ struct SelectionSection: View {
     @ViewBuilder private func row(_ i: Int, _ p: Float, kind: String?) -> some View {
         if let l = listener.label(i) {
             VStack(alignment: .leading, spacing: 6) {
-                NowRow(label: l, confidence: p)
+                NowRow(label: l, confidence: p, agreed: selection.result?.agreed.contains(i) == true)
                 if let kind {
                     Text(kind).font(.caption).foregroundStyle(kind == "maybe" ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
                 }

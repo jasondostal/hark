@@ -213,7 +213,7 @@ struct ListenView: View {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
                 }
                 ForEach(listener.hearingNow) { o in
-                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence).muteSwipe(o.index) }
+                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index)).muteSwipe(o.index) }
                 }
                 ForEach(listener.maybes) { m in
                     if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
@@ -321,12 +321,19 @@ private struct BarButton: View {
 struct NowRow: View {
     let label: HarkCore.Label
     let confidence: Float
+    /// Both models backed it (Both mode).
+    var agreed = false
     var body: some View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
                 Text(label.common).font(.headline)
                 if label.group.isSpecies { Text(label.scientific).font(.caption).italic().foregroundStyle(.secondary) }
+                if agreed {
+                    Label("Both models", systemImage: "checkmark.seal.fill")
+                        .font(.caption2.weight(.semibold)).foregroundStyle(.green)
+                        .accessibilityLabel("Perch and BirdNET+ agree")
+                }
             }
             Spacer()
             ConfidenceBar(value: confidence)

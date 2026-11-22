@@ -28,6 +28,14 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
 - `tools/make_labels.py`: label table from Perch labels + OpenFauna names/classes (data copied from birdnet-go's
   vendored snapshot on CORTEX into tools/data/). OpenFauna's license still needs checking before any public release.
 
+## Models
+
+Perch 2.0 (Models/Perch.mlpackage) and BirdNET+ V3.0 (Models/BirdNET3.mlpackage, tools/convert_birdnet3.py) in
+Perch / BirdNET+ / Both modes. labels.json = Perch's 14,795 labels + 540 BirdNET+-only species
+(tools/make_birdnet3_map.py, then re-run convert_geomodel.py). BirdNET+ scores map onto Perch's scale (0.75 -> 0.30);
+Both = agree (P >= .83t, B >= .47t) or sure (P >= 2.33t, B >= 1.37t), from tools/bakeoff. On an iPhone 15 Pro Max ANE:
+Perch 8.9 ms, BirdNET+ 8.0 ms per window.
+
 ## Location + season
 
 `LocalContext` (HarkCore) combines, most trusted first: eBird reports within 25 km / 30 days (user's own API key,

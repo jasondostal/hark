@@ -71,6 +71,21 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(rare.status(1), .unknown)
     }
 
+    func testFusion() {
+        XCTAssertEqual(Fusion.perchEquivalent(0.75), 0.30, accuracy: 1e-4)
+        XCTAssertLessThan(Fusion.perchEquivalent(0.5), 0.2)
+        XCTAssertGreaterThan(Fusion.perchEquivalent(0.97), 0.6)
+        let p = DetectionPolicy()     // Balanced: birds 0.30, insects 0.40, sounds 0.30
+        // cardinal: both lukewarm (agree) -> hit; robin: Perch only, lukewarm -> maybe; cricket: BirdNET+ sure -> hit
+        let perch: [Float] = [0.26, 0.20, 0.0, 0, 0]
+        let bn: [Float] = [0.15, 0.0, 0.60, 0, 0]
+        let t = p.triage(scores: perch, second: bn, labels: labels, context: nil)
+        XCTAssertEqual(t.hits.map(\.index), [0, 2])
+        XCTAssertEqual(t.agreed, [0])
+        XCTAssertEqual(t.maybes.map(\.index), [1])
+        XCTAssertGreaterThanOrEqual(t.hits[0].confidence, 0.30)
+    }
+
     func testGeoWeek() {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
         func d(_ m: Int, _ day: Int) -> Date { cal.date(from: DateComponents(year: 2026, month: m, day: day))! }

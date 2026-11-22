@@ -25,6 +25,29 @@ actor Inference {
     func classify(_ w: [Float]) throws -> PerchClassifier.Output { try classifier.classify(w) }
 }
 
+/// BirdNET+ V3.0 off the main thread, plus the map from its outputs to Hark's labels.
+actor BirdNETInference {
+    let classifier: BirdNET3Classifier
+    let map: [UInt16]
+    init(_ c: BirdNET3Classifier, map: [UInt16]) { classifier = c; self.map = map }
+
+    /// Best score per Hark label (on Hark's scale) over 3 s windows covering `samples`.
+    func scores(_ samples: [Float], labelCount: Int) throws -> [Float] {
+        let n = BirdNET3Classifier.windowSamples
+        var best: [Float]?
+        for st in Windowing.starts(length: samples.count, window: n, hop: n / 2) {
+            let s = try classifier.classify(Windowing.window(samples, start: st, window: n))
+            if best == nil { best = s } else { for k in s.indices where s[k] > best![k] { best![k] = s[k] } }
+        }
+        var out = [Float](repeating: 0, count: labelCount)
+        guard let best else { return out }
+        for (j, b) in best.enumerated() where j < map.count && map[j] != 0xFFFF {
+            let i = Int(map[j]); if i < labelCount { out[i] = max(out[i], Fusion.perchEquivalent(b)) }
+        }
+        return out
+    }
+}
+
 /// A frozen copy of recent audio for touch-to-select. `end` is when the last sample was heard.
 struct AudioSnapshot: Identifiable {
     let id = UUID()
@@ -89,6 +112,15 @@ final class Listener {
     private var patchAt: CLLocation?
 
     private var inference: Inference?
+    private var birdnet: BirdNETInference?
+    private var birdnetLoading = false
+    /// Hits both models backed this session (Both mode), for the "both models" tag.
+    private(set) var agreed: Set<Int> = []
+    /// Which model(s) identify: Perch, BirdNET+, or both in tandem.
+    var model: Fusion.Model = Fusion.Model(rawValue: UserDefaults.standard.string(forKey: "model") ?? "") ?? .both {
+        didSet { UserDefaults.standard.set(model.rawValue, forKey: "model"); Task { await loadBirdNETIfNeeded() } }
+    }
+    var birdnetAvailable: Bool { BirdNET3Classifier.bundledURL != nil }
     private let store = AudioStore()
     private let audio = AudioCapture()
     private let location = LocationProvider()
@@ -188,6 +220,7 @@ final class Listener {
             }.value
             inference = Inference(clf); labels = table; ranges = rm
             geo = await Task.detached(priority: .utility) { GeoModel() }.value
+            await loadBirdNETIfNeeded()
             updateContext()
             refreshMuted()
             state = .ready
@@ -198,6 +231,51 @@ final class Listener {
     }
 
     func label(_ i: Int) -> HarkCore.Label? { labels.map { $0[i] } }
+
+    /// Load BirdNET+ the first time a mode needs it (it stays loaded after).
+    func loadBirdNETIfNeeded() async {
+        guard model != .perch, birdnet == nil, !birdnetLoading, let url = BirdNET3Classifier.bundledURL,
+              let mapURL = Bundle.main.url(forResource: "birdnet3_map", withExtension: "bin") else { return }
+        birdnetLoading = true; defer { birdnetLoading = false }
+        birdnet = await Task.detached(priority: .userInitiated) { () -> BirdNETInference? in
+            #if targetEnvironment(simulator)
+            let units: MLComputeUnits = .cpuOnly
+            #else
+            let units: MLComputeUnits = .cpuAndNeuralEngine
+            #endif
+            guard let c = try? BirdNET3Classifier(url: url, computeUnits: units), let d = try? Data(contentsOf: mapURL) else { return nil }
+            _ = try? c.classify([Float](repeating: 0, count: BirdNET3Classifier.windowSamples))   // warm up
+            let map = d.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)).map { UInt16(littleEndian: $0) } }
+            return BirdNETInference(c, map: map)
+        }.value
+    }
+
+    /// Score audio with the chosen model(s) and triage it. Perch scores are padded to the full label table
+    /// (BirdNET+-only species score 0 for Perch, and vice versa).
+    private func identify(_ samples: [Float], topK: Int = 12) async -> DetectionPolicy.Triage? {
+        guard let inference, let labels else { return nil }
+        let n = labels.count
+        var perch: [Float]?
+        if model != .birdnet || birdnet == nil {
+            var rows: [[Float]] = []
+            for st in Windowing.starts(length: samples.count) {
+                guard let out = try? await inference.classify(Windowing.window(samples, start: st)) else { continue }
+                rows.append(Scoring.softmax(out.logits))
+            }
+            guard !rows.isEmpty else { return nil }
+            var p = Windowing.maxPool(rows); if p.count < n { p += [Float](repeating: 0, count: n - p.count) }
+            perch = p
+        }
+        var bn: [Float]?
+        if model != .perch, let birdnet { bn = try? await birdnet.scores(samples, labelCount: n) }
+        updateContext()
+        switch (perch, bn) {
+        case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: muted, topK: topK)
+        case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: muted, topK: topK)
+        case let (nil, b?): return policy.triage(scores: b, labels: labels, context: context, muted: muted, topK: topK)
+        default: return nil
+        }
+    }
 
     func toggle() async { state == .listening ? stop() : await start() }
 
@@ -211,7 +289,7 @@ final class Listener {
             state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
-        sessionSpecies = []; startedAt = .now; patchAt = nil
+        sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
@@ -355,16 +433,14 @@ final class Listener {
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
-        guard let inference, let labels, state == .listening, idMode == .auto else { return }
+        guard inference != nil, let labels, state == .listening, idMode == .auto else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
         guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)
         let t0 = Date()
-        guard let out = try? await inference.classify(w) else { return }
+        guard let triage = await identify(w) else { return }
         lastInferenceMs = Date().timeIntervalSince(t0) * 1000
-        let scores = Scoring.softmax(out.logits)
-        updateContext()
-        let triage = policy.triage(scores: scores, labels: labels, context: context, muted: muted)
+        agreed.formUnion(triage.agreed)
         let result = WindowResult(time: .now, hits: triage.hits)
         if ProcessInfo.processInfo.arguments.contains("-autolisten") {
             NSLog("HARK-WINDOW %.0f ms: %@", lastInferenceMs, result.hits.map { "\(labels[$0.index].common) \(Int($0.confidence * 100))%" }.joined(separator: ", "))
@@ -436,18 +512,8 @@ final class Listener {
                          lagSamples: state == .listening ? live.lagSamples() : 0)
     }
 
-    /// Score any stretch of audio: 5 s windows (padded or overlapping), best score per class across windows.
-    func analyze(_ samples: [Float]) async -> DetectionPolicy.Triage? {
-        guard let inference, let labels else { return nil }
-        var rows: [[Float]] = []
-        for st in Windowing.starts(length: samples.count) {
-            guard let out = try? await inference.classify(Windowing.window(samples, start: st)) else { continue }
-            rows.append(Scoring.softmax(out.logits))
-        }
-        guard !rows.isEmpty else { return nil }
-        updateContext()
-        return policy.triage(scores: Windowing.maxPool(rows), labels: labels, context: context, muted: muted, topK: 15)
-    }
+    /// Score any stretch of audio with the chosen model(s): overlapping windows, best score per species.
+    func analyze(_ samples: [Float]) async -> DetectionPolicy.Triage? { await identify(samples, topK: 15) }
 
     /// Log a species picked out of a selection, with the selection as its clip.
     func logSelection(_ index: Int, confidence: Float, samples: [Float], at: Date, confirmed: Bool) {
