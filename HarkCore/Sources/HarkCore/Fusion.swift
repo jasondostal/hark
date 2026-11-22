@@ -23,7 +23,7 @@ public enum Fusion {
     /// humanGate), a song on the TV shouldn't become a bird: only 'sure' animal IDs count in that window.
     public static let humanSoundClasses = ["Acoustic_guitar", "Bass_guitar", "Bowed_string_instrument", "Brass_instrument",
         "Child_speech_and_kid_speaking", "Conversation", "Crowd", "Electric_guitar", "Female_singing",
-        "Female_speech_and_woman_speaking", "Guitar", "Human_voice", "Keyboard_(musical)", "Laughter", "Male_singing",
+        "Female_speech_and_woman_speaking", "Guitar", "Homo sapiens", "Human_voice", "Keyboard_(musical)", "Laughter", "Male_singing",
         "Male_speech_and_man_speaking", "Music", "Musical_instrument", "Piano", "Plucked_string_instrument", "Singing",
         "Speech", "Speech_synthesizer", "Telephone", "Wind_instrument_and_woodwind_instrument"]
     public static let humanGate: Float = 0.20

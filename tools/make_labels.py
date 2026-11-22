@@ -154,6 +154,7 @@ for li,s in enumerate(labels):
     c=en_us.get(s) or en.get(s)
     if not c: miss+=1
     g=GROUP.get(cls.get(s,''),'other' if s in cls else 'unknown')
+    if s=='Homo sapiens': out.append({'s':s,'c':'Human','g':'sound','e':'🗣️'}); continue   # people are a sound to Hark, never a logged animal
     o={'s':s,'c':c or s,'g':g,'e':emoji(s,c or s,g)}
     if s in inat: o['i']=inat[s]
     if ebird[li]!='no_ebird_code': o['b']=ebird[li]   # eBird species code (matches eBird API results)

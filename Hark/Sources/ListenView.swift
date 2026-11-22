@@ -637,8 +637,10 @@ private struct MuteSwipe: ViewModifier {
     let index: Int
     var detection: Detection?
     var maybe: Maybe?
+    @State private var sharing: Detection?
     func body(content: Content) -> some View {
         content
+            .sheet(item: $sharing) { d in ShareCardSheet(detection: d).themeRoot() }
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
             }
@@ -651,6 +653,7 @@ private struct MuteSwipe: ViewModifier {
                     Button { d.confirmed.toggle() } label: {
                         Label(d.confirmed ? "I didn't see it" : "I saw it", systemImage: d.confirmed ? "eye.slash" : "eye")
                     }
+                    Button { sharing = d } label: { Label("Share…", systemImage: "square.and.arrow.up") }
                 }
                 if let url = listener.lookupURL(index) {
                     Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
