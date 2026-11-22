@@ -7,3 +7,4 @@ tools/data/
 *.xcuserstate
 xcuserdata/
 tools/.venv/
+DerivedData-dev/
