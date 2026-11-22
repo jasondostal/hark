@@ -137,7 +137,7 @@ struct SessionPage: View {
             }
             ForEach(session.detections.filter { $0.latitude != nil }) { d in
                 Annotation(d.common, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
-                    Image(systemName: d.taxon.symbol).font(.caption2).padding(4)
+                    Image(symbol: d.taxon.symbol).font(.caption2).padding(4)
                         .background(d.confirmed ? Color.green : Color.accentColor, in: Circle()).foregroundStyle(.white)
                 }
             }

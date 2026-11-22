@@ -3,17 +3,18 @@ import Foundation
 public enum TaxonGroup: String, Codable, CaseIterable, Sendable {
     case bird, amphibian, mammal, insect, reptile, fish, sound, other, unknown
 
-    /// SF Symbol for the group.
+    /// Symbol for the group: an SF Symbol, except "frog.fill", which is Hark's own (SF Symbols has no frog).
     public var symbol: String {
         switch self {
-        case .bird: "bird"
-        case .amphibian: "drop"
-        case .mammal: "pawprint"
-        case .insect: "ant"
-        case .reptile: "lizard"
-        case .fish: "fish"
+        case .bird: "bird.fill"
+        case .amphibian: "frog.fill"
+        case .mammal: "pawprint.fill"
+        case .insect: "ladybug.fill"
+        case .reptile: "lizard.fill"
+        case .fish: "fish.fill"
         case .sound: "waveform"
-        case .other, .unknown: "questionmark.circle"
+        case .other: "ellipsis"
+        case .unknown: "questionmark"
         }
     }
     public var isSpecies: Bool { self != .sound }

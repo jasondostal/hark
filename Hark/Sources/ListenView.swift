@@ -77,7 +77,7 @@ struct ListenView: View {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Hear something?").font(.title3.bold())
-                    Tip(symbol: "ear", text: "Tap **Listen**. Birds, frogs, insects and mammals show up here as Hark hears them.")
+                    Tip(symbol: "mic.fill", text: "Tap **Listen**. Birds, frogs, insects and mammals show up here as Hark hears them.")
                     Tip(symbol: "gobackward", text: "Missed it? **Rewind** the last minute and pick out the call.")
                     Tip(symbol: "button.horizontal.top.press", text: "Put **Start Listening** on your Action Button. See Settings.")
                 }
@@ -163,8 +163,8 @@ struct ListenButton: View {
                 if listener.state == .loading {
                     ProgressView().tint(.white)
                 } else {
-                    Image(systemName: listening ? "stop.fill" : "ear")
-                        .font(.system(size: listening ? 24 : 28, weight: .semibold)).foregroundStyle(.white)
+                    Image(systemName: listening ? "stop.fill" : "mic.fill")
+                        .font(.system(size: listening ? 24 : 27, weight: .semibold)).foregroundStyle(.white)
                 }
             }
         }
@@ -200,7 +200,7 @@ struct NowRow: View {
     let confidence: Float
     var body: some View {
         HStack(spacing: 12) {
-            TaxonIcon(emoji: label.icon, group: label.group)
+            TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
                 Text(label.common).font(.headline)
                 if label.group.isSpecies { Text(label.scientific).font(.caption).italic().foregroundStyle(.secondary) }
@@ -219,7 +219,7 @@ struct MaybeRow: View {
     let maybe: Maybe
     var body: some View {
         HStack(spacing: 12) {
-            TaxonIcon(emoji: label.icon, group: label.group, faint: !maybe.unusual)
+            TaxonIcon(group: label.group, faint: !maybe.unusual)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
                         .font(.caption).foregroundStyle(.white, maybe.unusual ? Color.orange : Color.gray)
@@ -244,7 +244,7 @@ struct ManualRow: View {
     let detection: Detection
     var body: some View {
         HStack(spacing: 12) {
-            TaxonIcon(emoji: detection.icon, group: detection.taxon)
+            TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) { Text(detection.common); if detection.isFirst { NewBadge() } }
                 Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(Int(detection.confidence * 100))%")
@@ -262,7 +262,7 @@ struct SessionRow: View {
     let detection: Detection?
     var body: some View {
         HStack(spacing: 12) {
-            TaxonIcon(emoji: label.icon, group: label.group)
+            TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) { Text(label.common); if detection?.isFirst == true { NewBadge() } }
                 Text("\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · best \(Int(occurrence.bestConfidence * 100))% · \(occurrence.windows)×")

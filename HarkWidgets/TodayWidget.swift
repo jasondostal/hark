@@ -10,9 +10,9 @@ struct SnapshotEntry: TimelineEntry {
 struct SnapshotProvider: TimelineProvider {
     func placeholder(in context: Context) -> SnapshotEntry {
         SnapshotEntry(date: .now, snap: WidgetSnapshot(lifeCount: 42, todayCount: 3, today: [
-            .init(name: "Black-capped Chickadee", symbol: "bird", time: .now, isFirst: false),
-            .init(name: "Blue Jay", symbol: "bird", time: .now, isFirst: false),
-            .init(name: "Spring Peeper", symbol: "drop", time: .now, isFirst: true)], updated: .now))
+            .init(name: "Black-capped Chickadee", symbol: "bird.fill", time: .now, isFirst: false),
+            .init(name: "Blue Jay", symbol: "bird.fill", time: .now, isFirst: false),
+            .init(name: "Spring Peeper", symbol: "frog.fill", time: .now, isFirst: true)], updated: .now))
     }
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
         completion(context.isPreview ? placeholder(in: context) : SnapshotEntry(date: .now, snap: .load()))
@@ -50,14 +50,14 @@ struct TodayWidgetView: View {
                 ZStack {
                     AccessoryWidgetBackground()
                     VStack(spacing: 0) {
-                        Image(systemName: "ear").font(.title3)
+                        Image(systemName: "mic.fill").font(.title3)
                         if WidgetSnapshot.available { Text("\(s.todayCount)").font(.caption.bold().monospacedDigit()) }
                     }
                 }
             }.buttonStyle(.plain)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Label("Hark · \(s.todayCount) today", systemImage: "ear").font(.headline).widgetAccentable()
+                Label("Hark · \(s.todayCount) today", systemImage: "mic.fill").font(.headline).widgetAccentable()
                 if let last = s.today.first {
                     Text(last.name).font(.caption).lineLimit(1)
                     Text(last.time, style: .relative).font(.caption2).foregroundStyle(.secondary)
@@ -67,7 +67,7 @@ struct TodayWidgetView: View {
             }
             .widgetURL(URL(string: "hark://listen"))
         case .accessoryInline:
-            Label("\(s.todayCount) species today", systemImage: "ear")
+            Label("\(s.todayCount) species today", systemImage: "mic.fill")
         case .systemMedium:
             HStack(alignment: .top, spacing: 14) {
                 listenButton.frame(width: 104)
@@ -76,7 +76,7 @@ struct TodayWidgetView: View {
                     if s.today.isEmpty { Text("Nothing heard yet").font(.callout).foregroundStyle(.secondary) }
                     ForEach(s.today.prefix(4), id: \.self) { i in
                         HStack(spacing: 6) {
-                            Image(systemName: i.symbol).font(.caption).foregroundStyle(.secondary).frame(width: 16)
+                            Image(symbol: i.symbol).font(.caption).foregroundStyle(.secondary).frame(width: 16)
                             Text(i.name).font(.callout).lineLimit(1)
                             if i.isFirst { Text("NEW").font(.system(size: 9, weight: .heavy)).foregroundStyle(.orange) }
                             Spacer(minLength: 0)
@@ -94,7 +94,7 @@ struct TodayWidgetView: View {
     private var listenButton: some View {
         VStack(spacing: 6) {
             Button(intent: StartListeningIntent()) {
-                Image(systemName: "ear").font(.system(size: 30, weight: .semibold))
+                Image(systemName: "mic.fill").font(.system(size: 30, weight: .semibold))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .buttonStyle(.borderedProminent).tint(.green)

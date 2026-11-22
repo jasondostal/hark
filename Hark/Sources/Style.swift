@@ -52,17 +52,18 @@ final class SpectrogramStyle: @unchecked Sendable {
 }
 
 /// Emoji for the kind of animal or sound, on a soft disc tinted by group.
+/// A plain group glyph (bird, frog, bug...) in a tinted circle.
 struct TaxonIcon: View {
-    let emoji: String
-    var group: TaxonGroup = .bird
+    var group: TaxonGroup
     var size: CGFloat = 34
     var faint = false
     var body: some View {
-        Text(emoji)
-            .font(.system(size: size * 0.56))
+        Image(symbol: group.symbol)
+            .font(.system(size: size * 0.46, weight: .semibold))
+            .foregroundStyle(Self.tint(group))
             .frame(width: size, height: size)
-            .background(Self.tint(group).opacity(faint ? 0.08 : 0.16), in: Circle())
-            .opacity(faint ? 0.55 : 1)
+            .background(Self.tint(group).opacity(faint ? 0.08 : 0.15), in: Circle())
+            .opacity(faint ? 0.5 : 1)
     }
     static func tint(_ g: TaxonGroup) -> Color {
         switch g {
@@ -78,17 +79,10 @@ extension HarkCore.Label {
 }
 
 extension Detection {
-    var icon: String { HarkCore.Label.table?.label(scientific: scientific)?.icon ?? "❔" }
     var inat: Int? { HarkCore.Label.table?.label(scientific: scientific)?.inat }
 }
 
 extension ListenGroup {
-    var emoji: String {
-        switch self {
-        case .bird: "🐦"; case .amphibian: "🐸"; case .insect: "🦗"; case .mammal: "🐿️"
-        case .reptile: "🦎"; case .other: "🕷️"; case .sound: "🔊"
-        }
-    }
     var taxon: TaxonGroup {
         switch self {
         case .bird: .bird; case .amphibian: .amphibian; case .insect: .insect; case .mammal: .mammal

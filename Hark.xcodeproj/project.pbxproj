@@ -12,12 +12,15 @@
 		1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86872589C4BEEAB5C631E619 /* LiveActivityController.swift */; };
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
+		2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941B45C78432B52FF73B873 /* Style.swift */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
 		34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A371842CFB8FC187A89231 /* TodayWidget.swift */; };
+		3A622FA88A5ADB826F2244E8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */; };
 		5087266A6689366211647496 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
 		5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
+		5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */ = {isa = PBXBuildFile; fileRef = DE6827D3D2A7830D066C7F79 /* selftest.f32 */; };
 		70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E46536FADF19B7CD2B045E /* AudioCapture.swift */; };
 		7DF59B52D29D99C1B4913F8C /* selftest.json in Resources */ = {isa = PBXBuildFile; fileRef = D75CA65E35D4012047FBC305 /* selftest.json */; };
@@ -34,6 +37,7 @@
 		C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
 		CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */ = {isa = PBXBuildFile; fileRef = C9DF49BC5773FE7D392E921C /* ranges.bin */; };
 		D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E7771A2D007367737E31C57 /* SessionsView.swift */; };
+		DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
 		F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0866C9EDC3F7F622E07C87 /* RewindView.swift */; };
 		FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */; };
@@ -88,6 +92,7 @@
 		B0A371842CFB8FC187A89231 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
 		BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarkWidgets.entitlements; sourceTree = "<group>"; };
+		BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
@@ -95,6 +100,7 @@
 		D941B45C78432B52FF73B873 /* Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Style.swift; sourceTree = "<group>"; };
 		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		DE6827D3D2A7830D066C7F79 /* selftest.f32 */ = {isa = PBXFileReference; path = selftest.f32; sourceTree = "<group>"; };
+		E3499EF8200DD71390F7DF3D /* Symbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Symbols.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,7 +147,9 @@
 		776CE869EF55910D393492FF /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */,
 				DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */,
+				E3499EF8200DD71390F7DF3D /* Symbols.swift */,
 				02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */,
 			);
 			path = Shared;
@@ -218,6 +226,7 @@
 			buildConfigurationList = 2A81BD47B8C9FAF62C62D1EA /* Build configuration list for PBXNativeTarget "HarkWidgets" */;
 			buildPhases = (
 				34A13F1D9D4A83BAF7E79B2C /* Sources */,
+				18436E633E06C1ED4F4B9A38 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -295,10 +304,19 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		18436E633E06C1ED4F4B9A38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A622FA88A5ADB826F2244E8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F966FE0ADDB782608D5B5651 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */,
 				166030FDDF7236F06318E02E /* labels.json in Resources */,
 				CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */,
 				5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */,
@@ -315,6 +333,7 @@
 			files = (
 				5642ABAA4E63CD4C9D2510D1 /* HarkIntents.swift in Sources */,
 				88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */,
+				2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */,
 				34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */,
 				5087266A6689366211647496 /* WidgetSnapshot.swift in Sources */,
 			);
@@ -342,6 +361,7 @@
 				927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */,
 				2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */,
 				2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */,
+				5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */,
 				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
 				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
 			);
@@ -361,7 +381,7 @@
 		55649635AA6AA231F5425FD5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COREML_CODEGEN_LANGUAGE = None;
@@ -440,6 +460,7 @@
 		837C0ABF43E7E177D45ABC4B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;
@@ -460,7 +481,7 @@
 		A5B3B55BFAFB80D01B2D07F1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COREML_CODEGEN_LANGUAGE = None;
@@ -546,6 +567,7 @@
 		E782CE55348CBA1C6F9420C3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;

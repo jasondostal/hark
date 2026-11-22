@@ -16,7 +16,7 @@ struct ListenControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "dev.ducktyping.hark.listen") {
             ControlWidgetButton(action: StartListeningIntent()) {
-                Label("Hark", systemImage: "ear")
+                Label("Hark", systemImage: "mic.fill")
             }
         }
         .displayName("Start Listening")
@@ -28,15 +28,15 @@ struct ListeningLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ListeningAttributes.self) { ctx in
             HStack(spacing: 12) {
-                Image(systemName: "ear").font(.title2).foregroundStyle(.green)
+                Image(systemName: "mic.fill").font(.title2).foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Hark is listening").font(.headline)
                         Text(ctx.attributes.started, style: .timer).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                     if let latest = ctx.state.latest {
-                        Label(ctx.state.latestIsFirst ? "New for you: \(latest)" : latest,
-                              systemImage: ctx.state.latestSymbol ?? "bird")
+                        Label { Text(ctx.state.latestIsFirst ? "New for you: \(latest)" : latest) }
+                              icon: { Image(symbol: ctx.state.latestSymbol ?? "bird.fill") }
                             .font(.subheadline).foregroundStyle(ctx.state.latestIsFirst ? .orange : .primary)
                     } else {
                         Text("Nothing yet").font(.subheadline).foregroundStyle(.secondary)
@@ -55,24 +55,24 @@ struct ListeningLiveActivity: Widget {
         } dynamicIsland: { ctx in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("\(ctx.state.species) species", systemImage: "ear").font(.caption).foregroundStyle(.green)
+                    Label("\(ctx.state.species) species", systemImage: "mic.fill").font(.caption).foregroundStyle(.green)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Button(intent: StopListeningIntent()) { Image(systemName: "stop.fill") }.tint(.red)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     if let latest = ctx.state.latest {
-                        Label(ctx.state.latestIsFirst ? "New for you: \(latest)" : latest, systemImage: ctx.state.latestSymbol ?? "bird")
+                        Label { Text(ctx.state.latestIsFirst ? "New for you: \(latest)" : latest) } icon: { Image(symbol: ctx.state.latestSymbol ?? "bird.fill") }
                     } else {
                         Text("Listening…").foregroundStyle(.secondary)
                     }
                 }
             } compactLeading: {
-                Image(systemName: "ear").foregroundStyle(.green)
+                Image(systemName: "mic.fill").foregroundStyle(.green)
             } compactTrailing: {
                 Text("\(ctx.state.species)").monospacedDigit()
             } minimal: {
-                Image(systemName: "ear").foregroundStyle(.green)
+                Image(systemName: "mic.fill").foregroundStyle(.green)
             }
         }
     }

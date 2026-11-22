@@ -50,7 +50,7 @@ struct LogView: View {
                         Picker("Group", selection: $group) {
                             Text("Everything").tag(ListenGroup?.none)
                             ForEach(ListenGroup.allCases.filter { $0 != .sound }, id: \.self) { g in
-                                Label(g.title, systemImage: g.symbol).tag(ListenGroup?.some(g))
+                                Label { Text(g.title) } icon: { Image(symbol: g.symbol) }.tag(ListenGroup?.some(g))
                             }
                         }
                     } label: {
@@ -105,7 +105,7 @@ private struct TimelineList: View {
                 }
             }
             if detections.isEmpty {
-                ContentUnavailableView(confirmedOnly ? "Nothing confirmed yet" : "Nothing logged yet", systemImage: "ear",
+                ContentUnavailableView(confirmedOnly ? "Nothing confirmed yet" : "Nothing logged yet", systemImage: "mic",
                                        description: Text("Everything Hark identifies is saved here with time, place and a clip."))
             }
             ForEach(days, id: \.0) { day, items in
@@ -136,7 +136,7 @@ struct LogRow: View {
     let detection: Detection
     var body: some View {
         HStack(spacing: 12) {
-            TaxonIcon(emoji: detection.icon, group: detection.taxon)
+            TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) {
                     Text(detection.common).font(.headline)
@@ -180,7 +180,7 @@ struct ClipButton: View {
             .buttonStyle(.borderless)
             .frame(width: 32)
         } else if !symbol.isEmpty {
-            Image(systemName: symbol).frame(width: 32).foregroundStyle(.secondary)
+            Image(symbol: symbol).frame(width: 32).foregroundStyle(.secondary)
         }
     }
 }
@@ -241,7 +241,7 @@ private struct SpeciesList: View {
             ForEach(rows) { r in
                 NavigationLink(value: SpeciesKey(scientific: r.scientific)) {
                     HStack(spacing: 12) {
-                        TaxonIcon(emoji: HarkCore.Label.table?.label(scientific: r.scientific)?.icon ?? "❔", group: r.group)
+                        TaxonIcon(group: r.group)
                         VStack(alignment: .leading) {
                             HStack(spacing: 6) {
                                 Text(r.common).font(.headline)
@@ -285,7 +285,7 @@ struct SpeciesPage: View {
             if let first = detections.last {
                 Section {
                     HStack(spacing: 14) {
-                        TaxonIcon(emoji: first.icon, group: first.taxon, size: 56)
+                        TaxonIcon(group: first.taxon, size: 56)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(first.common).font(.title2.bold())
                             Text(scientific).italic().foregroundStyle(.secondary)
@@ -356,7 +356,7 @@ struct DetectionDetail: View {
         List {
             Section {
                 HStack(spacing: 14) {
-                    TaxonIcon(emoji: detection.icon, group: detection.taxon, size: 52)
+                    TaxonIcon(group: detection.taxon, size: 52)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack { Text(detection.common).font(.title2.bold()); if detection.isFirst { NewBadge() } }
                         Text(detection.scientific).italic().foregroundStyle(.secondary)
@@ -422,7 +422,7 @@ struct DetectionMap: View {
         Map {
             ForEach(detections.filter { $0.latitude != nil }) { d in
                 Annotation(d.common, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
-                    Image(systemName: d.taxon.symbol).font(.caption).padding(5)
+                    Image(symbol: d.taxon.symbol).font(.caption).padding(5)
                         .background(d.confirmed ? Color.green : Color.accentColor, in: Circle()).foregroundStyle(.white)
                 }
             }

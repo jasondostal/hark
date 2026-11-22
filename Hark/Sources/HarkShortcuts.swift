@@ -7,6 +7,6 @@ struct HarkShortcuts: AppShortcutsProvider {
                     phrases: ["Start listening with \(.applicationName)",
                               "Listen with \(.applicationName)",
                               "What's that sound in \(.applicationName)"],
-                    shortTitle: "Start Listening", systemImageName: "ear")
+                    shortTitle: "Start Listening", systemImageName: "mic.fill")
     }
 }

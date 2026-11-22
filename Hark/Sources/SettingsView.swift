@@ -54,7 +54,7 @@ struct SettingsView: View {
                 let s = listener.policy.setting(g)
                 Toggle(isOn: Binding(get: { s.enabled }, set: { v in listener.policy.set(g, GroupSetting(enabled: v, threshold: s.threshold)) })) {
                     HStack(spacing: 12) {
-                        TaxonIcon(emoji: g.emoji, group: g.taxon, size: 32, faint: !s.enabled)
+                        TaxonIcon(group: g.taxon, size: 32, faint: !s.enabled)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(g.title)
                             Text(s.enabled ? caption(g, s) : "Off").font(.caption).foregroundStyle(.secondary)
@@ -187,6 +187,7 @@ struct SettingsView: View {
             LabeledContent("Speed", value: listener.lastInferenceMs > 0 ? String(format: "%.1f ms per 5 s of audio", listener.lastInferenceMs) : "—")
             LabeledContent("Range data", value: "GBIF.org")
             LabeledContent("Names", value: "OpenFauna")
+            LabeledContent("Frog icon", value: "Font Awesome (CC BY 4.0)")
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
         } header: { Text("About") } footer: {
             Text("Everything runs on this iPhone. Audio never leaves it.")
@@ -204,7 +205,7 @@ struct ThresholdsView: View {
                     let s = listener.policy.setting(g)
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("\(g.emoji)  \(g.title)")
+                            Label { Text(g.title) } icon: { TaxonIcon(group: g.taxon, size: 26) }
                             Spacer()
                             Text("\(Int(s.threshold * 100))%").monospacedDigit().foregroundStyle(.secondary)
                         }
