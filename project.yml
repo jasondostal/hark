@@ -24,12 +24,11 @@ targets:
     dependencies:
       - package: HarkCore
       - target: HarkWidgets
-    # App Group (widget "today" data) needs an Xcode account signed in: wildcard profile can't carry it and the
-    # ASC key can't provision. Widgets fall back to Listen-button-only without it. Uncomment once signed in.
-    # entitlements:
-    #   path: Hark/Hark.entitlements
-    #   properties:
-    #     com.apple.security.application-groups: [group.dev.ducktyping.hark]
+    # App Group: shares "today" data with the widgets (needs the Xcode account signed in to provision).
+    entitlements:
+      path: Hark/Hark.entitlements
+      properties:
+        com.apple.security.application-groups: [group.dev.ducktyping.hark]
     info:
       path: Hark/Info.plist
       properties:
@@ -72,12 +71,10 @@ targets:
     sources:
       - path: HarkWidgets
       - path: Hark/Shared
-    # App Group (widget "today" data) needs an Xcode account signed in: wildcard profile can't carry it and the
-    # ASC key can't provision. Widgets fall back to Listen-button-only without it. Uncomment once signed in.
-    # entitlements:
-    #   path: HarkWidgets/HarkWidgets.entitlements
-    #   properties:
-    #     com.apple.security.application-groups: [group.dev.ducktyping.hark]
+    entitlements:
+      path: HarkWidgets/HarkWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.dev.ducktyping.hark]
     info:
       path: HarkWidgets/Info.plist
       properties:
