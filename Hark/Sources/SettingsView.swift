@@ -208,8 +208,9 @@ struct SettingsView: View {
                 Slider(value: $listener.contrast, in: 0...1)
             }
             Toggle("Frequency labels", isOn: $listener.frequencyLabels)
+            Toggle("Critters on the calls", isOn: $listener.critters)
         } footer: {
-            Text("Owling is all red, to keep your night vision on an owl prowl. Punchy contrast makes faint calls stand out but also shows more background. Colors and contrast don't change what Hark identifies.")
+            Text("Critters pin each logged species on its call as it scrolls by; in full-screen landscape they collect on the left. Owling is all red, to keep your night vision on an owl prowl. Punchy contrast makes faint calls stand out but also shows more background. Colors and contrast don't change what Hark identifies.")
         }
     }
 

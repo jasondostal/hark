@@ -322,7 +322,7 @@ final class Listener {
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
         sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []
-        recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
+        recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
         audio.onSamples = { [weak self] s, db in
@@ -485,9 +485,34 @@ final class Listener {
             NSLog("HARK-WINDOW %.0f ms: %@", lastInferenceMs, result.hits.map { "\(labels[$0.index].common) \(Int($0.confidence * 100))%" }.joined(separator: ", "))
         }
         for change in tracker.add(result) { log(change, labels) }
+        if critters { placeMarkers(result.hits.map(\.index), labels) }
         hearingNow = tracker.active(at: .now)
         session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
         updateMaybes(triage, at: result.time)
+    }
+
+    // MARK: Critters on the spectrogram
+
+    /// A logged species pinned on the loudest spot of the window it was heard in.
+    struct Marker: Identifiable, Equatable {
+        let id = UUID(); let index: Int; let group: TaxonGroup; let name: String; let column: Int; let band: Int
+    }
+    var markers: [Marker] = []
+    private var lastMarker: [Int: Date] = [:]
+    var critters: Bool = UserDefaults.standard.object(forKey: "critters") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(critters, forKey: "critters") }
+    }
+
+    /// One pin per species every 6 s while it keeps calling; species heard together go on different bands.
+    private func placeMarkers(_ hits: [Int], _ labels: LabelTable) {
+        let logged = Set(tracker.occurrences.map(\.index)), now = Date()
+        var used: [Int] = []
+        for i in hits where logged.contains(i) && now.timeIntervalSince(lastMarker[i] ?? .distantPast) >= 6 {
+            guard let p = live.peak(seconds: 4, avoiding: used) else { continue }
+            used.append(p.band); lastMarker[i] = now
+            markers.append(Marker(index: i, group: labels[i].group, name: labels[i].common, column: p.column, band: p.band))
+        }
+        if markers.count > 150 { markers.removeFirst(markers.count - 150) }
     }
 
     private func updateMaybes(_ t: DetectionPolicy.Triage, at now: Date) {

@@ -105,7 +105,9 @@ struct ListenView: View {
                     FrozenSpectrogram(selection: selection, palette: listener.palette, frequencyLabels: listener.frequencyLabels)
                 } else {
                     SpectrogramView(source: listener.live, running: listener.state == .listening,
-                                    palette: listener.palette, frequencyLabels: listener.frequencyLabels)
+                                    palette: listener.palette, frequencyLabels: listener.frequencyLabels,
+                                    markers: listener.critters ? listener.markers : [],
+                                    dock: listener.critters && landscape && !showColumn)
                 }
             }
             .contentShape(Rectangle())
@@ -130,7 +132,7 @@ struct ListenView: View {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
             }
         }
-        .overlay(alignment: .topLeading) { if landscape && !showColumn { hearingTags } }
+        .overlay(alignment: .topLeading) { if landscape && !showColumn && !listener.critters { hearingTags } }
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
     }
 

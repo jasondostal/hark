@@ -1,4 +1,5 @@
 import SwiftUI
+import HarkCore
 import Accelerate
 import CoreGraphics
 
@@ -200,7 +201,30 @@ final class LiveSpectrogram: @unchecked Sendable {
         return max(0, Int((Double(produced) - playhead) * Double(SpectrogramDSP.hop))) + tail.count
     }
 
-    struct Frame { let image: CGImage; let groups: Int; let fraction: CGFloat }
+    struct Frame {
+        let image: CGImage; let groups: Int; let fraction: CGFloat
+        /// Raw columns per image column, and the absolute group number of the image's first column.
+        let k: Int; let firstGroup: Int
+        /// Where absolute spectrogram column `c` sits, as a fraction of the view width (can be < 0 or > 1).
+        func x(ofColumn c: Int) -> CGFloat { (CGFloat(c) / CGFloat(k) - CGFloat(firstGroup) - fraction) / CGFloat(groups) }
+    }
+
+    /// Loudest spot (column, band) in the newest `seconds`, skipping rumble and bands near `avoiding`, for pinning a
+    /// critter on the call that was just identified.
+    func peak(seconds: Double, avoiding: [Int] = []) -> (column: Int, band: Int)? {
+        lock.lock(); defer { lock.unlock() }
+        let end = produced, start = max(end - Int(seconds * Double(SpectrogramDSP.columnsPerSecond)), end - Self.capacity + 1, 0)
+        guard end - start > 10 else { return nil }
+        var best = (c: start, b: 0, v: -1)
+        for c in start..<end {
+            let base = (c % Self.capacity) * Self.bins
+            for b in 12..<(Self.bins - 1) where !avoiding.contains(where: { abs($0 - b) < 14 }) {
+                let v = Int(ring[base + b - 1]) + 2 * Int(ring[base + b]) + Int(ring[base + b + 1])
+                if v > best.v { best = (c, b, v) }
+            }
+        }
+        return best.v < 0 ? nil : (best.c, best.b)
+    }
 
     /// Main thread, once per display frame. The image holds groups+1 columns (each the max of k raw columns,
     /// grouped on absolute column numbers so they don't shimmer); draw it groups+1 wide and shift it left by
@@ -247,7 +271,7 @@ final class LiveSpectrogram: @unchecked Sendable {
         }
         guard let img = SpectrogramDSP.cgImage(&px, w, h) else { return nil }
         // 8-bit steps a whole block at a time, like an old handheld; otherwise it glides.
-        return Frame(image: img, groups: n, fraction: pixel ? 0 : CGFloat(pos - Double(endGroup)))
+        return Frame(image: img, groups: n, fraction: pixel ? 0 : CGFloat(pos - Double(endGroup)), k: k, firstGroup: endGroup - n)
     }
 }
 
@@ -256,6 +280,10 @@ struct SpectrogramView: View {
     let running: Bool
     var palette: SpectrogramPalette = .aurora
     var frequencyLabels = true
+    /// Critters pinned on the calls they were identified from; they scroll with the audio.
+    var markers: [Listener.Marker] = []
+    /// Collect the critters that scroll off the left edge in a stack there (landscape full screen).
+    var dock = false
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !running)) { tl in
             GeometryReader { g in
@@ -266,6 +294,7 @@ struct SpectrogramView: View {
                         Image(decorative: f.image, scale: 1).resizable().interpolation(palette.isPixel ? .none : .medium)
                             .frame(width: g.size.width + colW, height: g.size.height)
                             .offset(x: -f.fraction * colW)
+                        critters(f, g.size)
                     } else {
                         Text("Tap Listen to start").font(.callout).foregroundStyle(palette.labelColor)
                             .frame(width: g.size.width, height: g.size.height)
@@ -275,6 +304,64 @@ struct SpectrogramView: View {
             }
         }
         .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel) } }
+    }
+}
+
+extension SpectrogramView {
+    @ViewBuilder fileprivate func critters(_ f: LiveSpectrogram.Frame, _ size: CGSize) -> some View {
+        let wide = size.width > 560
+        let placed = markers.map { ($0, f.x(ofColumn: $0.column) * size.width) }
+        ForEach(placed.filter { $0.1 > -12 && $0.1 < size.width + 12 }, id: \.0.id) { m, x in
+            let y = size.height * (1 - (CGFloat(m.band) + 0.5) / CGFloat(SpectrogramDSP.bins))
+            CritterMarker(group: m.group, name: wide ? m.name : nil, pixel: palette.isPixel)
+                .position(x: x, y: min(max(y - (wide ? 22 : 16), 16), size.height - 24))
+                .transition(.scale(scale: 0.2).combined(with: .opacity))
+        }
+        .animation(.spring(duration: 0.35, bounce: 0.5), value: markers.count)
+        if dock {
+            // Passed off the left edge: newest first, one per species.
+            let passed = placed.filter { $0.1 <= -12 }.sorted { $0.0.column > $1.0.column }
+            var seen = Set<Int>()
+            let shelf = passed.map(\.0).filter { seen.insert($0.index).inserted }.prefix(6)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(shelf)) { m in
+                    HStack(spacing: 6) {
+                        CritterMarker(group: m.group, name: nil, pixel: palette.isPixel)
+                        Text(m.name).font(palette.isPixel ? .pixel(9) : .caption.weight(.semibold))
+                            .foregroundStyle(.white).lineLimit(1)
+                            .shadow(color: .black.opacity(0.6), radius: 2)
+                    }
+                    .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.4, bounce: 0.4), value: shelf.map(\.index))
+            .padding(.leading, 36).padding(.top, 10)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+/// A critter's group glyph on a tinted disc, pinned over the spectrogram.
+struct CritterMarker: View {
+    let group: TaxonGroup
+    var name: String?
+    var pixel = false
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(symbol: group.symbol)
+                .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(TaxonIcon.tint(group), in: pixel ? AnyShape(Rectangle()) : AnyShape(Circle()))
+                .overlay { (pixel ? AnyShape(Rectangle()) : AnyShape(Circle())).stroke(.white.opacity(0.85), lineWidth: pixel ? 2 : 1.5) }
+                .shadow(color: .black.opacity(0.4), radius: 3)
+            if let name {
+                Text(name).font(pixel ? .pixel(8) : .system(size: 10, weight: .semibold)).foregroundStyle(.white)
+                    .lineLimit(1).fixedSize()
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(.black.opacity(0.45), in: Capsule())
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
