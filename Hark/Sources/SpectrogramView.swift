@@ -25,7 +25,30 @@ final class SpectrogramDSP {
 
     /// One column of 128 display levels (0...255, low band first) from n samples starting at `frame`.
     func column(_ frame: UnsafePointer<Float>, into out: UnsafeMutablePointer<UInt8>) {
+        var db = [Float](repeating: 0, count: Self.bins)
+        // Digital silence (a feed's lead-in, a gap in a saved clip) would drag the noise floor down so far that the
+        // real audio after it saturates: draw it as background and leave the floor alone.
+        guard Self.bandsDB(frame, setup: setup, into: &db) else { for b in 0..<Self.bins { out[b] = 0 }; return }
+        map(db, into: out)
+    }
+
+    /// Display levels for one column of band powers (dB), following and updating the noise floor.
+    private func map(_ db: [Float], into out: UnsafeMutablePointer<UInt8>) {
+        let span = SpectrogramStyle.shared.span
+        for b in 0..<Self.bins {
+            if warm < 30 { floorDB[b] = warm == 0 ? db[b] : min(floorDB[b], db[b]) + 0.3 }
+            else { floorDB[b] += (db[b] - floorDB[b]) * (db[b] < floorDB[b] ? 0.03 : 0.003) }
+            out[b] = UInt8(min(max((db[b] - floorDB[b] - 4) / span, 0), 1) * 255)
+        }
+        warm += 1
+    }
+
+    /// Mel band powers in dB for n samples at `frame`; false for digital silence.
+    private static func bandsDB(_ frame: UnsafePointer<Float>, setup: FFTSetup, into dbOut: inout [Float]) -> Bool {
         let n = Self.n, half = n / 2
+        var peak: Float = 0
+        vDSP_maxmgv(frame, 1, &peak, vDSP_Length(n))
+        if peak < 1e-7 { return false }
         var windowed = [Float](repeating: 0, count: n)
         vDSP_vmul(frame, 1, Self.window, 1, &windowed, 1, vDSP_Length(n))
         var re = [Float](repeating: 0, count: half), im = [Float](repeating: 0, count: half)
@@ -43,14 +66,8 @@ final class SpectrogramDSP {
         }
         var bands = [Float](repeating: 0, count: Self.bins)
         vDSP_mmul(Self.mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
-        let span = SpectrogramStyle.shared.span
-        for b in 0..<Self.bins {
-            let db = 10 * log10f(bands[b] + 1e-12)
-            if warm < 30 { floorDB[b] = warm == 0 ? db : min(floorDB[b], db) + 0.3 }
-            else { floorDB[b] += (db - floorDB[b]) * (db < floorDB[b] ? 0.03 : 0.003) }
-            out[b] = UInt8(min(max((db - floorDB[b] - 4) / span, 0), 1) * 255)
-        }
-        warm += 1
+        for b in 0..<Self.bins { dbOut[b] = 10 * log10f(bands[b] + 1e-12) }
+        return true
     }
 
     /// Whole-clip spectrogram (selections, saved clips): column-major levels, 128 per column.
@@ -59,13 +76,23 @@ final class SpectrogramDSP {
         let cols = (samples.count - n) / hop + 1
         var data = [UInt8](repeating: 0, count: cols * bins)
         let dsp = SpectrogramDSP()
+        var dbs = [[Float]?](repeating: nil, count: cols)
         samples.withUnsafeBufferPointer { s in
-            data.withUnsafeMutableBufferPointer { d in
-                // Settle the noise floor on the clip first, so its start isn't drawn bright while the floor is still
-                // finding the background (it starts from the quietest columns, then follows quiet fast, loud slowly).
-                for c in 0..<min(cols, 300) { dsp.column(s.baseAddress! + c * hop, into: d.baseAddress! + c * bins) }
-                for c in 0..<cols { dsp.column(s.baseAddress! + c * hop, into: d.baseAddress! + c * bins) }
-            }
+            var db = [Float](repeating: 0, count: bins)
+            for c in 0..<cols where bandsDB(s.baseAddress! + c * hop, setup: dsp.setup, into: &db) { dbs[c] = db }
+        }
+        // Start each band's floor at its quietest fifth over the whole clip, so the start isn't drawn bright while
+        // the floor is still finding the background (or seeded too low by a fade-in); then it follows as live.
+        let sounding = dbs.compactMap { $0 }
+        guard !sounding.isEmpty else { return (data, cols) }
+        var floors = (0..<bins).map { b -> Float in var v = sounding.map { $0[b] }; v.sort(); return v[v.count / 5] }
+        // Bands far quieter than the rest (above a saved clip's AAC cutoff) would light up on any trace of energy.
+        let median = floors.sorted()[bins / 2]
+        floors = floors.map { max($0, median - 25) }
+        for b in 0..<bins { dsp.floorDB[b] = floors[b] }
+        dsp.warm = 30
+        data.withUnsafeMutableBufferPointer { d in
+            for c in 0..<cols { if let db = dbs[c] { dsp.map(db, into: d.baseAddress! + c * bins) } }
         }
         return (data, cols)
     }

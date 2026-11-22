@@ -106,6 +106,7 @@ struct LogView: View {
                     }
                 }
                 #if DEBUG
+                if args.contains("-sharecard"), let d = all.first(where: { $0.clipFile != nil }) { path.append(d) }
                 if args.contains("-exportpdf"), let u = try? PDFExport(rows: all.map(ExportRow.init)).write() { NSLog("HARK pdf: %@", u.path) }
                 #endif
                 if let i = args.firstIndex(of: "-openspecies"), i + 1 < args.count {

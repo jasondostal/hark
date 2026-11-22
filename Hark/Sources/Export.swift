@@ -160,34 +160,13 @@ struct LogExportMenu: View {
 
 // MARK: One detection
 
-/// The clip under a readable name ("Northern Cardinal 2026-11-22 0612.m4a").
-struct ClipShare: Transferable {
-    let file: String
-    let title: String
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .mpeg4Audio) { c in
-            let dst = try exportFolder().appending(path: c.title.replacingOccurrences(of: "/", with: "-") + ".m4a")
-            try? FileManager.default.removeItem(at: dst)
-            try FileManager.default.copyItem(at: ClipStore.url(c.file), to: dst)
-            return SentTransferredFile(dst)
-        }
-    }
-}
-
-/// Detection page: share it (Messages, Mail...), with its recording when there is one.
+/// Detection page: opens the share card (preview, location choice, recording) and then the share sheet.
 struct DetectionShareButton: View {
     let detection: Detection
+    @State private var show = ProcessInfo.processInfo.arguments.contains("-sharecard")   // screenshot aid
     var body: some View {
-        let when = detection.firstHeard.formatted(date: .abbreviated, time: .shortened)
-        let sci = detection.isSpecies && detection.displayName != detection.scientific ? " (\(detection.scientific))" : ""
-        let message = "Heard a \(detection.displayName)\(sci) on \(when), \(detection.confidence.shownPercent)% sure\(detection.confirmed ? ", and saw it" : ""). Identified on my iPhone with Hark."
-        if let file = detection.clipFile, FileManager.default.fileExists(atPath: ClipStore.url(file).path) {
-            let stamp = detection.firstHeard.formatted(.iso8601.year().month().day()) + " " + detection.firstHeard.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
-            ShareLink(item: ClipShare(file: file, title: "\(detection.displayName) \(stamp)"),
-                      subject: Text(detection.displayName), message: Text(message),
-                      preview: SharePreview(detection.displayName, image: Image(systemName: "waveform")))
-        } else {
-            ShareLink(item: message, subject: Text(detection.displayName))
-        }
+        Button { show = true } label: { Image(systemName: "square.and.arrow.up") }
+            .accessibilityLabel("Share")
+            .sheet(isPresented: $show) { ShareCardSheet(detection: detection).themeRoot() }
     }
 }
