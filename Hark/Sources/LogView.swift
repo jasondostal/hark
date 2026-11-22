@@ -13,6 +13,7 @@ struct LogView: View {
     @State private var search = ""
     @State private var group: ListenGroup?
     @State private var path = NavigationPath()
+    @Environment(\.verticalSizeClass) private var verticalSize
     @Query(sort: \ListeningSession.started, order: .reverse) private var records: [ListeningSession]
 
     enum Mode: String, CaseIterable { case timeline = "Timeline", sessions = "Sessions", species = "Species", map = "Map" }
@@ -46,6 +47,17 @@ struct LogView: View {
         }
     }
 
+    private var landscapeBar: Bool {
+        if #available(iOS 26, *) { verticalSize == .compact } else { false }
+    }
+
+    private var modePicker: some View {
+        Picker("View", selection: $mode) {
+            ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented)
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             Group {
@@ -57,19 +69,24 @@ struct LogView: View {
                 }
             }
             // View switcher + filter at the bottom, where the thumb is.
+            // Landscape (iOS 26): in the bottom toolbar, sharing one row with the minimized search button.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack(spacing: 10) {
-                    Picker("View", selection: $mode) {
-                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    filterMenu
+                if !landscapeBar {
+                    HStack(spacing: 10) { modePicker; filterMenu }
+                        .padding(.horizontal).padding(.vertical, 8)
+                        .background(.bar)
                 }
-                .padding(.horizontal).padding(.vertical, 8)
-                .background(.bar)
             }
+            .toolbar {
+                if landscapeBar {
+                    ToolbarItem(placement: .bottomBar) { modePicker.frame(maxWidth: 420) }
+                    ToolbarItem(placement: .bottomBar) { filterMenu }
+                }
+            }
+            .modifier(SearchInBottomBar(on: landscapeBar))
             .navigationTitle("Log")
             .searchable(text: $search, prompt: "Search species")
+            .modifier(MinimizedSearch(on: verticalSize == .compact))   // landscape: search shrinks to a button
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
@@ -481,5 +498,25 @@ private struct LogMap: View {
                     .padding(.top, 80)
             }
         }
+    }
+}
+
+/// Landscape has little height to spare, so the bottom search field collapses to a button (iOS 26).
+private struct MinimizedSearch: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) { content.searchToolbarBehavior(on ? .minimize : .automatic) } else { content }
+    }
+}
+
+private struct SearchInBottomBar: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *), on {
+            content.toolbar {
+                ToolbarSpacer(.fixed, placement: .bottomBar)
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            }
+        } else { content }
     }
 }

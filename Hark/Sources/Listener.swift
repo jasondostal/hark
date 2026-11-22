@@ -184,7 +184,13 @@ final class Listener {
     }
     /// Seconds of audio across the live spectrogram.
     var spectrogramSeconds: Int = UserDefaults.standard.object(forKey: "spectrogramSeconds") as? Int ?? 10 {
-        didSet { UserDefaults.standard.set(spectrogramSeconds, forKey: "spectrogramSeconds"); live.setSeconds(spectrogramSeconds) }
+        didSet { UserDefaults.standard.set(spectrogramSeconds, forKey: "spectrogramSeconds"); live.setSeconds(shownSeconds) }
+    }
+    /// Spectrogram width over its portrait width: landscape shows proportionally more time at the same detail.
+    var widthScale = 1.0 { didSet { if shownSeconds != Self.seconds(spectrogramSeconds, oldValue) { live.setSeconds(shownSeconds) } } }
+    var shownSeconds: Int { Self.seconds(spectrogramSeconds, widthScale) }
+    private static func seconds(_ s: Int, _ scale: Double) -> Int {
+        min(max(Int((Double(s) * max(scale, 1)).rounded()), s), LiveSpectrogram.maxSeconds)
     }
     var frequencyLabels: Bool = UserDefaults.standard.object(forKey: "frequencyLabels") as? Bool ?? true {
         didSet { UserDefaults.standard.set(frequencyLabels, forKey: "frequencyLabels") }
@@ -216,7 +222,7 @@ final class Listener {
         ClipPlayer.shared.onPlay = { [weak self] d in self?.quietUntil = .now.addingTimeInterval(d + 5.5) }
         SpectrogramStyle.shared.set(palette: palette)
         SpectrogramStyle.shared.set(contrast: contrast)
-        live.setSeconds(spectrogramSeconds)
+        live.setSeconds(shownSeconds)
         audio.setHighPass(rumbleFilter)
         audio.preferredInputUID = inputUID
     }
@@ -541,7 +547,7 @@ final class Listener {
     func freezeForSelection() {
         let n = min(store.count, 32_000 * AudioStore.seconds)
         guard n >= 32_000, !selection.isFrozen else { return }
-        selection.freeze(AudioSnapshot(samples: store.latest(n), end: .now), seconds: spectrogramSeconds,
+        selection.freeze(AudioSnapshot(samples: store.latest(n), end: .now), seconds: shownSeconds,
                          lagSamples: state == .listening ? live.lagSamples() : 0)
     }
 

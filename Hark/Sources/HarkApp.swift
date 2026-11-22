@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import SwiftData
 
 @main
@@ -13,6 +14,12 @@ struct HarkApp: App {
                 if url.host == "listen" { Task { await listener.requestStart() } }
             }
             .task {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-landscape"),     // screenshot aid
+                   let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                    scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+                }
+                #endif
                 await listener.loadModel()
                 // Testing aid: start listening right away (simulator / devicectl launches).
                 if ProcessInfo.processInfo.arguments.contains("-autolisten") { await listener.start() }

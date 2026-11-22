@@ -14,17 +14,14 @@ struct ListenView: View {
     @State private var dragEdge: Int?
     @State private var dragStarted = false
 
+    @Environment(\.verticalSizeClass) private var verticalSize
+    private var landscape: Bool { verticalSize == .compact }
+
     var body: some View {
         @Bindable var listener = listener
-        VStack(spacing: 0) {
-            spectrogramPanel
-            List { content }
-                .listStyle(.insetGrouped)
-                .contentMargins(.top, 8, for: .scrollContent)
-        }
+        layout
         .background(Color(.systemGroupedBackground))
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
-        .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
+        .environment(\.compactRows, landscape)
         .animation(.spring, value: listener.celebration?.id)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showLog) { LogView() }
@@ -48,12 +45,51 @@ struct ListenView: View {
         }
     }
 
+    /// Portrait: spectrogram on top, list, thumb bar. Landscape (phone on its side, a tripod, a dash): the spectrogram
+    /// takes the width and shows twice the time, the list is a column beside it and the buttons a camera-style rail.
+    @ViewBuilder private var layout: some View {
+        if landscape {
+            GeometryReader { g in
+                // Portrait width of this phone = the landscape height including the safe areas.
+                let portraitWidth = g.size.height + g.safeAreaInsets.top + g.safeAreaInsets.bottom
+                HStack(spacing: 0) {
+                    spectrogramPanel(height: nil)
+                        .background(listener.palette.background.ignoresSafeArea())   // no white gutters by the island
+                        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { w in
+                            listener.widthScale = w / max(portraitWidth, 1)
+                        }
+                    list
+                        .frame(width: 270)
+                        .overlay(alignment: .bottom) { celebration.padding(.bottom, 16) }
+                    sideRail
+                }
+            }
+            .onDisappear { listener.widthScale = 1 }
+        } else {
+            VStack(spacing: 0) {
+                spectrogramPanel(height: 250)
+                list
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+            .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
+            .onAppear { listener.widthScale = 1 }
+        }
+    }
+
+    private var list: some View {
+        List { content }
+            .listStyle(.insetGrouped)
+            .contentMargins(.top, 8, for: .scrollContent)
+            .contentMargins(.horizontal, landscape ? 8 : nil, for: .scrollContent)
+            .listSectionSpacing(landscape ? .compact : .default)
+    }
+
     // MARK: Spectrogram
 
     private var selection: Selection { listener.selection }
 
     /// Live, it scrolls; the first touch freezes it (listening carries on) and a drag picks out a call.
-    private var spectrogramPanel: some View {
+    private func spectrogramPanel(height: CGFloat?) -> some View {
         GeometryReader { g in
             Group {
                 if selection.isFrozen {
@@ -77,7 +113,7 @@ struct ListenView: View {
                 Task { await selection.analyze(listener) }
             }
         }
-        .frame(height: 250)
+        .frame(height: height)
         .popoverTip(SelectTip(), arrowEdge: .top)
         .overlay(alignment: .top) {
             if selection.isFrozen && selection.canPan {
@@ -260,6 +296,21 @@ struct ListenView: View {
         .background(.bar)
     }
 
+    /// Landscape: the same three buttons, top to bottom, on the trailing edge where the right thumb is.
+    private var sideRail: some View {
+        VStack {
+            BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
+            Spacer()
+            ListenButton()
+            Spacer()
+            BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
+        }
+        .padding(.vertical, 8)
+        .frame(width: 84)
+        .frame(maxHeight: .infinity)
+        .background(.bar)
+    }
+
     @ViewBuilder private var celebration: some View {
         if let c = listener.celebration {
             HStack(spacing: 10) {
@@ -339,7 +390,27 @@ struct NowRow: View {
     /// Both models backed it (Both mode).
     var agreed = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.compactRows) private var compact
     var body: some View {
+        if compact { compactBody } else { fullBody }
+    }
+
+    /// Landscape column: name, a seal when both models agree, and the percentage.
+    private var compactBody: some View {
+        HStack(spacing: 10) {
+            TaxonIcon(group: label.group)
+            Text(label.common).font(.headline).lineLimit(2).minimumScaleFactor(0.85)
+            Spacer(minLength: 4)
+            if agreed {
+                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+                    .accessibilityLabel("Perch and BirdNET+ agree")
+            }
+            Text("\(confidence.shownPercent)%").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var fullBody: some View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
@@ -436,13 +507,20 @@ struct SessionRow: View {
     }
 }
 
+extension EnvironmentValues {
+    /// Narrow landscape column: rows drop secondary detail and buttons go icon-only.
+    @Entry var compactRows = false
+}
+
 struct ConfirmButton: View {
     @Bindable var detection: Detection
+    @Environment(\.compactRows) private var compact
     var body: some View {
         Button { detection.confirmed.toggle() } label: {
             Label(detection.confirmed ? "Saw it" : "I saw it",
                   systemImage: detection.confirmed ? "checkmark.seal.fill" : "eye")
-                .font(.caption).labelStyle(.titleAndIcon)
+                .font(.caption)
+                .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
         }
         .buttonStyle(.bordered)
         .tint(detection.confirmed ? .green : .secondary)
@@ -516,4 +594,11 @@ private struct MuteSwipe: ViewModifier {
                 Button(role: .destructive) { listener.mute(index) } label: { Label("Never show this species", systemImage: "speaker.slash") }
             }
     }
+}
+
+/// Lets a view switch label styles at run time.
+struct AnyLabelStyle: LabelStyle {
+    private let make: (Configuration) -> AnyView
+    init<S: LabelStyle>(_ style: S) { make = { AnyView(style.makeBody(configuration: $0)) } }
+    func makeBody(configuration: Configuration) -> some View { make(configuration) }
 }
