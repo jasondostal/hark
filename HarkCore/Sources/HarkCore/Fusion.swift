@@ -7,6 +7,27 @@ import Foundation
 public enum Fusion {
     public enum Model: String, Codable, CaseIterable, Sendable { case perch, birdnet, both }
 
+    /// What people see: a Perch-scale score as the BirdNET-style percentage every other app shows (0.30 -> 75%,
+    /// 0.41 -> 85%, 0.50 -> 89%, 0.70 -> 94%). Logic stays on Perch's scale; only the display converts.
+    public static func display(_ p: Float) -> Float {
+        let logit = logf(3) + 2 * logf(max(p, 1e-6) / 0.30)
+        return 1 / (1 + expf(-logit))
+    }
+    /// The Perch-scale score that displays as `d` (for sliders and presets written in displayed percentages).
+    public static func fromDisplay(_ d: Float) -> Float {
+        let x = min(max(d, 0.01), 0.995)
+        return min(0.99, 0.30 * expf((logf(x / (1 - x)) - logf(3)) / 2))
+    }
+
+    /// Music, singing, speech and other human sounds Perch recognises. When they fill a window (summed score >=
+    /// humanGate), a song on the TV shouldn't become a bird: only 'sure' animal IDs count in that window.
+    public static let humanSoundClasses = ["Acoustic_guitar", "Bass_guitar", "Bowed_string_instrument", "Brass_instrument",
+        "Child_speech_and_kid_speaking", "Conversation", "Crowd", "Electric_guitar", "Female_singing",
+        "Female_speech_and_woman_speaking", "Guitar", "Human_voice", "Keyboard_(musical)", "Laughter", "Male_singing",
+        "Male_speech_and_man_speaking", "Music", "Musical_instrument", "Piano", "Plucked_string_instrument", "Singing",
+        "Speech", "Speech_synthesizer", "Telephone", "Wind_instrument_and_woodwind_instrument"]
+    public static let humanGate: Float = 0.20
+
     /// A BirdNET+ score on Hark's (Perch) scale.
     public static func perchEquivalent(_ b: Float) -> Float {
         let x = min(max(b, 1e-6), 1 - 1e-6)

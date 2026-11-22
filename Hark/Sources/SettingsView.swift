@@ -102,6 +102,7 @@ struct SettingsView: View {
                 if listener.policy.preset == nil { Text("Custom").tag(Preset?.none) }
             }
             .pickerStyle(.segmented)
+            Toggle("Show maybes", isOn: Binding(get: { listener.showMaybes }, set: { listener.showMaybes = $0 }))
         } header: { Text("Detection") } footer: {
             Text((listener.birdnetAvailable ? modelBlurb + " " : "") + (listener.policy.preset?.blurb ?? "You've fine-tuned the thresholds. Pick a preset to reset them."))
         }
@@ -126,8 +127,8 @@ struct SettingsView: View {
     }
 
     private func caption(_ g: ListenGroup, _ s: GroupSetting) -> String {
-        g == .sound ? "Shows at \(Int(s.threshold * 100))% · never logged"
-                    : "Logs at \(Int(s.threshold * 100))% · maybes from \(Int(listener.policy.maybeFloor(g) * 100))%"
+        g == .sound ? "Shows at \(s.threshold.shownPercent)% · never logged"
+                    : "Logs at \(s.threshold.shownPercent)%" + (listener.showMaybes ? " · maybes from \(listener.policy.maybeFloor(g).shownPercent)%" : "")
     }
 
     // MARK: Location & season
@@ -296,16 +297,18 @@ struct ThresholdsView: View {
                         HStack {
                             Label { Text(g.title) } icon: { TaxonIcon(group: g.taxon, size: 26) }
                             Spacer()
-                            Text("\(Int(s.threshold * 100))%").monospacedDigit().foregroundStyle(.secondary)
+                            Text("\(s.threshold.shownPercent)%").monospacedDigit().foregroundStyle(.secondary)
                         }
-                        Slider(value: Binding(get: { s.threshold }, set: { v in listener.policy.set(g, GroupSetting(enabled: s.enabled, threshold: v)) }),
-                               in: 0.1...0.9, step: 0.05)
+                        // the slider moves in the percentages people see; the policy keeps Perch's scale
+                        Slider(value: Binding(get: { Fusion.display(s.threshold) },
+                                              set: { v in listener.policy.set(g, GroupSetting(enabled: s.enabled, threshold: Fusion.fromDisplay(v))) }),
+                               in: 0.5...0.98, step: 0.01)
                             .disabled(!s.enabled)
                     }
                     .opacity(s.enabled ? 1 : 0.4)
                 }
             } footer: {
-                Text("Why the numbers look low: confidence is on Perch's scale, which splits 100% across 14,795 sounds, so it runs far below BirdNET's. BirdNET+ scores are converted to the same scale (its 75% is about Perch's 30%), so these settings mean the same with either model.\n\nA sound at or above its group's threshold is logged. Between half the threshold and the threshold it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls.")
+                Text("A sound at or above its group's bar is logged; with Show maybes on, a little under it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls. Percentages read like BirdNET's: 85% is a confident ID.")
             }
             Section {
                 ForEach(Preset.allCases, id: \.self) { p in

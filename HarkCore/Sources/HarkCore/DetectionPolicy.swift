@@ -53,12 +53,7 @@ public enum ListenGroup: String, Codable, CaseIterable, Sendable {
     }
 
     /// Insects and the catch-all start stricter: that's where Perch is least reliable.
-    public var defaultSetting: GroupSetting {
-        switch self {
-        case .insect, .other: GroupSetting(threshold: 0.4)
-        default: GroupSetting(threshold: 0.3)
-        }
-    }
+    public var defaultSetting: GroupSetting { GroupSetting(threshold: Preset.balanced.threshold(self)) }
 }
 
 /// One-tap sensitivity presets. Perch's scores are a softmax over 14,795 classes, so they run far lower than
@@ -68,14 +63,20 @@ public enum Preset: String, CaseIterable, Sendable {
     case sensitive, balanced, strict
 
     public var title: String { rawValue.capitalized }
-    /// Threshold for birds, frogs, mammals, reptiles and sounds; insects and "other" sit 0.10 higher.
-    public var base: Float { switch self { case .sensitive: 0.15; case .balanced: 0.30; case .strict: 0.50 } }
-    public func threshold(_ g: ListenGroup) -> Float { g == .insect || g == .other ? base + 0.10 : base }
+    /// Displayed (BirdNET-style) logging bar for birds, frogs, mammals, reptiles and sounds; insects and "other",
+    /// where the models are least reliable, sit higher.
+    public var shown: Float { switch self { case .sensitive: 0.70; case .balanced: 0.85; case .strict: 0.92 } }
+    public var shownInsect: Float { switch self { case .sensitive: 0.80; case .balanced: 0.90; case .strict: 0.95 } }
+    public func threshold(_ g: ListenGroup) -> Float {
+        Fusion.fromDisplay(g == .insect || g == .other ? shownInsect : shown)
+    }
+    /// Pre-1.0 presets (Perch scale), to move saved settings onto the new ones.
+    public var legacyBase: Float { switch self { case .sensitive: 0.15; case .balanced: 0.30; case .strict: 0.50 } }
     public var blurb: String {
         switch self {
-        case .sensitive: "Catches faint and distant calls. More wrong guesses: check before you trust them."
-        case .balanced: "A good default. Logs most clear calls; quieter ones show as maybes."
-        case .strict: "Only logs Perch's surest IDs. Misses some real ones, rarely wrong."
+        case .sensitive: "Catches faint and distant calls, with more wrong guesses. Check before you trust them."
+        case .balanced: "Logs confident IDs, like BirdNET at 85%. A good default."
+        case .strict: "Only the surest IDs. Misses some real calls, rarely wrong."
         }
     }
 }
@@ -90,6 +91,14 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
     }
 
     public func setting(_ g: ListenGroup) -> GroupSetting { groups[g] ?? g.defaultSetting }
+
+    /// Settings saved before the BirdNET-style scale: an old preset becomes the same-named new one.
+    public mutating func migrateLegacyPresets() {
+        for p in Preset.allCases where ListenGroup.allCases.allSatisfy({ g in
+            abs(setting(g).threshold - ((g == .insect || g == .other) ? p.legacyBase + 0.10 : p.legacyBase)) < 1e-4 }) {
+            apply(p); return
+        }
+    }
 
     /// Set every group's threshold from a preset (on/off switches are kept).
     public mutating func apply(_ p: Preset) {
@@ -117,9 +126,12 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
 
     /// `scores` are on Hark's (Perch) scale, one per label. With `second` (BirdNET+ on the same scale, Both mode), a
     /// species is a hit when the two agree or either is sure (Fusion), and its confidence is the stronger of the two.
+    /// `humanSound`: Perch's summed music / speech score for the window (Fusion.humanSoundClasses). At or above
+    /// Fusion.humanGate only 'sure' animal IDs count and no animal maybes are shown.
     public func triage(scores: [Float], second: [Float]? = nil, labels: LabelTable, context: LocalContext?,
-                       muted: Set<Int> = [], topK: Int = 12) -> Triage {
+                       muted: Set<Int> = [], topK: Int = 12, humanSound: Float = 0) -> Triage {
         var t = Triage()
+        let gated = humanSound >= Fusion.humanGate
         var candidates = Scoring.topK(scores, topK)
         if let second { candidates = Array(Set(candidates).union(Scoring.topK(second, topK))).sorted() }
         for i in candidates where i < labels.count {
@@ -128,6 +140,10 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
             let s = setting(g)
             guard s.enabled, !muted.contains(i) else { continue }
             var p = i < scores.count ? scores[i] : 0
+            if gated && label.group.isSpecies {
+                let q = second.map { i < $0.count ? $0[i] : 0 } ?? 0
+                guard Fusion.sure(p, q, threshold: s.threshold) else { continue }
+            }
             if let second {
                 let q = i < second.count ? second[i] : 0
                 let both = Fusion.agree(p, q, threshold: s.threshold)

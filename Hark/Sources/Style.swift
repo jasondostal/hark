@@ -108,3 +108,11 @@ extension ListenGroup {
         }
     }
 }
+
+extension Float {
+    /// A Perch-scale score as the BirdNET-style percentage Hark shows (0.30 -> 75).
+    var shownPercent: Int { Int((Fusion.display(self) * 100).rounded()) }
+}
+extension Double {
+    var shownPercent: Int { Float(self).shownPercent }
+}

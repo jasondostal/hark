@@ -165,7 +165,7 @@ struct LogRow: View {
     let detection: Detection
     private var subtitle: String {
         let time = detection.firstHeard.formatted(date: .omitted, time: .shortened)
-        return "\(time) · \(Int(detection.confidence * 100))%" + (detection.source == "live" ? "" : " · by hand")
+        return "\(time) · \(detection.confidence.shownPercent)%" + (detection.source == "live" ? "" : " · by hand")
     }
     var body: some View {
         HStack(spacing: 12) {
@@ -325,7 +325,7 @@ struct SpeciesPage: View {
                 }
             }
             if let best, let file = best.clipFile {
-                Section("Best recording") { ClipSpectrogram(file: file); HStack { ClipButton(file: file, symbol: "waveform"); Text("\(Int(best.confidence * 100))% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.caption) } }
+                Section("Best recording") { ClipSpectrogram(file: file); HStack { ClipButton(file: file, symbol: "waveform"); Text("\(best.confidence.shownPercent)% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.caption) } }
             }
             if detections.count >= 2 {
                 Section("Time of day") {
@@ -403,7 +403,7 @@ struct DetectionDetail: View {
                 if detection.lastHeard.timeIntervalSince(detection.firstHeard) > 1 {
                     LabeledContent("Until", value: detection.lastHeard.formatted(date: .omitted, time: .standard))
                 }
-                LabeledContent("Best confidence", value: "\(Int(detection.confidence * 100))%")
+                LabeledContent("Best confidence", value: "\(detection.confidence.shownPercent)%")
                 LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {

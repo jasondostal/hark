@@ -14,7 +14,7 @@ final class PolicyTests: XCTestCase {
     let range = LocalContext(LocalRange(cell: 0, present: [true, false, false, false, true], hasRange: [true, true, false, false, true]))
 
     func testHitsMaybesUnusual() {
-        let p = DetectionPolicy()
+        let p = Self.legacy()
         let t = p.triage(scores: [0.5, 0.35, 0.45, 0.4, 0.2], labels: labels, context: range)
         XCTAssertEqual(t.hits.map(\.index), [0, 2, 3])     // cricket has no range data -> passes; insect threshold 0.4
         XCTAssertEqual(t.unusual.map(\.index), [1])
@@ -22,7 +22,7 @@ final class PolicyTests: XCTestCase {
     }
 
     func testHideAndOff() {
-        var p = DetectionPolicy(rangeMode: .hide)
+        var p = Self.legacy(.hide)
         var t = p.triage(scores: [0.5, 0.35, 0, 0, 0], labels: labels, context: range)
         XCTAssertEqual(t.hits.map(\.index), [0]); XCTAssertTrue(t.unusual.isEmpty)
         p.rangeMode = .off
@@ -31,12 +31,12 @@ final class PolicyTests: XCTestCase {
     }
 
     func testOutOfRangeNeverAMaybe() {
-        let t = DetectionPolicy().triage(scores: [0, 0.2, 0, 0, 0], labels: labels, context: range)
+        let t = Self.legacy().triage(scores: [0, 0.2, 0, 0, 0], labels: labels, context: range)
         XCTAssertTrue(t.maybes.isEmpty)
     }
 
     func testGroupSwitchAndThresholdAndMute() {
-        var p = DetectionPolicy()
+        var p = Self.legacy()
         p.set(.insect, GroupSetting(enabled: false, threshold: 0.4))
         p.set(.sound, GroupSetting(enabled: true, threshold: 0.6))
         let t = p.triage(scores: [0.5, 0, 0.9, 0.5, 0.31], labels: labels, context: range, muted: [0])
@@ -45,7 +45,7 @@ final class PolicyTests: XCTestCase {
     }
 
     func testNoLocationMeansNoFiltering() {
-        let t = DetectionPolicy().triage(scores: [0, 0.35, 0, 0, 0], labels: labels, context: nil)
+        let t = Self.legacy().triage(scores: [0, 0.35, 0, 0, 0], labels: labels, context: nil)
         XCTAssertEqual(t.hits.map(\.index), [1])
     }
 
@@ -60,7 +60,7 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(c.status(2), .expected); XCTAssertEqual(c.source(2), .gbif)
         XCTAssertEqual(c.status(4), .outOfSeason)
         XCTAssertEqual(c.expectedThisWeek, 1)
-        let t = DetectionPolicy().triage(scores: [0.5, 0, 0, 0, 0.6], labels: labels, context: c)
+        let t = Self.legacy().triage(scores: [0.5, 0, 0, 0, 0.6], labels: labels, context: c)
         XCTAssertEqual(t.hits.map(\.index), [0]); XCTAssertEqual(t.unusual.map(\.index), [4])
         // eBird reports and your own patch beat the model
         c = LocalContext(count: 5, range: gbif, geo: geo, patch: [1], ebird: [4])
@@ -75,7 +75,7 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(Fusion.perchEquivalent(0.75), 0.30, accuracy: 1e-4)
         XCTAssertLessThan(Fusion.perchEquivalent(0.5), 0.2)
         XCTAssertGreaterThan(Fusion.perchEquivalent(0.97), 0.6)
-        let p = DetectionPolicy()     // Balanced: birds 0.30, insects 0.40, sounds 0.30
+        let p = Self.legacy()     // Balanced: birds 0.30, insects 0.40, sounds 0.30
         // cardinal: both lukewarm (agree) -> hit; robin: Perch only, lukewarm -> maybe; cricket: BirdNET+ sure -> hit
         let perch: [Float] = [0.26, 0.20, 0.0, 0, 0]
         let bn: [Float] = [0.15, 0.0, 0.60, 0, 0]
@@ -95,17 +95,50 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(GeoWeek.of(d(12, 31), calendar: cal), 48)
     }
 
+    /// The logic tests below were written for 0.30 (0.40 for insects / other) bars; keep them independent of the presets.
+    static func legacy(_ mode: RangeMode = .flag) -> DetectionPolicy {
+        var p = DetectionPolicy(rangeMode: mode)
+        for g in ListenGroup.allCases { p.set(g, GroupSetting(threshold: g == .insect || g == .other ? 0.4 : 0.3)) }
+        return p
+    }
+
     func testPresets() {
         var p = DetectionPolicy()
         XCTAssertEqual(p.preset, .balanced)                 // defaults are Balanced
+        XCTAssertEqual(Fusion.display(p.setting(.bird).threshold), 0.85, accuracy: 0.002)    // shown like BirdNET's 85%
+        XCTAssertEqual(Fusion.display(p.setting(.insect).threshold), 0.90, accuracy: 0.002)
         p.set(.insect, GroupSetting(enabled: false, threshold: 0.4))
         p.apply(.strict)
         XCTAssertEqual(p.preset, .strict)
-        XCTAssertEqual(p.setting(.bird).threshold, 0.5, accuracy: 1e-6)
-        XCTAssertEqual(p.setting(.insect).threshold, 0.6, accuracy: 1e-6)
+        XCTAssertEqual(Fusion.display(p.setting(.bird).threshold), 0.92, accuracy: 0.002)
         XCTAssertFalse(p.setting(.insect).enabled)          // switches survive a preset
         p.set(.bird, GroupSetting(threshold: 0.42))
         XCTAssertNil(p.preset)                              // fine-tuned = Custom
+    }
+
+    func testDisplayScale() {
+        XCTAssertEqual(Fusion.display(0.30), 0.75, accuracy: 1e-4)
+        XCTAssertEqual(Fusion.display(0.50), 0.893, accuracy: 0.002)
+        for d: Float in [0.6, 0.75, 0.85, 0.92] { XCTAssertEqual(Fusion.display(Fusion.fromDisplay(d)), d, accuracy: 1e-4) }
+    }
+
+    func testLegacyPresetMigrates() {
+        var p = Self.legacy()                               // the old Balanced: 0.30 / 0.40
+        p.set(.reptile, GroupSetting(enabled: false, threshold: 0.3))
+        p.migrateLegacyPresets()
+        XCTAssertEqual(p.preset, .balanced)
+        XCTAssertFalse(p.setting(.reptile).enabled)
+        var custom = Self.legacy(); custom.set(.bird, GroupSetting(threshold: 0.33))
+        custom.migrateLegacyPresets()
+        XCTAssertEqual(custom.setting(.bird).threshold, 0.33, accuracy: 1e-6)   // fine-tuned settings are left alone
+    }
+
+    func testMusicGateNeedsASureID() {
+        // a cardinal at 0.45 is a hit; with music in the window it isn't, unless sure (Perch >= 0.70)
+        let p = Self.legacy()
+        XCTAssertEqual(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil).hits.map(\.index), [0])
+        XCTAssertTrue(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.3).hits.isEmpty)
+        XCTAssertEqual(p.triage(scores: [0.75, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.3).hits.map(\.index), [0])
     }
 
     func testLabelEmojiAndLookup() throws {
@@ -117,7 +150,7 @@ final class PolicyTests: XCTestCase {
     }
 
     func testPolicyRoundTripsThroughJSON() throws {
-        var p = DetectionPolicy(rangeMode: .hide)
+        var p = Self.legacy(.hide)
         p.set(.amphibian, GroupSetting(enabled: false, threshold: 0.55))
         let back = try JSONDecoder().decode(DetectionPolicy.self, from: JSONEncoder().encode(p))
         XCTAssertEqual(back, p)

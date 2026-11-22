@@ -377,7 +377,7 @@ struct MaybeRow: View {
             VStack(alignment: .leading) {
                 Text(maybe.unusual ? label.common : "\(label.common)?")
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(Int(maybe.best * 100))%")
+                Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(maybe.best.shownPercent)%")
                     .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
                 if typeSize.isAccessibilitySize { HStack { buttons } }
             }
@@ -401,7 +401,7 @@ struct ManualRow: View {
             TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) { Text(detection.common); if detection.isFirst { NewBadge() } }
-                Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(Int(detection.confidence * 100))%")
+                Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(detection.confidence.shownPercent)%")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -416,7 +416,7 @@ struct SessionRow: View {
     let detection: Detection?
     @Environment(\.dynamicTypeSize) private var typeSize
     private var subtitle: String {
-        var s = "\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · \(Int(occurrence.bestConfidence * 100))%"
+        var s = "\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · \(occurrence.bestConfidence.shownPercent)%"
         let mins = Int(occurrence.lastHeard.timeIntervalSince(occurrence.firstHeard) / 60)
         if mins >= 1 { s += " · \(mins) min" }
         return s
@@ -456,11 +456,11 @@ struct ConfidenceBar: View {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.quaternary)
-                    Capsule().fill(Color.accentColor).frame(width: g.size.width * CGFloat(min(max(value, 0), 1)))
+                    Capsule().fill(Color.accentColor).frame(width: g.size.width * CGFloat(Fusion.display(value)))
                 }
             }
             .frame(width: 56, height: 6)
-            Text("\(Int(value * 100))%").font(.caption.monospacedDigit()).fixedSize().frame(minWidth: 36, alignment: .trailing)
+            Text("\(value.shownPercent)%").font(.caption.monospacedDigit()).fixedSize().frame(minWidth: 36, alignment: .trailing)
         }
     }
 }

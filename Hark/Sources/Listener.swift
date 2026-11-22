@@ -87,10 +87,24 @@ final class Listener {
     private(set) var lastInferenceMs: Double = 0
 
     // Settings (persisted)
-    var policy: DetectionPolicy = UserDefaults.standard.data(forKey: "policy")
-        .flatMap { try? JSONDecoder().decode(DetectionPolicy.self, from: $0) } ?? DetectionPolicy() {
+    var policy: DetectionPolicy = Listener.loadPolicy() {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(policy), forKey: "policy") }
     }
+    /// Saved settings from before the BirdNET-style scale move onto the new presets (once).
+    private static func loadPolicy() -> DetectionPolicy {
+        let d = UserDefaults.standard
+        var p = d.data(forKey: "policy").flatMap { try? JSONDecoder().decode(DetectionPolicy.self, from: $0) } ?? DetectionPolicy()
+        if d.integer(forKey: "policyVersion") < 2 {
+            p.migrateLegacyPresets()
+            d.set(try? JSONEncoder().encode(p), forKey: "policy"); d.set(2, forKey: "policyVersion")
+        }
+        return p
+    }
+    /// Show plain maybes (under the bar, not logged). Off by default: in a quiet room they're mostly noise.
+    var showMaybes: Bool = UserDefaults.standard.bool(forKey: "showMaybes") {
+        didSet { UserDefaults.standard.set(showMaybes, forKey: "showMaybes"); if !showMaybes { maybes.removeAll { !$0.unusual } } }
+    }
+    private var humanSoundIndices: [Int] = []
     /// Muted species, by scientific name (stable if the label table changes).
     private(set) var mutedNames: [String] = UserDefaults.standard.stringArray(forKey: "muted") ?? [] {
         didSet { UserDefaults.standard.set(mutedNames, forKey: "muted"); refreshMuted() }
@@ -256,6 +270,7 @@ final class Listener {
         guard let inference, let labels else { return nil }
         let n = labels.count
         var perch: [Float]?
+        var human: Float = 0
         if model != .birdnet || birdnet == nil {
             var rows: [[Float]] = []
             for st in Windowing.starts(length: samples.count) {
@@ -264,14 +279,16 @@ final class Listener {
             }
             guard !rows.isEmpty else { return nil }
             var p = Windowing.maxPool(rows); if p.count < n { p += [Float](repeating: 0, count: n - p.count) }
+            if humanSoundIndices.isEmpty { humanSoundIndices = Fusion.humanSoundClasses.compactMap { labels.index(ofScientific: $0) } }
+            human = humanSoundIndices.reduce(0) { $0 + p[$1] }
             perch = p
         }
         var bn: [Float]?
         if model != .perch, let birdnet { bn = try? await birdnet.scores(samples, labelCount: n) }
         updateContext()
         switch (perch, bn) {
-        case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: muted, topK: topK)
-        case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: muted, topK: topK)
+        case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: muted, topK: topK, humanSound: human)
+        case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: muted, topK: topK, humanSound: human)
         case let (nil, b?): return policy.triage(scores: b, labels: labels, context: context, muted: muted, topK: topK)
         default: return nil
         }
@@ -468,7 +485,7 @@ final class Listener {
         }
         recentMaybes = recentMaybes.filter { now.timeIntervalSince($0.value.lastSeen) < 15 && !known.contains($0.key) && !muted.contains($0.key) }
         // unusual first (they were confident), then maybes by score
-        maybes = recentMaybes.values.sorted { ($0.unusual ? 1 : 0, $0.best) > ($1.unusual ? 1 : 0, $1.best) }.prefix(5).map { $0 }
+        maybes = recentMaybes.values.filter { showMaybes || $0.unusual }.sorted { ($0.unusual ? 1 : 0, $0.best) > ($1.unusual ? 1 : 0, $1.best) }.prefix(5).map { $0 }
     }
 
     private func log(_ change: DetectionTracker.Change, _ labels: LabelTable) {

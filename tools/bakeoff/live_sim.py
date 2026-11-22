@@ -52,5 +52,5 @@ for man in sys.argv[1:]:
             wins.append({int(i): [round(float(pp[i]), 4), round(float(g[i]), 4)] for i in keep})
         out.append({"set": os.path.basename(os.path.dirname(man)), "species": it["species"], "windows": wins})
         print(f"{it['species']:30} {len(wins)} windows", flush=True)
-json.dump(out, open(os.path.join(HERE, "live_windows.json"), "w"))
+json.dump(out, open(os.path.join(HERE, os.environ.get("OUT", "live_windows.json")), "w"))
 print("saved", len(out))
