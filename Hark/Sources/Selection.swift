@@ -159,7 +159,7 @@ struct FrozenSpectrogram: View {
                 if !selection.range.isEmpty {
                     let a = x(selection.range.lowerBound), b = x(selection.range.upperBound)
                     let ca = x(selection.scoredRange.lowerBound), cb = x(selection.scoredRange.upperBound)
-                    let edge = palette == .paper ? Color.accentColor : Color.white
+                    let edge = palette == .paper ? Color.accentColor : palette.overlayTint
                     // dim what Perch didn't hear; the context a short selection is scored with gets a lighter dim
                     Color.black.opacity(0.55).frame(width: ca, height: h)
                     Color.black.opacity(0.55).frame(width: w - cb, height: h).offset(x: cb)
@@ -168,7 +168,7 @@ struct FrozenSpectrogram: View {
                     // light up the selection itself
                     Group {
                         if palette == .paper { Color.accentColor.opacity(0.14) }
-                        else { Color.white.opacity(0.22).blendMode(.screen) }
+                        else { palette.overlayTint.opacity(0.22).blendMode(.screen) }
                     }
                     .frame(width: max(b - a, 2), height: h).offset(x: a)
                     ForEach([a, b], id: \.self) { ex in

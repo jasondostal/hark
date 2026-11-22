@@ -3,17 +3,21 @@ import HarkCore
 
 /// Spectrogram color schemes. Index 0 is the background; levels run quiet -> loud.
 enum SpectrogramPalette: String, CaseIterable, Identifiable {
-    case aurora, magma, viridis, grayscale, paper
+    case aurora, ocean, magma, viridis, owling, grayscale, paper
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .aurora: "Aurora"; case .magma: "Magma"; case .viridis: "Viridis"
-        case .grayscale: "Night"; case .paper: "Paper"
+        case .aurora: "Aurora"; case .ocean: "Ocean"; case .magma: "Magma"; case .viridis: "Viridis"
+        case .owling: "Owling"; case .grayscale: "Night"; case .paper: "Paper"
         }
     }
     var stops: [(Float, Float, Float)] {
         switch self {
-        case .aurora: [(0.02, 0.02, 0.08), (0.10, 0.20, 0.45), (0.10, 0.55, 0.55), (0.55, 0.80, 0.30), (0.99, 0.91, 0.15)]
+        // night sky: indigo and violet low, curtain green high, pale mint at the loudest
+        case .aurora: [(0.01, 0.01, 0.04), (0.12, 0.05, 0.28), (0.38, 0.10, 0.52), (0.08, 0.62, 0.42), (0.40, 0.95, 0.50), (0.88, 1.0, 0.86)]
+        case .ocean: [(0.0, 0.01, 0.05), (0.02, 0.10, 0.30), (0.04, 0.34, 0.64), (0.18, 0.70, 0.90), (0.72, 0.95, 1.0), (1.0, 1.0, 1.0)]
+        // red only, so it doesn't spoil night vision
+        case .owling: [(0.0, 0.0, 0.0), (0.22, 0.0, 0.0), (0.55, 0.02, 0.0), (0.88, 0.08, 0.03), (1.0, 0.30, 0.20)]
         case .magma: [(0.0, 0.0, 0.02), (0.23, 0.06, 0.44), (0.55, 0.16, 0.51), (0.87, 0.32, 0.38), (0.99, 0.65, 0.40), (0.99, 0.99, 0.75)]
         case .viridis: [(0.07, 0.0, 0.15), (0.23, 0.32, 0.55), (0.13, 0.57, 0.55), (0.37, 0.79, 0.38), (0.99, 0.91, 0.14)]
         case .grayscale: [(0.0, 0.0, 0.0), (0.35, 0.35, 0.35), (1.0, 1.0, 1.0)]
@@ -34,7 +38,21 @@ enum SpectrogramPalette: String, CaseIterable, Identifiable {
             return Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }, startPoint: .leading, endPoint: .trailing)
     }
     var background: Color { let (r, g, b) = color(0); return Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }
-    var labelColor: Color { self == .paper ? .black.opacity(0.6) : .white.opacity(0.7) }
+    var labelColor: Color {
+        switch self {
+        case .paper: .black.opacity(0.6)
+        case .owling: Color(red: 1, green: 0.25, blue: 0.15).opacity(0.75)
+        default: .white.opacity(0.7)
+        }
+    }
+    /// Buttons and edges drawn over the spectrogram.
+    var overlayTint: Color {
+        switch self {
+        case .paper: .black
+        case .owling: Color(red: 1, green: 0.25, blue: 0.15)
+        default: .white
+        }
+    }
 }
 
 /// Current spectrogram look, read from the audio thread (contrast) and render paths (colors).

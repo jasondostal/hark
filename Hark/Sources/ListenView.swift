@@ -108,7 +108,7 @@ struct ListenView: View {
         Task { await selection.analyze(listener) }
     }
 
-    private var overlayTint: Color { listener.palette == .paper ? .black : .white }
+    private var overlayTint: Color { listener.palette.overlayTint }
     private var overlayShade: LinearGradient {
         LinearGradient(colors: [.clear, .black.opacity(listener.palette == .paper ? 0 : 0.45)], startPoint: .top, endPoint: .bottom)
     }
@@ -133,7 +133,7 @@ struct ListenView: View {
             Spacer()
             if listener.state == .listening {
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
-                LevelBar(db: listener.levelDB).frame(width: 70)
+                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: 70)
                     .accessibilityLabel("Microphone level")
             }
         }
@@ -428,12 +428,13 @@ struct ConfidenceBar: View {
 
 struct LevelBar: View {
     let db: Float
+    var color: Color = .green
     var body: some View {
         let v = CGFloat(min(max((db + 80) / 70, 0), 1))
         GeometryReader { g in
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.25))
-                Capsule().fill(.green.gradient).frame(width: g.size.width * v)
+                Capsule().fill(color.gradient).frame(width: g.size.width * v)
             }
         }
         .frame(height: 5)

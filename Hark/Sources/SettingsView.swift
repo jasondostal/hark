@@ -153,7 +153,7 @@ struct SettingsView: View {
             }
             Toggle("Frequency labels", isOn: $listener.frequencyLabels)
         } header: { Text("Spectrogram") } footer: {
-            Text("Punchy makes faint calls stand out but also shows more background. Colors and contrast don't change what Hark identifies.")
+            Text("Owling is all red, to keep your night vision on an owl prowl. Punchy contrast makes faint calls stand out but also shows more background. Colors and contrast don't change what Hark identifies.")
         }
     }
 
