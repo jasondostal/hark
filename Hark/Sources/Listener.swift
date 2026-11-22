@@ -74,10 +74,19 @@ final class Listener {
     }
     private var muted: Set<Int> = []
 
-    // Location filter
+    // Location + season filter (see LocalContext): GBIF range map, BirdNET geomodel, your patch, eBird.
     private var ranges: RangeMap?
     private(set) var localRange: LocalRange?
     var rangeAvailable: Bool { ranges != nil }
+    private var geo: GeoModel?
+    var geoAvailable: Bool { geo != nil }
+    let ebird = EBird()
+    private(set) var context: LocalContext?
+    private var geoExpectations: LocalContext.Geo?
+    private var geoKey: String?
+    private var geoRunning = false
+    private(set) var patch: Set<Int> = []
+    private var patchAt: CLLocation?
 
     private var inference: Inference?
     private let store = AudioStore()
@@ -178,6 +187,8 @@ final class Listener {
                 return (c, try HarkCore.Label.table ?? LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
             }.value
             inference = Inference(clf); labels = table; ranges = rm
+            geo = await Task.detached(priority: .utility) { GeoModel() }.value
+            updateContext()
             refreshMuted()
             state = .ready
             if pendingStart { pendingStart = false; await start() }
@@ -200,7 +211,7 @@ final class Listener {
             state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
-        sessionSpecies = []; startedAt = .now
+        sessionSpecies = []; startedAt = .now; patchAt = nil
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
@@ -232,6 +243,7 @@ final class Listener {
                     self.stop(); return
                 }
                 self.updateSessionRecord()
+                self.updateContext()          // also in Manual mode, so selections get season context
                 await self.scoreLatest()
             }
         }
@@ -279,11 +291,66 @@ final class Listener {
         labels?.labels.first { $0.scientific == scientific }?.common ?? scientific
     }
 
-    /// Recompute the local species list when you move into a new grid cell (~150 km).
-    private func updateRange() {
-        guard let ranges, let loc = location.last else { return }
-        let c = ranges.cell(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude)
-        if localRange?.cell != c { localRange = ranges.local(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude) }
+    /// Keep the location + season context current. Cheap to call every second: each source only recomputes when
+    /// it needs to (GBIF: new ~150 km cell; geomodel: moved ~5 km or a new week; patch: moved 2 km; eBird: 3 h / 10 km).
+    func updateContext() {
+        guard labels != nil, let loc = location.last ?? location.lastKnown else { return }
+        let lat = loc.coordinate.latitude, lon = loc.coordinate.longitude
+        var dirty = context == nil
+        if let ranges {
+            let c = ranges.cell(latitude: lat, longitude: lon)
+            if localRange?.cell != c { localRange = ranges.local(latitude: lat, longitude: lon); dirty = true }
+        }
+        let week = GeoWeek.of(.now)
+        let key = "\(Int((lat * 20).rounded())),\(Int((lon * 20).rounded())),\(week)"
+        if let geo, key != geoKey, !geoRunning {
+            geoKey = key; geoRunning = true
+            Task {
+                let g = await Task.detached(priority: .utility) { geo.expectations(latitude: lat, longitude: lon, week: week) }.value
+                geoRunning = false
+                if let g { geoExpectations = g; rebuildContext() }
+            }
+        }
+        if patchAt == nil || loc.distance(from: patchAt!) > 2000 { patchAt = loc; rebuildPatch(); dirty = true }
+        if ebird.needsRefresh(latitude: lat, longitude: lon) {
+            Task { if await ebird.refreshIfNeeded(latitude: lat, longitude: lon) { rebuildContext() } }
+        }
+        if dirty { rebuildContext() }
+    }
+
+    /// Settings › Refresh now.
+    func refreshEBird() async {
+        guard let loc = location.last ?? location.lastKnown else { return }
+        if await ebird.refreshIfNeeded(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude, force: true) { rebuildContext() }
+    }
+
+    func rebuildContext() {
+        guard let labels else { return }
+        context = LocalContext(count: labels.count, range: localRange, geo: geoExpectations, patch: patch, ebird: ebird.indices(labels))
+    }
+
+    /// Your patch: species you've confirmed ("I saw it"), or logged on 3+ different days, within 10 km of here.
+    func rebuildPatch() {
+        guard let ctx = modelContext, let labels, let here = patchAt ?? location.last else { return }
+        let all = (try? ctx.fetch(FetchDescriptor<Detection>())) ?? []
+        var days: [String: Set<Int>] = [:], confirmed: Set<String> = []
+        let cal = Calendar.current
+        for d in all {
+            guard let a = d.latitude, let b = d.longitude,
+                  EBird.km(a, b, here.coordinate.latitude, here.coordinate.longitude) < 10 else { continue }
+            days[d.scientific, default: []].insert(cal.ordinality(of: .day, in: .era, for: d.firstHeard) ?? 0)
+            if d.confirmed { confirmed.insert(d.scientific) }
+        }
+        let names = confirmed.union(days.filter { $0.value.count >= 3 }.keys)
+        patch = Set(names.compactMap { labels.index(ofScientific: $0) })
+    }
+
+    /// Why an ID is flagged, for the "unusual" tag.
+    func unusualReason(_ i: Int) -> String {
+        if context?.status(i) == .outOfSeason {
+            return "unusual for \(Date.now.formatted(.dateTime.month(.wide)))"
+        }
+        return "unusual here"
     }
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
@@ -296,8 +363,8 @@ final class Listener {
         guard let out = try? await inference.classify(w) else { return }
         lastInferenceMs = Date().timeIntervalSince(t0) * 1000
         let scores = Scoring.softmax(out.logits)
-        updateRange()
-        let triage = policy.triage(scores: scores, labels: labels, range: localRange, muted: muted)
+        updateContext()
+        let triage = policy.triage(scores: scores, labels: labels, context: context, muted: muted)
         let result = WindowResult(time: .now, hits: triage.hits)
         if ProcessInfo.processInfo.arguments.contains("-autolisten") {
             NSLog("HARK-WINDOW %.0f ms: %@", lastInferenceMs, result.hits.map { "\(labels[$0.index].common) \(Int($0.confidence * 100))%" }.joined(separator: ", "))
@@ -378,8 +445,8 @@ final class Listener {
             rows.append(Scoring.softmax(out.logits))
         }
         guard !rows.isEmpty else { return nil }
-        updateRange()
-        return policy.triage(scores: Windowing.maxPool(rows), labels: labels, range: localRange, muted: muted, topK: 15)
+        updateContext()
+        return policy.triage(scores: Windowing.maxPool(rows), labels: labels, context: context, muted: muted, topK: 15)
     }
 
     /// Log a species picked out of a selection, with the selection as its clip.
@@ -394,6 +461,7 @@ final class Listener {
         try? ctx.save()
         WidgetBridge.refresh(ctx, listening: state == .listening)
         manual.insert(d, at: 0); manualIndices.insert(index)
+        if confirmed { rebuildPatch(); rebuildContext() }
         let clip = Array(samples.suffix(32_000 * 15))
         Task { d.clipFile = await ClipStore.save(clip) }
     }
@@ -438,6 +506,7 @@ final class Listener {
         try? ctx.save()
         WidgetBridge.refresh(ctx, listening: state == .listening)
         manual.insert(d, at: 0); manualIndices.insert(m.index)
+        if confirmed { rebuildPatch(); rebuildContext() }
         let secs = min(15, Date().timeIntervalSince(m.firstSeen) + 5)
         let clip = store.latest(Int(secs * 32_000))
         Task { d.clipFile = await ClipStore.save(clip) }

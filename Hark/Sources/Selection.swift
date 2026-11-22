@@ -231,7 +231,7 @@ struct SelectionSection: View {
                     Text("Nothing identified here. Try selecting the whole call, or a clearer one.").foregroundStyle(.secondary)
                 }
                 ForEach(t.hits, id: \.index) { h in row(h.index, h.confidence, kind: nil) }
-                ForEach(t.unusual, id: \.index) { h in row(h.index, h.confidence, kind: "unusual here") }
+                ForEach(t.unusual, id: \.index) { h in row(h.index, h.confidence, kind: listener.unusualReason(h.index)) }
                 ForEach(t.maybes, id: \.index) { h in row(h.index, h.confidence, kind: "maybe") }
             }
         } header: { Text("Selection") } footer: {

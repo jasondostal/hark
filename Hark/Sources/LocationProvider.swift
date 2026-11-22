@@ -4,6 +4,8 @@ import CoreLocation
 final class LocationProvider: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private(set) var last: CLLocation?
+    /// The system's last fix, even when Hark isn't updating (Settings, selections after stopping).
+    var lastKnown: CLLocation? { manager.location }
 
     override init() {
         super.init()

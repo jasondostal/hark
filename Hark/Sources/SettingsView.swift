@@ -10,10 +10,12 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var listener = listener
         NavigationStack {
+          ScrollViewReader { proxy in
             Form {
                 detection
                 listenFor
-                location
+                location.id("location")
+                ebirdSection
                 spectrogram
                 audio
                 listening
@@ -24,7 +26,13 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .onAppear { inputs = AudioCapture.inputs() }
+            .onAppear {
+                inputs = AudioCapture.inputs(); listener.updateContext()
+                if ProcessInfo.processInfo.arguments.contains("-settingslocation") {   // screenshot aid
+                    Task { try? await Task.sleep(for: .seconds(1)); proxy.scrollTo("location", anchor: .top) }
+                }
+            }
+          }
         }
     }
 
@@ -71,26 +79,52 @@ struct SettingsView: View {
                     : "Logs at \(Int(s.threshold * 100))% · maybes from \(Int(listener.policy.maybeFloor(g) * 100))%"
     }
 
-    // MARK: Location
+    // MARK: Location & season
 
     private var location: some View {
         @Bindable var listener = listener
         return Section {
-            Picker("Out-of-range species", selection: $listener.policy.rangeMode) {
+            Picker("Unexpected species", selection: $listener.policy.rangeMode) {
                 Text("Off").tag(RangeMode.off); Text("Flag").tag(RangeMode.flag); Text("Hide").tag(RangeMode.hide)
             }
             .pickerStyle(.segmented)
-            LabeledContent("Status", value: rangeStatus)
-        } header: { Text("Location filter") } footer: {
-            Text("Compares each ID with species recorded within about 150 km of you. Flag shows out-of-range IDs as \"unusual here\" and only logs them if you tap; Hide drops them. Species with no records anywhere are never filtered.")
+            if listener.policy.rangeMode != .off {
+                if let c = listener.context {
+                    if listener.geoAvailable { LabeledContent("Expected this week", value: "\(c.expectedThisWeek.formatted()) species") }
+                    if let r = listener.localRange { LabeledContent("Ever recorded nearby", value: "\(r.speciesHere.formatted()) species") }
+                    LabeledContent("Your patch", value: listener.patch.isEmpty ? "None yet" : "\(listener.patch.count) species")
+                } else {
+                    LabeledContent("Status", value: listener.rangeAvailable ? "Waiting for location" : "No range data in this build")
+                }
+            }
+        } header: { Text("Location & season") } footer: {
+            Text("Flag shows IDs that don't fit the place or time of year as \"unusual\" and only logs them if you tap; Hide drops them. Hark checks the BirdNET geomodel (where each species is, week by week) and GBIF records within about 150 km. Species you've confirmed near here, your patch, are never flagged.")
         }
     }
 
-    private var rangeStatus: String {
-        if !listener.rangeAvailable { return "No range data in this build" }
-        if listener.policy.rangeMode == .off { return "Off" }
-        guard let r = listener.localRange else { return "Waiting for location" }
-        return "\(r.speciesHere.formatted()) species recorded here"
+    private var ebirdSection: some View {
+        let eb = listener.ebird
+        return Section {
+            SecureField("Paste your eBird API key", text: Binding(get: { eb.key }, set: { eb.key = $0; listener.rebuildContext(); listener.updateContext() }))
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            if eb.hasKey {
+                if let c = eb.cache {
+                    LabeledContent("Reported nearby", value: "\(Set(c.reports.map(\.speciesCode)).count) species")
+                    LabeledContent("Updated", value: c.fetched.formatted(.relative(presentation: .named)))
+                }
+                if let e = eb.lastError { Text(e).font(.callout).foregroundStyle(.red) }
+                Button(eb.fetching ? "Checking eBird…" : "Refresh now") {
+                    Task { await listener.refreshEBird() }
+                }
+                .disabled(eb.fetching)
+            } else {
+                Link(destination: URL(string: "https://ebird.org/api/keygen")!) {
+                    Label("Get a free key from eBird", systemImage: "key")
+                }
+            }
+        } header: { Text("eBird (optional)") } footer: {
+            Text("With your own eBird key, species birders reported within 25 km in the last 30 days are never flagged, so this week's migrants count. Hark sends eBird your location rounded to about 1 km, only while a key is set.")
+        }
     }
 
     // MARK: Spectrogram
@@ -190,6 +224,7 @@ struct SettingsView: View {
             LabeledContent("Model", value: "Google Perch 2.0 · 14,795 sounds")
             LabeledContent("Speed", value: listener.lastInferenceMs > 0 ? String(format: "%.1f ms per 5 s of audio", listener.lastInferenceMs) : "—")
             LabeledContent("Range data", value: "GBIF.org")
+            LabeledContent("Seasons", value: "BirdNET Geomodel")
             LabeledContent("Names", value: "OpenFauna")
             LabeledContent("Frog icon", value: "Font Awesome (CC BY 4.0)")
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")

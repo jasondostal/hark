@@ -146,7 +146,7 @@ def emoji(s, c, g):
     return '❔'
 
 out=[]; miss=0
-for s in labels:
+for li,s in enumerate(labels):
     if ' ' not in s and ('_' in s or s[:1].isupper() and s not in cls):
         c=s.replace('_and_',' / ').replace('_',' ')
         out.append({'s':s,'c':c,'g':'sound','e':emoji(s,c,'sound')}); continue
@@ -155,6 +155,7 @@ for s in labels:
     g=GROUP.get(cls.get(s,''),'other' if s in cls else 'unknown')
     o={'s':s,'c':c or s,'g':g,'e':emoji(s,c or s,g)}
     if s in inat: o['i']=inat[s]
+    if ebird[li]!='no_ebird_code': o['b']=ebird[li]   # eBird species code (matches eBird API results)
     out.append(o)
 json.dump(out,open(sys.argv[2],'w'),separators=(',',':'))
 from collections import Counter

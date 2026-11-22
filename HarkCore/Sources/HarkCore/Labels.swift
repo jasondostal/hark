@@ -28,9 +28,11 @@ public struct Label: Codable, Hashable, Sendable {
     public let emoji: String?
     /// iNaturalist taxon id, for "look it up" links.
     public let inat: Int?
-    enum CodingKeys: String, CodingKey { case scientific = "s", common = "c", group = "g", emoji = "e", inat = "i" }
-    public init(scientific: String, common: String, group: TaxonGroup, emoji: String? = nil, inat: Int? = nil) {
-        self.scientific = scientific; self.common = common; self.group = group; self.emoji = emoji; self.inat = inat
+    /// eBird species code (birds), to match eBird API results across taxonomy renames.
+    public let ebird: String?
+    enum CodingKeys: String, CodingKey { case scientific = "s", common = "c", group = "g", emoji = "e", inat = "i", ebird = "b" }
+    public init(scientific: String, common: String, group: TaxonGroup, emoji: String? = nil, inat: Int? = nil, ebird: String? = nil) {
+        self.scientific = scientific; self.common = common; self.group = group; self.emoji = emoji; self.inat = inat; self.ebird = ebird
     }
     public var icon: String { emoji ?? "❔" }
 }
@@ -48,7 +50,7 @@ public struct LabelTable: Sendable {
     }
     public subscript(i: Int) -> Label { labels[i] }
     public var count: Int { labels.count }
-    public func index(ofScientific s: String) -> Int? { labels.firstIndex { $0.scientific == s } }
+    public func index(ofScientific s: String) -> Int? { byScientific[s] }
     /// Label by scientific name (built on first use).
     public func label(scientific s: String) -> Label? { byScientific[s].map { labels[$0] } }
     private var byScientific: [String: Int] { _byScientific.value }

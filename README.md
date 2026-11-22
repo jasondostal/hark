@@ -28,6 +28,14 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
 - `tools/make_labels.py`: label table from Perch labels + OpenFauna names/classes (data copied from birdnet-go's
   vendored snapshot on CORTEX into tools/data/). OpenFauna's license still needs checking before any public release.
 
+## Location + season
+
+`LocalContext` (HarkCore) combines, most trusted first: eBird reports within 25 km / 30 days (user's own API key,
+Keychain), your patch (confirmed, or logged on 3+ days, within 10 km), the BirdNET+ Geomodel V3.0.4 (Apache 2.0;
+lat/lon/week -> 14,082 species; 12,258 Perch labels mapped; all 48 weeks run so "out of season" differs from
+"never here"), then the GBIF range map. Rebuild the geomodel + map: `~/working/perch-spike/.venv/bin/python
+tools/convert_geomodel.py` (writes Models/Geo.mlpackage, git-ignored, and Hark/Resources/geo_map.bin).
+
 ## Build / install (headless)
 ```
 xcodegen generate
@@ -36,5 +44,5 @@ xcodebuild -project Hark.xcodeproj -scheme Hark -destination 'generic/platform=i
 xcrun devicectl device install app --device <udid> DerivedData/Build/Products/Release-iphoneos/Hark.app
 xcrun devicectl device process launch --console --device <udid> dev.ducktyping.hark -selftest   # ANE parity + timing
 ```
-Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-select` (freeze + identify 9 s in), `-resettips` (first-run tips again), `-notips`,
+Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-select` (freeze + identify 9 s in), `-settingslocation` (with -settings: scroll to Location & season), `-resettips` (first-run tips again), `-notips`,
 `-settings`, `-logtab`, `-opensession`, `-selftest` (golden windows on ANE/GPU/CPU, prints HARK-SELFTEST lines), `-autolisten` (start listening on launch).

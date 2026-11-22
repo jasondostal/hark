@@ -351,7 +351,7 @@ struct MaybeRow: View {
             VStack(alignment: .leading) {
                 Text(maybe.unusual ? label.common : "\(label.common)?")
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                Text("\(maybe.unusual ? "unusual here" : "maybe") · \(Int(maybe.best * 100))%")
+                Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(Int(maybe.best * 100))%")
                     .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
             }
             Spacer()

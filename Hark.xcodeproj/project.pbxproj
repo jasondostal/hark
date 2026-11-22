@@ -10,6 +10,7 @@
 		081C408439612913D2882248 /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1093B1BA56386EE9987A87 /* LogView.swift */; };
 		0BA0CC6E03A216F009583ECB /* HarkWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1260994E86F3B909FBE926C3 /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86872589C4BEEAB5C631E619 /* LiveActivityController.swift */; };
+		13CD05F25DD10489333DE66E /* geo_map.bin in Resources */ = {isa = PBXBuildFile; fileRef = 93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */; };
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
 		1E8954544904735CBCC7EB66 /* HarkTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AC110F30116630F06E8831 /* HarkTips.swift */; };
@@ -24,12 +25,15 @@
 		5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */ = {isa = PBXBuildFile; fileRef = DE6827D3D2A7830D066C7F79 /* selftest.f32 */; };
 		70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E46536FADF19B7CD2B045E /* AudioCapture.swift */; };
+		7B9FC2DE89DCD3065E316DD8 /* Geo.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 0DC5FCF0D1F4ACBA15F4AB7E /* Geo.mlpackage */; };
 		7DF59B52D29D99C1B4913F8C /* selftest.json in Resources */ = {isa = PBXBuildFile; fileRef = D75CA65E35D4012047FBC305 /* selftest.json */; };
 		7FD45C007008A852A54909C7 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B48A5AE947C4689B53B3004 /* ListenView.swift */; };
 		83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DDD14312784E530E18C727 /* HarkApp.swift */; };
 		88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B724A1122028E8DD168A59D /* HarkWidgets.swift */; };
+		89746C0FF6EE22DD28A144A3 /* EBird.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0498D7314B66F10B17D29F /* EBird.swift */; };
 		8A7B6EE84120389827349390 /* Selection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A22DEDDE5DBC520A8B6EBE /* Selection.swift */; };
 		927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */; };
+		9AFC21C1024C286FC09D608F /* GeoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
 		A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46339CF0455911EAAB8F7134 /* Clips.swift */; };
@@ -73,6 +77,7 @@
 		02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		05A22DEDDE5DBC520A8B6EBE /* Selection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Selection.swift; sourceTree = "<group>"; };
 		06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HarkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0DC5FCF0D1F4ACBA15F4AB7E /* Geo.mlpackage */ = {isa = PBXFileReference; path = Geo.mlpackage; sourceTree = "<group>"; };
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
@@ -80,16 +85,19 @@
 		32AAC1FC7177CAC93C91360C /* Listener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listener.swift; sourceTree = "<group>"; };
 		34AC110F30116630F06E8831 /* HarkTips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkTips.swift; sourceTree = "<group>"; };
 		38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkShortcuts.swift; sourceTree = "<group>"; };
+		3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoModel.swift; sourceTree = "<group>"; };
 		46339CF0455911EAAB8F7134 /* Clips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clips.swift; sourceTree = "<group>"; };
 		4ABE86294712AED10BE46526 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		58E46536FADF19B7CD2B045E /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		5B1093B1BA56386EE9987A87 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		7F04DC862C13853B63457E26 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
 		86872589C4BEEAB5C631E619 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
+		93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = geo_map.bin; sourceTree = "<group>"; };
 		98AF485B90B0C27ACEE5E705 /* labels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels.json; sourceTree = "<group>"; };
 		9B724A1122028E8DD168A59D /* HarkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkWidgets.swift; sourceTree = "<group>"; };
 		9E7771A2D007367737E31C57 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		A8032DCD59B9F6ABEDA20FFE /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
+		AE0498D7314B66F10B17D29F /* EBird.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EBird.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0A371842CFB8FC187A89231 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
 		BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -141,6 +149,7 @@
 		68BF8EC1596406579C8E6944 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				0DC5FCF0D1F4ACBA15F4AB7E /* Geo.mlpackage */,
 				CF97FC47703776066607E58A /* Perch.mlpackage */,
 			);
 			path = Models;
@@ -172,6 +181,8 @@
 				58E46536FADF19B7CD2B045E /* AudioCapture.swift */,
 				46339CF0455911EAAB8F7134 /* Clips.swift */,
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
+				AE0498D7314B66F10B17D29F /* EBird.swift */,
+				3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */,
 				D3DDD14312784E530E18C727 /* HarkApp.swift */,
 				38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */,
 				34AC110F30116630F06E8831 /* HarkTips.swift */,
@@ -194,6 +205,7 @@
 		B3782DD2C0359787FA4B59BC /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */,
 				98AF485B90B0C27ACEE5E705 /* labels.json */,
 				C9DF49BC5773FE7D392E921C /* ranges.bin */,
 				DE6827D3D2A7830D066C7F79 /* selftest.f32 */,
@@ -320,6 +332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */,
+				13CD05F25DD10489333DE66E /* geo_map.bin in Resources */,
 				166030FDDF7236F06318E02E /* labels.json in Resources */,
 				CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */,
 				5DFB0DB1931272BAAA3733F3 /* selftest.f32 in Resources */,
@@ -349,6 +362,9 @@
 				70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */,
 				A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */,
 				2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */,
+				89746C0FF6EE22DD28A144A3 /* EBird.swift in Sources */,
+				7B9FC2DE89DCD3065E316DD8 /* Geo.mlpackage in Sources */,
+				9AFC21C1024C286FC09D608F /* GeoModel.swift in Sources */,
 				83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */,
 				C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */,
 				BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */,

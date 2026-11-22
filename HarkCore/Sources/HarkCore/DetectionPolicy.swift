@@ -113,7 +113,7 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
         public var unusual: [(index: Int, confidence: Float)] = []
     }
 
-    public func triage(scores: [Float], labels: LabelTable, range: LocalRange?, muted: Set<Int> = [], topK: Int = 12) -> Triage {
+    public func triage(scores: [Float], labels: LabelTable, context: LocalContext?, muted: Set<Int> = [], topK: Int = 12) -> Triage {
         var t = Triage()
         for i in Scoring.topK(scores, topK) {
             let label = labels[i]
@@ -121,14 +121,15 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
             let s = setting(g)
             guard s.enabled, !muted.contains(i) else { continue }
             let p = scores[i]
-            let status: RangeMap.Status = (rangeMode == .off || !label.group.isSpecies) ? .unknown : (range?.status(i) ?? .unknown)
+            let status: LocalContext.Status = (rangeMode == .off || !label.group.isSpecies) ? .unknown : (context?.status(i) ?? .unknown)
+            let unlikely = status == .outOfRange || status == .outOfSeason
             if p >= s.threshold {
-                if status == .outOfRange {
+                if unlikely {
                     if rangeMode == .flag { t.unusual.append((i, p)) }
                 } else {
                     t.hits.append((i, p))
                 }
-            } else if p >= maybeFloor(g), label.group.isSpecies, status != .outOfRange {
+            } else if p >= maybeFloor(g), label.group.isSpecies, !unlikely {
                 t.maybes.append((i, p))
             }
         }
