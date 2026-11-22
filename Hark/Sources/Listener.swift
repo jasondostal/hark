@@ -105,6 +105,7 @@ final class Listener {
         didSet { UserDefaults.standard.set(showMaybes, forKey: "showMaybes"); if !showMaybes { maybes.removeAll { !$0.unusual } } }
     }
     private var humanSoundIndices: [Int] = []
+    private var synonymIndices: [(species: Int, sounds: [Int])]?
     /// Muted species, by scientific name (stable if the label table changes).
     private(set) var mutedNames: [String] = UserDefaults.standard.stringArray(forKey: "muted") ?? [] {
         didSet { UserDefaults.standard.set(mutedNames, forKey: "muted"); refreshMuted() }
@@ -294,6 +295,8 @@ final class Listener {
             }
             guard !rows.isEmpty else { return nil }
             var p = Windowing.maxPool(rows); if p.count < n { p += [Float](repeating: 0, count: n - p.count) }
+            if synonymIndices == nil { synonymIndices = Fusion.synonymIndices(labels) }
+            Fusion.poolSynonyms(&p, synonymIndices ?? [])
             if humanSoundIndices.isEmpty { humanSoundIndices = Fusion.humanSoundClasses.compactMap { labels.index(ofScientific: $0) } }
             human = humanSoundIndices.reduce(0) { $0 + p[$1] }
             perch = p

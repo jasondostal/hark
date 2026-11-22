@@ -141,6 +141,20 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(p.triage(scores: [0.75, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.3).hits.map(\.index), [0])
     }
 
+    func testPetSoundsPoolOntoTheSpecies() {
+        let t = LabelTable(labels: [
+            Label(scientific: "Canis familiaris", common: "Domestic Dog", group: .mammal),
+            Label(scientific: "Dog", common: "Dog", group: .sound),
+            Label(scientific: "Bark", common: "Bark", group: .sound),
+            Label(scientific: "Car", common: "Car", group: .sound),
+        ])
+        var p: [Float] = [0.05, 0.25, 0.15, 0.10]   // a bark as Perch hears it: mostly the sound classes
+        Fusion.poolSynonyms(&p, Fusion.synonymIndices(t))
+        XCTAssertEqual(p[0], 0.45, accuracy: 1e-5)
+        XCTAssertEqual(p[1], 0); XCTAssertEqual(p[2], 0); XCTAssertEqual(p[3], 0.10)
+        XCTAssertEqual(DetectionPolicy().triage(scores: p, labels: t, context: nil).hits.map(\.index), [0])
+    }
+
     func testLabelEmojiAndLookup() throws {
         let json = #"[{"s":"Strix varia","c":"Barred Owl","g":"bird","e":"🦉","i":19893},{"s":"Car","c":"Car","g":"sound"}]"#
         let t = LabelTable(labels: try JSONDecoder().decode([Label].self, from: Data(json.utf8)))

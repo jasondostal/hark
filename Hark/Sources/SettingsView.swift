@@ -103,12 +103,12 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
             Picker("Hear it for", selection: Binding(get: { listener.confirmSeconds }, set: { listener.confirmSeconds = $0 })) {
-                Text("1 s").tag(1); Text("2 s").tag(2); Text("3 s").tag(3); Text("4 s").tag(4)
+                Text("Off").tag(1); Text("2 s").tag(2); Text("3 s").tag(3); Text("4 s").tag(4)
             }
             Toggle("Show maybes", isOn: Binding(get: { listener.showMaybes }, set: { listener.showMaybes = $0 }))
         } header: { Text("Detection") } footer: {
             Text((listener.birdnetAvailable ? modelBlurb + " " : "") + (listener.policy.preset?.blurb ?? "You've fine-tuned the thresholds. Pick a preset to reset them.")
-                 + " \"Hear it for\" is how long a new species must keep calling before it's logged: longer means fewer one-off mistakes.")
+                 + " \"Hear it for\" is how long a new species must keep calling before it's logged: longer means fewer one-off mistakes; Off logs the first second that clears the bar.")
         }
     }
 

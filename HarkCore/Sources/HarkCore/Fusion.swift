@@ -28,6 +28,30 @@ public enum Fusion {
         "Speech", "Speech_synthesizer", "Telephone", "Wind_instrument_and_woodwind_instrument"]
     public static let humanGate: Float = 0.20
 
+    /// Perch hears pets mostly as AudioSet sound classes: on 40 ESC-50 dog barks "Domestic Dog" itself never passed
+    /// 0.18 while "Dog" + "Bark" held most of the score (Perch alone logged 0/40). Their score is moved onto the
+    /// species: Perch alone then logs 25/40 dogs and 16/40 cats, Both 34/40 and 32/40 (from 29 and 29), with no new
+    /// false IDs on the other ESC-50 animals or the 227 wildlife clips (tools/bakeoff/pets.py).
+    public static let soundSynonyms: [String: [String]] = [
+        "Canis familiaris": ["Dog", "Bark", "Growling"],
+        "Felis catus": ["Cat", "Meow", "Purr"],
+    ]
+
+    /// Resolve `soundSynonyms` to label indices once per label table.
+    public static func synonymIndices(_ labels: LabelTable) -> [(species: Int, sounds: [Int])] {
+        soundSynonyms.compactMap { sp, sounds in
+            labels.index(ofScientific: sp).map { ($0, sounds.compactMap { labels.index(ofScientific: $0) }) }
+        }
+    }
+
+    /// Move each synonym sound class's Perch score onto its species (softmax mass, so the sum is still a probability).
+    public static func poolSynonyms(_ p: inout [Float], _ groups: [(species: Int, sounds: [Int])]) {
+        for (sp, sounds) in groups where sp < p.count {
+            for j in sounds where j < p.count { p[sp] += p[j]; p[j] = 0 }
+            p[sp] = min(p[sp], 1)
+        }
+    }
+
     /// A BirdNET+ score on Hark's (Perch) scale.
     public static func perchEquivalent(_ b: Float) -> Float {
         let x = min(max(b, 1e-6), 1 - 1e-6)
