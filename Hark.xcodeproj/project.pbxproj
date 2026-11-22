@@ -18,6 +18,7 @@
 		2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
 		2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941B45C78432B52FF73B873 /* Style.swift */; };
+		2E6AC412D9429B73C96C0942 /* AppIcon.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D6ED8EDD8BB3071BD988B14 /* AppIcon.xcassets */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
 		33C1EE14AC14692636AFB57E /* birdnet3_selftest.json in Resources */ = {isa = PBXBuildFile; fileRef = 2C1FA73A9B9903863045844C /* birdnet3_selftest.json */; };
 		34FE9434067A8CCBBEB0D25D /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A371842CFB8FC187A89231 /* TodayWidget.swift */; };
@@ -90,6 +91,7 @@
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
 		2C1FA73A9B9903863045844C /* birdnet3_selftest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = birdnet3_selftest.json; sourceTree = "<group>"; };
+		2D6ED8EDD8BB3071BD988B14 /* AppIcon.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = AppIcon.xcassets; sourceTree = "<group>"; };
 		2E9BF582C048F510851B11AB /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		32AAC1FC7177CAC93C91360C /* Listener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Listener.swift; sourceTree = "<group>"; };
@@ -222,6 +224,7 @@
 		B3782DD2C0359787FA4B59BC /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				2D6ED8EDD8BB3071BD988B14 /* AppIcon.xcassets */,
 				8FD77254C3366DBEE651C8F4 /* birdnet3_labels.json */,
 				917CB5391788776CF17AF178 /* birdnet3_map.bin */,
 				2C1FA73A9B9903863045844C /* birdnet3_selftest.json */,
@@ -352,6 +355,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E6AC412D9429B73C96C0942 /* AppIcon.xcassets in Resources */,
 				DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */,
 				C8002EAA8136004AE757C5E9 /* LICENSE-Apache-2.0.txt in Resources */,
 				992C3008C13E3DDE2E90AC20 /* birdnet3_labels.json in Resources */,
@@ -429,7 +433,7 @@
 		55649635AA6AA231F5425FD5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Hark/Hark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
@@ -531,7 +535,7 @@
 		A5B3B55BFAFB80D01B2D07F1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Hark/Hark.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;

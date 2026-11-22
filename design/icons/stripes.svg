@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a1260"/><stop offset=".55" stop-color="#0f6b6b"/><stop offset="1" stop-color="#4fd18b"/></linearGradient>
+ <clipPath id="bird">
+  <ellipse cx="470" cy="560" rx="235" ry="165" transform="rotate(-14 470 560)"/>
+  <circle cx="660" cy="425" r="112"/>
+  <polygon points="755,402 860,438 752,468"/>
+  <polygon points="300,545 105,640 135,705 330,640"/></clipPath>
+</defs>
+<rect width="1024" height="1024" fill="url(#bg)"/>
+<g clip-path="url(#bird)" fill="#ffffff">
+ <rect x="96" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="136" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="176" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="216" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="256" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="296" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="336" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="376" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="416" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="456" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="496" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="536" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="576" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="616" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="656" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="696" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="736" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="776" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="816" y="0" width="26" height="1024" rx="13" opacity="0.8"/><rect x="856" y="0" width="26" height="1024" rx="13" opacity="0.95"/><rect x="896" y="0" width="26" height="1024" rx="13" opacity="0.8"/>
+</g>
+<circle cx="690" cy="405" r="16" fill="#1b2f5a"/></svg>

@@ -1,0 +1,6 @@
+c_orig	Original
+c_rise	Rising phrase
+c_harm	Harmonics
+c_stars	Night sky
+c_four	Four-note phrase
+c_full	Fuller strokes

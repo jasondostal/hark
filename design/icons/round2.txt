@@ -1,0 +1,6 @@
+chirp2	Chirp v2
+hchirp	H of chirps
+hspec	H, spectrogram bar
+hspecnight	H, night
+birdnight	Bird of bars, night
+birdsing	Bird + chirps
