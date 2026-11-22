@@ -61,6 +61,10 @@ final class Selection {
         viewImage = SpectrogramDSP.image(levels.data, columns: levels.columns, range: lo..<hi)
     }
 
+    func x(of sample: Int, width: CGFloat) -> CGFloat {
+        CGFloat(sample - viewStart) / CGFloat(viewLength) * width
+    }
+
     func sample(atX x: CGFloat, width: CGFloat) -> Int {
         let s = viewStart + Int((x / max(width, 1)) * CGFloat(viewLength))
         return min(max(s, 0), total)
@@ -117,6 +121,17 @@ final class Selection {
         logged.insert(i)
     }
 
+    /// Loudest band in the selection (levels are already over the noise floor, so steady hum doesn't win).
+    var peakHz: Float? {
+        guard let levels, !range.isEmpty else { return nil }
+        let lo = range.lowerBound / SpectrogramDSP.hop, hi = min(range.upperBound / SpectrogramDSP.hop, levels.columns)
+        guard hi > lo else { return nil }
+        var sums = [Int](repeating: 0, count: SpectrogramDSP.bins)
+        for c in lo..<hi { let base = c * SpectrogramDSP.bins; for b in 0..<SpectrogramDSP.bins { sums[b] += Int(levels.data[base + b]) } }
+        guard let (b, total) = sums.enumerated().max(by: { $0.element < $1.element }), total > (hi - lo) * 8 else { return nil }
+        return SpectrogramDSP.bandHz(b)
+    }
+
     var caption: String {
         guard let clip, !range.isEmpty else { return "" }
         return "\(String(format: "%.1f", Double(range.count) / Double(Self.sr))) s · \(clip.time(atSample: range.lowerBound).formatted(date: .omitted, time: .standard))"
@@ -143,10 +158,24 @@ struct FrozenSpectrogram: View {
                 }
                 if !selection.range.isEmpty {
                     let a = x(selection.range.lowerBound), b = x(selection.range.upperBound)
-                    Color.black.opacity(0.5).frame(width: a, height: h)
-                    Color.black.opacity(0.5).frame(width: w - b, height: h).offset(x: b)
-                    RoundedRectangle(cornerRadius: 4).stroke(palette.labelColor, lineWidth: 2)
-                        .frame(width: max(b - a, 2), height: h - 2).offset(x: a, y: 1)
+                    let ca = x(selection.scoredRange.lowerBound), cb = x(selection.scoredRange.upperBound)
+                    let edge = palette == .paper ? Color.accentColor : Color.white
+                    // dim what Perch didn't hear; the context a short selection is scored with gets a lighter dim
+                    Color.black.opacity(0.55).frame(width: ca, height: h)
+                    Color.black.opacity(0.55).frame(width: w - cb, height: h).offset(x: cb)
+                    Color.black.opacity(0.25).frame(width: max(a - ca, 0), height: h).offset(x: ca)
+                    Color.black.opacity(0.25).frame(width: max(cb - b, 0), height: h).offset(x: b)
+                    // light up the selection itself
+                    Group {
+                        if palette == .paper { Color.accentColor.opacity(0.14) }
+                        else { Color.white.opacity(0.22).blendMode(.screen) }
+                    }
+                    .frame(width: max(b - a, 2), height: h).offset(x: a)
+                    ForEach([a, b], id: \.self) { ex in
+                        Rectangle().fill(edge).frame(width: 2, height: h).offset(x: ex - 1)
+                        Capsule().fill(edge).frame(width: 8, height: 34).offset(x: ex - 4, y: h / 2 - 17)
+                            .shadow(color: .black.opacity(0.35), radius: 2)
+                    }
                 }
             }
             .clipped()
@@ -191,7 +220,10 @@ struct SelectionSection: View {
         Section {
             if selection.range.isEmpty {
                 Text("Drag across a call to identify it, or tap to grab 5 seconds.").foregroundStyle(.secondary)
-            } else if selection.analyzing {
+            } else {
+                SelectionStats(selection: selection)
+            }
+            if !selection.range.isEmpty && selection.analyzing {
                 HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
             }
             if let t = selection.result, !selection.analyzing {
@@ -230,5 +262,37 @@ struct SelectionSection: View {
                 }
             }
         }
+    }
+}
+
+/// What you selected, at a glance: how long, when (and how long ago), and the loudest pitch in it.
+struct SelectionStats: View {
+    let selection: Selection
+    var body: some View {
+        if let clip = selection.clip {
+            let r = selection.range
+            let start = clip.time(atSample: r.lowerBound), end = clip.time(atSample: r.upperBound)
+            HStack(alignment: .top, spacing: 0) {
+                stat("Length", String(format: "%.1f s", Double(r.count) / Double(Selection.sr)), nil)
+                Divider().padding(.horizontal, 10)
+                stat("Heard", start.formatted(date: .omitted, time: .standard),
+                     "to \(end.formatted(date: .omitted, time: .standard)) · \(ago(start))")
+                Divider().padding(.horizontal, 10)
+                stat("Peak", selection.peakHz.map { $0 >= 1000 ? String(format: "%.1f kHz", $0 / 1000) : "\(Int($0)) Hz" } ?? "—", nil)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    private func stat(_ label: String, _ value: String, _ sub: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+            Text(value).font(.subheadline.monospacedDigit().weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+            if let sub { Text(sub).font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7) }
+        }
+        .frame(maxWidth: label == "Heard" ? .infinity : nil, alignment: .leading)
+    }
+    private func ago(_ d: Date) -> String {
+        let s = max(0, Int(Date().timeIntervalSince(d)))
+        return s < 60 ? "\(s) s ago" : "\(s / 60) min ago"
     }
 }

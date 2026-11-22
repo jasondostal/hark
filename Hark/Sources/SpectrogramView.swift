@@ -110,6 +110,13 @@ final class SpectrogramDSP {
         return m
     }
 
+    /// Center frequency of a mel band.
+    static func bandHz(_ b: Int) -> Float {
+        func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
+        let lo = mel(150), hi = mel(15_000), m = lo + (hi - lo) * Float(b + 1) / Float(bins + 1)
+        return 700 * (powf(10, m / 2595) - 1)
+    }
+
     /// Height fraction (0 = bottom) of a frequency on the display's mel axis.
     static func yFraction(hz: Float) -> CGFloat {
         func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }

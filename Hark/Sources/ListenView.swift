@@ -10,6 +10,9 @@ struct ListenView: View {
     @Environment(\.modelContext) private var ctx
     @State private var showSettings = ProcessInfo.processInfo.arguments.contains("-settings")   // screenshot aids
     @State private var showLog = ProcessInfo.processInfo.arguments.contains("-logtab")
+    /// Which selection edge a drag grabbed (nil = drawing a new selection); decided when the drag starts.
+    @State private var dragEdge: Int?
+    @State private var dragStarted = false
 
     var body: some View {
         @Bindable var listener = listener
@@ -73,17 +76,35 @@ struct ListenView: View {
     }
 
     private func touchMoved(_ v: DragGesture.Value, width: CGFloat) {
+        if !dragStarted {
+            dragStarted = true
+            dragEdge = nil
+            if selection.isFrozen && !selection.range.isEmpty {   // started on an edge: adjust it instead
+                let a = selection.x(of: selection.range.lowerBound, width: width)
+                let b = selection.x(of: selection.range.upperBound, width: width)
+                let da = abs(v.startLocation.x - a), db = abs(v.startLocation.x - b)
+                if min(da, db) < 24 { dragEdge = da <= db ? 0 : 1 }
+            }
+        }
         if !selection.isFrozen {
             guard listener.canSelect else { return }
             listener.freezeForSelection()
         }
-        guard selection.isFrozen, abs(v.translation.width) > 6 else { return }
-        selection.select(selection.sample(atX: v.startLocation.x, width: width), selection.sample(atX: v.location.x, width: width))
+        guard selection.isFrozen else { return }
+        let here = selection.sample(atX: v.location.x, width: width)
+        switch dragEdge {
+        case 0: if abs(v.translation.width) > 2 { selection.select(here, selection.range.upperBound) }
+        case 1: if abs(v.translation.width) > 2 { selection.select(selection.range.lowerBound, here) }
+        default:
+            guard abs(v.translation.width) > 6 else { return }
+            selection.select(selection.sample(atX: v.startLocation.x, width: width), here)
+        }
     }
 
     private func touchEnded(_ v: DragGesture.Value, width: CGFloat) {
+        defer { dragStarted = false; dragEdge = nil }
         guard selection.isFrozen else { return }
-        if abs(v.translation.width) <= 6 { selection.grab(around: selection.sample(atX: v.location.x, width: width)) }
+        if abs(v.translation.width) <= 6 && dragEdge == nil { selection.grab(around: selection.sample(atX: v.location.x, width: width)) }
         Task { await selection.analyze(listener) }
     }
 
