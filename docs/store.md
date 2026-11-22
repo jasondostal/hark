@@ -8,7 +8,9 @@ Jason in the web UI. `tools/asc/listing.py` pushes the fields below.
 
 1. ~~Support and privacy pages~~ LIVE 2026-11-21 at ducktyping.dev/hark/ (no whoami section: that was only for Bent).
 2. ~~Screenshots~~ uploaded 2026-11-21. Build 1.0 (1) archived and uploaded 2026-11-21.
-3. Jason checks the store build on his phone (TestFlight), then attach the build and submit.
+3. ~~Submit~~ SUBMITTED 2026-11-21 ~22:50 CST on Jason's go: build 1 attached, version 1.0 WAITING_FOR_REVIEW (review submission 9a1a1cfa-9b83-468f-a21a-33d1c819880f).
+   Content rights declared USES_THIRD_PARTY_CONTENT (models, GBIF, OpenFauna, eBird, all licensed; listing.py sets it).
+4. After approval: set APP_STORE_URL in ducktyping src/pages/hark/index.astro, add Hark to src/lib/apps.ts, deploy.
 
 ## Name and subtitle (30 characters each)
 

@@ -52,6 +52,7 @@ info = call('GET', f'/v1/apps/{APP}/appInfos')['data'][0]['id']
 loc = call('GET', f'/v1/appInfos/{info}/appInfoLocalizations')['data'][0]['id']
 ok('appInfo localization', patch(f'/v1/appInfoLocalizations/{loc}', 'appInfoLocalizations', loc,
                                  {'subtitle': subtitle, 'privacyPolicyUrl': privacy}))
+ok('content rights', patch(f'/v1/apps/{APP}', 'apps', APP, {'contentRightsDeclaration': 'USES_THIRD_PARTY_CONTENT'}))
 ok('categories', patch(f'/v1/appInfos/{info}', 'appInfos', info, rels={
     'primaryCategory': {'data': {'type': 'appCategories', 'id': 'SPORTS'}},
     'secondaryCategory': {'data': {'type': 'appCategories', 'id': 'UTILITIES'}}}))
