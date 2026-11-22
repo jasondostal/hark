@@ -111,6 +111,9 @@ final class Listener {
         didSet { UserDefaults.standard.set(mutedNames, forKey: "muted"); refreshMuted() }
     }
     private var muted: Set<Int> = []
+    /// "Not it" this session: wrong IDs the person waved off (a 2 a.m. siren isn't a screech owl), ignored until the next Listen.
+    private(set) var notHere: Set<Int> = []
+    private var hidden: Set<Int> { notHere.isEmpty ? muted : muted.union(notHere) }
 
     // Location + season filter (see LocalContext): GBIF range map, BirdNET geomodel, your patch, eBird.
     private var ranges: RangeMap?
@@ -305,9 +308,9 @@ final class Listener {
         if model != .perch, let birdnet { bn = try? await birdnet.scores(samples, labelCount: n) }
         updateContext()
         switch (perch, bn) {
-        case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: muted, topK: topK, humanSound: human)
-        case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: muted, topK: topK, humanSound: human)
-        case let (nil, b?): return policy.triage(scores: b, labels: labels, context: context, muted: muted, topK: topK)
+        case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
+        case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
+        case let (nil, b?): return policy.triage(scores: b, labels: labels, context: context, muted: hidden, topK: topK)
         default: return nil
         }
     }
@@ -325,7 +328,7 @@ final class Listener {
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
         sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []
-        recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]
+        recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]; notHere = []
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
         audio.onSamples = { [weak self] s, db in
@@ -400,6 +403,43 @@ final class Listener {
         maybes.removeAll { $0.index == index }; recentMaybes[index] = nil
     }
     func unmute(_ scientific: String) { mutedNames.removeAll { $0 == scientific } }
+
+    /// "Not it": this ID was wrong just now. Takes it off the screen and out of the log, and ignores the species
+    /// for the rest of this session (the siren keeps going), without muting it for good. Noted for tuning.
+    @discardableResult
+    func notIt(_ index: Int) -> Set<UUID> {
+        guard let l = label(index) else { return [] }
+        notHere.insert(index)
+        var removed: [Detection] = []
+        for o in tracker.occurrences where o.index == index {
+            if let d = logged.removeValue(forKey: o.id) { removed.append(d) }
+            clipBest[o.id] = nil
+        }
+        removed += manual.filter { $0.scientific == l.scientific }
+        manual.removeAll { $0.scientific == l.scientific }; manualIndices.remove(index)
+        if removed.isEmpty { WrongIDs.note(l, confidence: recentMaybes[index]?.best, source: "maybe") }
+        let ids = Set(removed.map(\.id))
+        removed.forEach(rejectDetection)
+        tracker.drop(index)
+        hearingNow = tracker.active(at: .now)
+        session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
+        maybes.removeAll { $0.index == index }; recentMaybes[index] = nil
+        markers.removeAll { $0.index == index }
+        sessionSpecies.remove(index); agreed.remove(index)
+        return ids
+    }
+    /// A logged row the person says was wrong: noted for tuning, then deleted with its clip.
+    func rejectDetection(_ d: Detection) {
+        WrongIDs.note(d)
+        if let ctx = modelContext { deleteDetection(d, in: ctx); try? ctx.save() }
+    }
+    /// From the Log: if it's from the session that's running, treat it like "Not it" there too.
+    func notIt(_ d: Detection) {
+        let id = d.id
+        var gone: Set<UUID> = []
+        if state == .listening, d.sessionID == sessionID, let i = labels?.index(ofScientific: d.scientific) { gone = notIt(i) }
+        if !gone.contains(id) { rejectDetection(d) }
+    }
     func commonName(_ scientific: String) -> String {
         labels?.labels.first { $0.scientific == scientific }?.common ?? scientific
     }

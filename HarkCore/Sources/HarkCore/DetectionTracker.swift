@@ -74,4 +74,12 @@ public struct DetectionTracker: Sendable {
     }
 
     public mutating func reset() { occurrences = []; open = [:]; pending = [:] }
+
+    /// "Not it": forget a species' occurrences this session (the caller stops it being scored again).
+    public mutating func drop(_ index: Int) {
+        occurrences.removeAll { $0.index == index }
+        pending[index] = nil
+        open = [:]
+        for (k, o) in occurrences.enumerated() { open[o.index] = k }   // later occurrences of a species win, as in add()
+    }
 }

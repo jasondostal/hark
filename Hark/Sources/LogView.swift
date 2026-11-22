@@ -173,6 +173,7 @@ private struct TimelineList: View {
                             }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) { deleteDetection(d, in: ctx) } label: { Label("Delete", systemImage: "trash") }
+                                Button { withAnimation { Listener.shared.notIt(d) } } label: { Label("Not it", systemImage: "xmark") }.tint(.orange)
                             }
                     }
                 }
@@ -441,8 +442,9 @@ struct DetectionDetail: View {
             }
             LearnMoreSection(scientific: detection.scientific, common: detection.common, group: detection.taxon)
             Section {
+                Button("Not it: wrong ID", role: .destructive) { Listener.shared.notIt(detection); dismiss() }
                 Button("Delete", role: .destructive) { deleteDetection(detection, in: ctx); dismiss() }
-            }
+            } footer: { Text("Not it removes this and tells Hark it was wrong this time. To stop seeing a species altogether, long-press it on the Listen screen.") }
         }.themedRows() }.themedList()
         .toolbar { ToolbarItem(placement: .primaryAction) { DetectionShareButton(detection: detection) } }
         .navigationTitle(detection.displayName)

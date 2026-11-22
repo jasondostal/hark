@@ -43,6 +43,7 @@
 		927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */; };
 		992C3008C13E3DDE2E90AC20 /* birdnet3_labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 8FD77254C3366DBEE651C8F4 /* birdnet3_labels.json */; };
 		9AFC21C1024C286FC09D608F /* GeoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */; };
+		9C3F6698C79657CBA3A83182 /* WrongIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
 		A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B6C9AE043448A282C4B970 /* Theme.swift */; };
@@ -114,6 +115,7 @@
 		58B6C9AE043448A282C4B970 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		58E46536FADF19B7CD2B045E /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		5B1093B1BA56386EE9987A87 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
+		5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrongIDs.swift; sourceTree = "<group>"; };
 		7F04DC862C13853B63457E26 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
 		810BC72D8B2E09332463F302 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		860137325B2388EC7A479ED4 /* Export.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Export.swift; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				D941B45C78432B52FF73B873 /* Style.swift */,
 				58B6C9AE043448A282C4B970 /* Theme.swift */,
 				32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */,
+				5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -456,6 +459,7 @@
 				A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */,
 				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
 				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
+				9C3F6698C79657CBA3A83182 /* WrongIDs.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

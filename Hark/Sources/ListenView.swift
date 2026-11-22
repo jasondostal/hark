@@ -296,7 +296,9 @@ struct ListenView: View {
         }
         if !listener.session.isEmpty || !listener.manual.isEmpty {
             Section {
-                ForEach(listener.manual) { d in ManualRow(detection: d) }
+                ForEach(listener.manual) { d in
+                    if let i = listener.labels?.index(ofScientific: d.scientific) { ManualRow(detection: d).muteSwipe(i, detection: d) } else { ManualRow(detection: d) }
+                }
                 ForEach(listener.session) { o in
                     if let l = listener.label(o.index) {
                         SessionRow(label: l, occurrence: o, detection: listener.detection(for: o))
@@ -625,7 +627,7 @@ struct LevelBar: View {
 }
 
 extension View {
-    /// Swipe left: "Never show" this species.
+    /// Swipe left: "Not it" (wrong this time), or "Never show" this species.
     func muteSwipe(_ index: Int, detection: Detection? = nil, maybe: Maybe? = nil) -> some View {
         modifier(MuteSwipe(index: index, detection: detection, maybe: maybe))
     }
@@ -642,7 +644,9 @@ private struct MuteSwipe: ViewModifier {
         content
             .sheet(item: $sharing) { d in ShareCardSheet(detection: d).themeRoot() }
             .swipeActions(edge: .trailing) {
-                Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
+                // Full swipe = Not it (this time only); muting for good is the second, deliberate button.
+                Button(role: .destructive) { withAnimation { listener.notIt(index) } } label: { Label("Not it", systemImage: "xmark") }
+                Button { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }.tint(.gray)
             }
             .contextMenu {
                 if let m = maybe {
@@ -659,6 +663,9 @@ private struct MuteSwipe: ViewModifier {
                     Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
                 }
                 Divider()
+                Button(role: .destructive) { withAnimation { listener.notIt(index) } } label: {
+                    Label("Not it (just this time)", systemImage: "xmark")
+                }
                 Button(role: .destructive) { listener.mute(index) } label: { Label("Never show this species", systemImage: "speaker.slash") }
             }
     }
