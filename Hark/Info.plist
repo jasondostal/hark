@@ -34,7 +34,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Hark tags each sound it identifies with where you heard it, so your log shows place as well as time.</string>
+	<string>Hark tags each sound it identifies with where you heard it, and checks IDs against the species found there at this time of year. Your location stays on this iPhone.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.</string>
 	<key>NSSupportsLiveActivities</key>

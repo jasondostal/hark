@@ -17,6 +17,7 @@
 		1E8954544904735CBCC7EB66 /* HarkTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AC110F30116630F06E8831 /* HarkTips.swift */; };
 		2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
+		2A02A2D5C4CFB721F290AAA6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4FB2C3F02C6D3F334A345120 /* PrivacyInfo.xcprivacy */; };
 		2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941B45C78432B52FF73B873 /* Style.swift */; };
 		2E6AC412D9429B73C96C0942 /* AppIcon.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2D6ED8EDD8BB3071BD988B14 /* AppIcon.xcassets */; };
 		2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8032DCD59B9F6ABEDA20FFE /* Detection.swift */; };
@@ -100,6 +101,7 @@
 		3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoModel.swift; sourceTree = "<group>"; };
 		46339CF0455911EAAB8F7134 /* Clips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clips.swift; sourceTree = "<group>"; };
 		4ABE86294712AED10BE46526 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4FB2C3F02C6D3F334A345120 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		58E46536FADF19B7CD2B045E /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		5B1093B1BA56386EE9987A87 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		7F04DC862C13853B63457E26 /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 				93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */,
 				98AF485B90B0C27ACEE5E705 /* labels.json */,
 				F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */,
+				4FB2C3F02C6D3F334A345120 /* PrivacyInfo.xcprivacy */,
 				C9DF49BC5773FE7D392E921C /* ranges.bin */,
 				DE6827D3D2A7830D066C7F79 /* selftest.f32 */,
 				D75CA65E35D4012047FBC305 /* selftest.json */,
@@ -358,6 +361,7 @@
 				2E6AC412D9429B73C96C0942 /* AppIcon.xcassets in Resources */,
 				DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */,
 				C8002EAA8136004AE757C5E9 /* LICENSE-Apache-2.0.txt in Resources */,
+				2A02A2D5C4CFB721F290AAA6 /* PrivacyInfo.xcprivacy in Resources */,
 				992C3008C13E3DDE2E90AC20 /* birdnet3_labels.json in Resources */,
 				AB32C2C6166A8FFE2216F0B8 /* birdnet3_map.bin in Resources */,
 				33C1EE14AC14692636AFB57E /* birdnet3_selftest.json in Resources */,
@@ -445,12 +449,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -524,11 +528,11 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -547,12 +551,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -633,11 +637,11 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

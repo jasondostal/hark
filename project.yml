@@ -36,7 +36,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSMicrophoneUsageDescription: Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.
-        NSLocationWhenInUseUsageDescription: Hark tags each sound it identifies with where you heard it, so your log shows place as well as time.
+        NSLocationWhenInUseUsageDescription: Hark tags each sound it identifies with where you heard it, and checks IDs against the species found there at this time of year. Your location stays on this iPhone.
         UILaunchScreen: {}
         CFBundleURLTypes:
           - CFBundleURLName: dev.ducktyping.hark
@@ -57,11 +57,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ducktyping.hark
         SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 8N87FTKWXL
-        MARKETING_VERSION: "0.1"
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         COREML_CODEGEN_LANGUAGE: None
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) HARK_APP"
@@ -87,9 +87,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.ducktyping.hark.widgets
         SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 8N87FTKWXL
-        MARKETING_VERSION: "0.1"
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
