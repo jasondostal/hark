@@ -108,9 +108,7 @@ struct ListenView: View {
     }
 
     private var frozenControls: some View {
-        let player = ClipPlayer.shared
-        let playing = player.playingID == selection.playID
-        return HStack(spacing: 10) {
+        HStack(spacing: 10) {
             Button { selection.unfreeze() } label: {
                 Label("Back to live", systemImage: "xmark")
                     .font(.subheadline.weight(.semibold))
@@ -118,19 +116,10 @@ struct ListenView: View {
             }
             .buttonStyle(.bordered)
             .tint(overlayTint)
-            Text(selection.caption)
+            Spacer()
+            Text(selection.range.isEmpty ? "Paused · drag across a call" : selection.caption)
                 .font(.caption.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
                 .allowsHitTesting(false)
-            Spacer()
-            Button { player.toggle(id: selection.playID, samples: selection.selectedSamples) } label: {
-                Image(systemName: playing ? "stop.fill" : "play.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(width: 28).padding(.vertical, 4)
-            }
-            .buttonStyle(.bordered)
-            .tint(overlayTint)
-            .disabled(selection.range.isEmpty)
-            .accessibilityLabel(playing ? "Stop playback" : "Play the selection")
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .background(overlayShade.allowsHitTesting(false))
@@ -159,7 +148,7 @@ struct ListenView: View {
                 .padding(.vertical, 6)
             }
         }
-        if active && listener.idMode == .manual && listener.state == .listening {
+        if active && listener.idMode == .manual && listener.state == .listening && !selection.isFrozen {
             Section("Manual mode") {
                 Label("Hark only identifies what you pick. Touch the spectrogram and drag across a call.", systemImage: "hand.draw")
                     .font(.callout).foregroundStyle(.secondary)

@@ -87,13 +87,25 @@ final class Selection {
     }
 
     var selectedSamples: [Float] { clip.map { Array($0.samples[range]) } ?? [] }
+
+    /// What Perch actually scores: the selection, or for a short one the 5 s of real audio around it. Padding a
+    /// short selection with silence wrecks the scores (a 1 s cardinal: 21% padded, 88% with its surroundings).
+    var scoredRange: Range<Int> {
+        let w = 5 * Self.sr
+        guard range.count < w, total > range.count else { return range }
+        let c = (range.lowerBound + range.upperBound) / 2
+        let lo = min(max(c - w / 2, 0), max(total - w, 0))
+        return lo..<min(lo + w, total)
+    }
+    var isWidened: Bool { scoredRange != range }
+    private var scoredSamples: [Float] { clip.map { Array($0.samples[scoredRange]) } ?? [] }
     var playID: String { "selection-\(clip?.id.uuidString ?? "")-\(range.lowerBound)-\(range.upperBound)" }
 
     func analyze(_ listener: Listener) async {
         guard !analyzing, result == nil, !range.isEmpty else { return }
         analyzing = true
         let r = range
-        let out = await listener.analyze(selectedSamples)
+        let out = await listener.analyze(scoredSamples)
         analyzing = false
         if range == r, isFrozen { result = out }      // ignore if the selection moved while scoring
         else if isFrozen { await analyze(listener) }
@@ -101,7 +113,7 @@ final class Selection {
 
     func log(_ i: Int, _ p: Float, confirmed: Bool, _ listener: Listener) {
         guard let clip, !range.isEmpty else { return }
-        listener.logSelection(i, confidence: p, samples: selectedSamples, at: clip.time(atSample: range.lowerBound), confirmed: confirmed)
+        listener.logSelection(i, confidence: p, samples: scoredSamples, at: clip.time(atSample: range.lowerBound), confirmed: confirmed)
         logged.insert(i)
     }
 
@@ -179,17 +191,38 @@ struct SelectionSection: View {
         Section {
             if selection.range.isEmpty {
                 Text("Drag across a call to identify it, or tap to grab 5 seconds.").foregroundStyle(.secondary)
-            } else if selection.analyzing {
-                HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
-            } else if let t = selection.result {
+            } else {
+                hearRow
+                if selection.analyzing {
+                    HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
+                }
+            }
+            if let t = selection.result, !selection.analyzing {
                 if t.hits.isEmpty && t.unusual.isEmpty && t.maybes.isEmpty {
-                    Text("Nothing identified. Try a tighter selection around the call.").foregroundStyle(.secondary)
+                    Text("Nothing identified here. Try selecting the whole call, or a clearer one.").foregroundStyle(.secondary)
                 }
                 ForEach(t.hits, id: \.index) { h in row(h.index, h.confidence, kind: nil) }
                 ForEach(t.unusual, id: \.index) { h in row(h.index, h.confidence, kind: "unusual here") }
                 ForEach(t.maybes, id: \.index) { h in row(h.index, h.confidence, kind: "maybe") }
             }
-        } header: { Text("Selection") }
+        } header: { Text("Selection") } footer: {
+            if selection.isWidened && !selection.range.isEmpty {
+                Text("Short selections are scored with the 5 seconds around them; Perch needs the context.")
+            }
+        }
+    }
+
+    private var hearRow: some View {
+        let player = ClipPlayer.shared
+        let playing = player.playingID == selection.playID
+        return Button { player.toggle(id: selection.playID, samples: selection.selectedSamples) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: playing ? "stop.circle.fill" : "speaker.wave.2.circle.fill").font(.title2)
+                Text(playing ? "Stop" : "Hear the selection")
+                Spacer()
+                Text(selection.caption).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder private func row(_ i: Int, _ p: Float, kind: String?) -> some View {

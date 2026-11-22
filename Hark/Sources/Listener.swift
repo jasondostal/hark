@@ -191,7 +191,9 @@ final class Listener {
     func toggle() async { state == .listening ? stop() : await start() }
 
     func start() async {
-        guard state == .ready, inference != nil else { return }
+        // .failed too, so a mic hiccup can be retried with the same button instead of leaving the app stuck.
+        guard state != .listening, state != .loading, inference != nil else { return }
+        ClipPlayer.shared.stop()
         let feeding = ProcessInfo.processInfo.arguments.contains("-feedfile")
         let allowed = feeding ? true : await AudioCapture.requestPermission()
         guard allowed else {
@@ -237,6 +239,7 @@ final class Listener {
 
     func stop() {
         loop?.cancel(); loop = nil
+        ClipPlayer.shared.stop()
         audio.stop(); location.stop()
         liveActivity.end()
         sessionRecord?.ended = .now; sessionRecord = nil

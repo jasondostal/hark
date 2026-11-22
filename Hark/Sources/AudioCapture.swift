@@ -61,6 +61,8 @@ final class AudioCapture {
         try session.setActive(true)
 
         let input = engine.inputNode
+        if engine.isRunning { engine.stop() }
+        input.removeTap(onBus: 0)                  // a failed earlier start can leave one behind (a second tap crashes)
         let inFormat = input.outputFormat(forBus: 0)
         guard inFormat.sampleRate > 0 else { throw NSError(domain: "Hark", code: 2, userInfo: [NSLocalizedDescriptionKey: "No microphone input available"]) }
         converter = AVAudioConverter(from: inFormat, to: outFormat)
