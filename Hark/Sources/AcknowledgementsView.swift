@@ -1,0 +1,63 @@
+import SwiftUI
+
+/// Everything Hark is built on that someone else made, with its license.
+struct AcknowledgementsView: View {
+    private struct Credit: Identifiable {
+        let name: String, use: String, license: String, url: String
+        var id: String { name }
+    }
+    private let credits: [Credit] = [
+        Credit(name: "Perch 2.0", use: "The sound-identification model (Google DeepMind).",
+               license: "Apache License 2.0", url: "https://www.kaggle.com/models/google/bird-vocalization-classifier"),
+        Credit(name: "BirdNET+ Geomodel 3.0.4", use: "Which species occur where, week by week (K. Lisa Yang Center for Conservation Bioacoustics, Cornell Lab of Ornithology, and Chemnitz University of Technology).",
+               license: "Apache License 2.0", url: "https://github.com/birdnet-team/geomodel"),
+        Credit(name: "GBIF", use: "Occurrence records behind the range map. GBIF.org, via the GBIF maps API.",
+               license: "Data CC0 / CC BY, per dataset", url: "https://www.gbif.org"),
+        Credit(name: "eBird", use: "Recent sightings near you, when you add your own eBird API key. Data from the Cornell Lab of Ornithology.",
+               license: "eBird API Terms of Use", url: "https://ebird.org"),
+        Credit(name: "OpenFauna", use: "Common names and taxonomy.",
+               license: "See OpenFauna", url: "https://github.com/tphakala/birdnet-go"),
+        Credit(name: "Font Awesome Free 6.5.2", use: "The frog, locust and spider icons.",
+               license: "CC BY 4.0", url: "https://fontawesome.com/license/free"),
+    ]
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(credits) { c in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(c.name).font(.headline)
+                        Text(c.use).font(.callout).foregroundStyle(.secondary)
+                        HStack {
+                            Text(c.license).font(.caption.weight(.medium))
+                            Spacer()
+                            if let u = URL(string: c.url) { Link("Website", destination: u).font(.caption) }
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            } footer: {
+                Text("Hark is free and made for fun. Thank you to everyone who records, shares and labels the sounds of the natural world.")
+            }
+            Section {
+                NavigationLink("Apache License 2.0") { LicenseText(title: "Apache License 2.0", resource: "LICENSE-Apache-2.0") }
+            } header: { Text("License texts") }
+        }
+        .navigationTitle("Acknowledgements")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct LicenseText: View {
+    let title: String, resource: String
+    var body: some View {
+        ScrollView {
+            Text((Bundle.main.url(forResource: resource, withExtension: "txt")).flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? "")
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .padding()
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

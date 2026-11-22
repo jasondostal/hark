@@ -223,11 +223,8 @@ struct SettingsView: View {
         Section {
             LabeledContent("Model", value: "Google Perch 2.0 · 14,795 sounds")
             LabeledContent("Speed", value: listener.lastInferenceMs > 0 ? String(format: "%.1f ms per 5 s of audio", listener.lastInferenceMs) : "—")
-            LabeledContent("Range data", value: "GBIF.org")
-            LabeledContent("Seasons", value: "BirdNET Geomodel")
-            LabeledContent("Names", value: "OpenFauna")
-            LabeledContent("Frog icon", value: "Font Awesome (CC BY 4.0)")
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+            NavigationLink("Acknowledgements") { AcknowledgementsView() }
         } header: { Text("About") } footer: {
             Text("Everything runs on this iPhone. Audio never leaves it.")
         }

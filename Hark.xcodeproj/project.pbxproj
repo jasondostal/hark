@@ -13,6 +13,7 @@
 		13CD05F25DD10489333DE66E /* geo_map.bin in Resources */ = {isa = PBXBuildFile; fileRef = 93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */; };
 		14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9BF582C048F510851B11AB /* SelfTest.swift */; };
 		166030FDDF7236F06318E02E /* labels.json in Resources */ = {isa = PBXBuildFile; fileRef = 98AF485B90B0C27ACEE5E705 /* labels.json */; };
+		1C61CC54A8F6377FA351CD47 /* AcknowledgementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4F54B59A1E7A42D623ADCE /* AcknowledgementsView.swift */; };
 		1E8954544904735CBCC7EB66 /* HarkTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AC110F30116630F06E8831 /* HarkTips.swift */; };
 		2016B5391D55FCADF3FDD253 /* Symbols.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3499EF8200DD71390F7DF3D /* Symbols.swift */; };
 		2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180D52A9CD94D53DCE390487 /* SpectrogramView.swift */; };
@@ -41,6 +42,7 @@
 		BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */; };
 		C65567112B76F22D3E3A7BBE /* HarkIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */; };
 		C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */; };
+		C8002EAA8136004AE757C5E9 /* LICENSE-Apache-2.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */; };
 		CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */ = {isa = PBXBuildFile; fileRef = C9DF49BC5773FE7D392E921C /* ranges.bin */; };
 		D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E7771A2D007367737E31C57 /* SessionsView.swift */; };
 		DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */; };
@@ -104,6 +106,7 @@
 		BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarkWidgets.entitlements; sourceTree = "<group>"; };
 		BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
+		CC4F54B59A1E7A42D623ADCE /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
 		D3DDD14312784E530E18C727 /* HarkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkApp.swift; sourceTree = "<group>"; };
 		D75CA65E35D4012047FBC305 /* selftest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = selftest.json; sourceTree = "<group>"; };
@@ -111,6 +114,7 @@
 		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		DE6827D3D2A7830D066C7F79 /* selftest.f32 */ = {isa = PBXFileReference; path = selftest.f32; sourceTree = "<group>"; };
 		E3499EF8200DD71390F7DF3D /* Symbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Symbols.swift; sourceTree = "<group>"; };
+		F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-Apache-2.0.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +182,7 @@
 		AAF268D3E22324E60FD21A31 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				CC4F54B59A1E7A42D623ADCE /* AcknowledgementsView.swift */,
 				58E46536FADF19B7CD2B045E /* AudioCapture.swift */,
 				46339CF0455911EAAB8F7134 /* Clips.swift */,
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
@@ -207,6 +212,7 @@
 			children = (
 				93C2D9C6FAA212A8F659D0D0 /* geo_map.bin */,
 				98AF485B90B0C27ACEE5E705 /* labels.json */,
+				F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */,
 				C9DF49BC5773FE7D392E921C /* ranges.bin */,
 				DE6827D3D2A7830D066C7F79 /* selftest.f32 */,
 				D75CA65E35D4012047FBC305 /* selftest.json */,
@@ -332,6 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */,
+				C8002EAA8136004AE757C5E9 /* LICENSE-Apache-2.0.txt in Resources */,
 				13CD05F25DD10489333DE66E /* geo_map.bin in Resources */,
 				166030FDDF7236F06318E02E /* labels.json in Resources */,
 				CEA51C6CF5D7500B05B2E565 /* ranges.bin in Resources */,
@@ -359,6 +366,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C61CC54A8F6377FA351CD47 /* AcknowledgementsView.swift in Sources */,
 				70D978D0100CC6F720EF69DC /* AudioCapture.swift in Sources */,
 				A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */,
 				2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */,
