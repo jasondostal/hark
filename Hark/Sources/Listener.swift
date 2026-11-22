@@ -423,6 +423,13 @@ final class Listener {
         patch = Set(names.compactMap { labels.index(ofScientific: $0) })
     }
 
+    /// iNaturalist page for a label (its taxon id when known, else a search).
+    func lookupURL(_ i: Int) -> URL? {
+        guard let l = label(i), l.group.isSpecies else { return nil }
+        if let id = l.inat { return URL(string: "https://www.inaturalist.org/taxa/\(id)") }
+        return URL(string: "https://www.inaturalist.org/search?q=" + (l.scientific.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""))
+    }
+
     /// Why an ID is flagged, for the "unusual" tag.
     func unusualReason(_ i: Int) -> String {
         if context?.status(i) == .outOfSeason {

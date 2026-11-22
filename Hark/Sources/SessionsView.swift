@@ -89,7 +89,6 @@ struct SessionPage: View {
     var body: some View {
         List {
             Section {
-                LabeledContent("Started", value: session.start.formatted(date: .abbreviated, time: .shortened))
                 LabeledContent("Length", value: SessionsList.duration(session.duration))
                 LabeledContent("Species", value: "\(Set(session.detections.map(\.scientific)).count)")
                 if let r = session.record, r.trackLat.count > 1 {
@@ -107,7 +106,8 @@ struct SessionPage: View {
                         BarMark(xStart: .value("Start", s.start), xEnd: .value("End", s.end), y: .value("Species", s.name), height: 8)
                             .foregroundStyle(s.confirmed ? Color.green : Color.accentColor)
                             .cornerRadius(2)
-                            .annotation(position: .top, alignment: .leading, spacing: 2) {
+                            .annotation(position: .top, alignment: .leading, spacing: 2,
+                                        overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                                 if s.labeled { Text(s.name).font(.caption2).foregroundStyle(.secondary).fixedSize() }
                             }
                     }
@@ -123,7 +123,7 @@ struct SessionPage: View {
                 ForEach(session.detections.reversed()) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
         }
-        .navigationTitle(session.start.formatted(date: .abbreviated, time: .shortened))
+        .navigationTitle(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
         .navigationBarTitleDisplayMode(.inline)
     }
 

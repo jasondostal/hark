@@ -6,34 +6,72 @@ struct SettingsView: View {
     @Environment(Listener.self) private var listener
     @Environment(\.dismiss) private var dismiss
     @State private var inputs: [AVAudioSessionPortDescription] = []
+    @State private var showLocation = ProcessInfo.processInfo.arguments.contains("-settingslocation")   // screenshot aid
 
+    /// The top level holds what people change often (model, pickiness, what to listen for); everything else is one
+    /// row each, showing its current value, that opens its own page.
     var body: some View {
-        @Bindable var listener = listener
         NavigationStack {
-          ScrollViewReader { proxy in
             Form {
                 detection
-                listenFor
-                location.id("location")
-                ebirdSection
-                spectrogram
-                audio
-                listening
-                oneTouch
-                if !listener.mutedNames.isEmpty { muted }
+                Section {
+                    NavigationLink { page("Listen for") { listenFor } } label: {
+                        row("Listen for", "pawprint", listenSummary)
+                    }
+                    NavigationLink { page("Location & season") { location; ebirdSection } } label: {
+                        row("Location & season", "location", locationSummary)
+                    }
+                    NavigationLink { page("Spectrogram") { spectrogram } } label: {
+                        row("Spectrogram", "waveform", "\(listener.palette.title) · \(listener.spectrogramSeconds) s")
+                    }
+                    NavigationLink { page("Microphone") { audio } } label: {
+                        row("Microphone", "mic", micSummary)
+                    }
+                    NavigationLink { page("Listening") { listening; oneTouch } } label: {
+                        row("Listening", "timer", listeningSummary)
+                    }
+                    if !listener.mutedNames.isEmpty {
+                        NavigationLink { page("Never show") { muted } } label: {
+                            row("Never show", "eye.slash", "\(listener.mutedNames.count)")
+                        }
+                    }
+                }
                 about
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .onAppear {
-                inputs = AudioCapture.inputs(); listener.updateContext()
-                if ProcessInfo.processInfo.arguments.contains("-settingslocation") {   // screenshot aid
-                    Task { try? await Task.sleep(for: .seconds(1)); proxy.scrollTo("location", anchor: .top) }
-                }
-            }
-          }
+            .navigationDestination(isPresented: $showLocation) { page("Location & season") { location; ebirdSection } }
+            .onAppear { inputs = AudioCapture.inputs(); listener.updateContext() }
         }
+    }
+
+    private func page<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        Form { content() }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(_ title: String, _ symbol: String, _ value: String) -> some View {
+        LabeledContent { Text(value).lineLimit(1) } label: { Label(title, systemImage: symbol) }
+    }
+
+    private var listenSummary: String {
+        let on = ListenGroup.allCases.filter { listener.policy.setting($0).enabled }
+        if on.count == ListenGroup.allCases.count { return "Everything" }
+        if on.isEmpty { return "Nothing" }
+        return "\(on.count) of \(ListenGroup.allCases.count)"
+    }
+
+    private var locationSummary: String {
+        let mode = ["off": "Off", "flag": "Flag", "hide": "Hide"][listener.policy.rangeMode.rawValue] ?? ""
+        return listener.ebird.hasKey && listener.policy.rangeMode != .off ? "\(mode) · eBird" : mode
+    }
+    private var micSummary: String {
+        let name = inputs.first { $0.uid == listener.inputUID }?.portName ?? "Automatic"
+        return listener.rumbleFilter > 0 ? "\(name) · filter" : name
+    }
+    private var listeningSummary: String {
+        let stop = listener.stopAfterMinutes == 0 ? "no time limit" : listener.stopAfterMinutes < 60 ? "stops after \(listener.stopAfterMinutes) min" : "stops after \(listener.stopAfterMinutes / 60) h"
+        return "\(listener.idMode == .auto ? "Auto" : "Manual") · \(stop)"
     }
 
     // MARK: Detection
@@ -44,9 +82,9 @@ struct SettingsView: View {
 
     private var modelBlurb: String {
         switch listener.model {
-        case .perch: "Google's Perch 2.0 alone. Strongest on distant, noisy backyard audio."
-        case .birdnet: "BirdNET+ 3.0 alone. Strongest on close, clean recordings."
-        case .both: "Both listen. An ID counts when they agree, or when either is very sure. In tests this caught 6–7 more of every 100 calls than Perch alone, with no extra noise."
+        case .perch: "Perch 2.0 alone: best on distant, noisy audio."
+        case .birdnet: "BirdNET+ 3.0 alone: best on close, clean recordings."
+        case .both: "Both listen; an ID counts when they agree or either is very sure. Catches the most with the least junk."
         }
     }
 
@@ -58,17 +96,14 @@ struct SettingsView: View {
                     Text("Perch").tag(Fusion.Model.perch); Text("BirdNET+").tag(Fusion.Model.birdnet); Text("Both").tag(Fusion.Model.both)
                 }
                 .pickerStyle(.segmented)
-                Text(modelBlurb).font(.callout).foregroundStyle(.secondary)
             }
             Picker("How picky", selection: presetBinding) {
                 ForEach(Preset.allCases, id: \.self) { Text($0.title).tag(Preset?.some($0)) }
                 if listener.policy.preset == nil { Text("Custom").tag(Preset?.none) }
             }
             .pickerStyle(.segmented)
-            Text(listener.policy.preset?.blurb ?? "You've fine-tuned the thresholds below. Pick a preset to reset them.")
-                .font(.callout).foregroundStyle(.secondary)
         } header: { Text("Detection") } footer: {
-            Text("Why the numbers look low: confidence is on Perch's scale, which splits 100% across 14,795 sounds, so it runs far below BirdNET's. BirdNET+ scores are converted to the same scale (its 75% is about Perch's 30%), so these settings mean the same in every model mode.")
+            Text((listener.birdnetAvailable ? modelBlurb + " " : "") + (listener.policy.preset?.blurb ?? "You've fine-tuned the thresholds. Pick a preset to reset them."))
         }
     }
 
@@ -87,7 +122,7 @@ struct SettingsView: View {
                 }
             }
             NavigationLink("Fine-tune thresholds") { ThresholdsView() }
-        } header: { Text("Listen for") }
+        } footer: { Text("Switch off what you don't want to hear about. Fine-tune sets each group's own bar.") }
     }
 
     private func caption(_ g: ListenGroup, _ s: GroupSetting) -> String {
@@ -113,7 +148,7 @@ struct SettingsView: View {
                     LabeledContent("Status", value: listener.rangeAvailable ? "Waiting for location" : "No range data in this build")
                 }
             }
-        } header: { Text("Location & season") } footer: {
+        } footer: {
             Text("Flag shows IDs that don't fit the place or time of year as \"unusual\" and only logs them if you tap; Hide drops them. Hark checks the BirdNET geomodel (where each species is, week by week) and GBIF records within about 150 km. Species you've confirmed near here, your patch, are never flagged.")
         }
     }
@@ -168,7 +203,7 @@ struct SettingsView: View {
                 Slider(value: $listener.contrast, in: 0...1)
             }
             Toggle("Frequency labels", isOn: $listener.frequencyLabels)
-        } header: { Text("Spectrogram") } footer: {
+        } footer: {
             Text("Owling is all red, to keep your night vision on an owl prowl. Punchy contrast makes faint calls stand out but also shows more background. Colors and contrast don't change what Hark identifies.")
         }
     }
@@ -185,7 +220,7 @@ struct SettingsView: View {
             Picker("Rumble filter", selection: $listener.rumbleFilter) {
                 Text("Off").tag(0.0); Text("Light (80 Hz)").tag(80.0); Text("Strong (200 Hz)").tag(200.0)
             }
-        } header: { Text("Audio") } footer: {
+        } footer: {
             Text("Plug in a USB-C or wired mic and pick it here (applies the next time you start listening). The rumble filter cuts wind, handling and road noise before Hark hears it; Strong can soften the lowest owl hoots and grouse drumming.")
         }
     }
@@ -204,7 +239,7 @@ struct SettingsView: View {
                 Text("15 min").tag(15); Text("30 min").tag(30); Text("1 hour").tag(60)
                 Text("2 hours").tag(120); Text("4 hours").tag(240); Text("Never").tag(0)
             }
-        } header: { Text("Listening") } footer: {
+        } footer: {
             Text("Auto identifies everything it hears and keeps logging with the screen locked (shown on the Lock Screen and Dynamic Island; a new species buzzes the phone). Manual only identifies what you select on the spectrogram. Either way, touch the spectrogram to pick out a call from the last minute.")
         }
     }
@@ -238,7 +273,9 @@ struct SettingsView: View {
     private var about: some View {
         Section {
             LabeledContent("Model", value: ["perch": "Perch 2.0", "birdnet": "BirdNET+ 3.0", "both": "Perch 2.0 + BirdNET+ 3.0"][listener.model.rawValue] ?? "")
-            LabeledContent("Speed", value: listener.lastInferenceMs > 0 ? String(format: "%.1f ms per 5 s of audio", listener.lastInferenceMs) : "—")
+            if listener.lastInferenceMs > 0 {
+                LabeledContent("Speed", value: String(format: "%.0f ms per window", listener.lastInferenceMs))
+            }
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
             NavigationLink("Acknowledgements") { AcknowledgementsView() }
         } header: { Text("About") } footer: {
@@ -268,7 +305,7 @@ struct ThresholdsView: View {
                     .opacity(s.enabled ? 1 : 0.4)
                 }
             } footer: {
-                Text("A sound at or above its group's threshold is logged. Between half the threshold and the threshold it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls.")
+                Text("Why the numbers look low: confidence is on Perch's scale, which splits 100% across 14,795 sounds, so it runs far below BirdNET's. BirdNET+ scores are converted to the same scale (its 75% is about Perch's 30%), so these settings mean the same with either model.\n\nA sound at or above its group's threshold is logged. Between half the threshold and the threshold it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls.")
             }
             Section {
                 ForEach(Preset.allCases, id: \.self) { p in

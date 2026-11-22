@@ -64,6 +64,15 @@ struct ListenView: View {
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { v in touchMoved(v, width: g.size.width) }
                 .onEnded { v in touchEnded(v, width: g.size.width) })
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(selection.isFrozen ? "Paused spectrogram" : "Spectrogram")
+            .accessibilityHint("Touch and drag across a call to identify it.")
+            .accessibilityAction(named: "Identify the last 5 seconds") {
+                guard listener.canSelect else { return }
+                listener.freezeForSelection()
+                selection.grab(around: max(selection.viewEnd - 5 * Selection.sr / 2, 0))
+                Task { await selection.analyze(listener) }
+            }
         }
         .frame(height: 250)
         .popoverTip(SelectTip(), arrowEdge: .top)
@@ -213,10 +222,11 @@ struct ListenView: View {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
                 }
                 ForEach(listener.hearingNow) { o in
-                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index)).muteSwipe(o.index) }
+                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index))
+                            .muteSwipe(o.index, detection: listener.detection(for: o)) }
                 }
                 ForEach(listener.maybes) { m in
-                    if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
+                    if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index, maybe: m) }
                 }
             }
         }
@@ -225,7 +235,8 @@ struct ListenView: View {
                 ForEach(listener.manual) { d in ManualRow(detection: d) }
                 ForEach(listener.session) { o in
                     if let l = listener.label(o.index) {
-                        SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
+                        SessionRow(label: l, occurrence: o, detection: listener.detection(for: o))
+                            .muteSwipe(o.index, detection: listener.detection(for: o))
                     }
                 }
             }
@@ -306,9 +317,10 @@ private struct BarButton: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: symbol).font(.title2).frame(height: 28)
-                Text(title).font(.caption2.weight(.medium))
+                Text(title).font(.caption2.weight(.medium)).lineLimit(1)
             }
-            .frame(width: 66, height: 54)
+            .dynamicTypeSize(...DynamicTypeSize.xLarge)       // like the system tab bar: labels stop growing
+            .frame(width: 76, height: 54)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -323,6 +335,7 @@ struct NowRow: View {
     let confidence: Float
     /// Both models backed it (Both mode).
     var agreed = false
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
@@ -334,10 +347,12 @@ struct NowRow: View {
                         .font(.caption2.weight(.semibold)).foregroundStyle(.green)
                         .accessibilityLabel("Perch and BirdNET+ agree")
                 }
+                if typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }   // big text: bar under the name
             }
-            Spacer()
-            ConfidenceBar(value: confidence)
+            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -345,6 +360,7 @@ struct NowRow: View {
 /// Maybe = plausible but under the threshold (faint, "?"). Unusual = confident but never recorded near you (orange).
 struct MaybeRow: View {
     @Environment(Listener.self) private var listener
+    @Environment(\.dynamicTypeSize) private var typeSize
     let label: HarkCore.Label
     let maybe: Maybe
     var body: some View {
@@ -360,13 +376,18 @@ struct MaybeRow: View {
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(Int(maybe.best * 100))%")
                     .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
+                if typeSize.isAccessibilitySize { HStack { buttons } }
             }
-            Spacer()
-            Button { listener.logMaybe(maybe, confirmed: false) } label: { Image(systemName: "plus") }
-                .buttonStyle(.bordered).accessibilityLabel("Log it")
-            Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
-                .buttonStyle(.bordered).tint(.green).accessibilityLabel("I saw it")
+            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize { buttons }
         }
+    }
+
+    @ViewBuilder private var buttons: some View {
+        Button { listener.logMaybe(maybe, confirmed: false) } label: { Image(systemName: "plus") }
+            .buttonStyle(.bordered).accessibilityLabel("Log it")
+        Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
+            .buttonStyle(.bordered).tint(.green).accessibilityLabel("I saw it")
     }
 }
 
@@ -390,16 +411,24 @@ struct SessionRow: View {
     let label: HarkCore.Label
     let occurrence: DetectionTracker.Occurrence
     let detection: Detection?
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var subtitle: String {
+        var s = "\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · \(Int(occurrence.bestConfidence * 100))%"
+        let mins = Int(occurrence.lastHeard.timeIntervalSince(occurrence.firstHeard) / 60)
+        if mins >= 1 { s += " · \(mins) min" }
+        return s
+    }
     var body: some View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) { Text(label.common); if detection?.isFirst == true { NewBadge() } }
-                Text("\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · best \(Int(occurrence.bestConfidence * 100))% · \(occurrence.windows)×")
+                Text(subtitle)
                     .font(.caption).foregroundStyle(.secondary)
+                if typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
             }
-            Spacer()
-            if let d = detection { ConfirmButton(detection: d) }
+            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
         }
     }
 }
@@ -428,7 +457,7 @@ struct ConfidenceBar: View {
                 }
             }
             .frame(width: 56, height: 6)
-            Text("\(Int(value * 100))%").font(.caption.monospacedDigit()).frame(width: 36, alignment: .trailing)
+            Text("\(Int(value * 100))%").font(.caption.monospacedDigit()).fixedSize().frame(minWidth: 36, alignment: .trailing)
         }
     }
 }
@@ -451,15 +480,37 @@ struct LevelBar: View {
 
 extension View {
     /// Swipe left: "Never show" this species.
-    func muteSwipe(_ index: Int) -> some View { modifier(MuteSwipe(index: index)) }
+    func muteSwipe(_ index: Int, detection: Detection? = nil, maybe: Maybe? = nil) -> some View {
+        modifier(MuteSwipe(index: index, detection: detection, maybe: maybe))
+    }
 }
 
+/// Swipe left to never show a species; long-press for everything you can do with it.
 private struct MuteSwipe: ViewModifier {
     @Environment(Listener.self) private var listener
     let index: Int
+    var detection: Detection?
+    var maybe: Maybe?
     func body(content: Content) -> some View {
-        content.swipeActions(edge: .trailing) {
-            Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
-        }
+        content
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }
+            }
+            .contextMenu {
+                if let m = maybe {
+                    Button { listener.logMaybe(m, confirmed: false) } label: { Label("Log it", systemImage: "plus") }
+                    Button { listener.logMaybe(m, confirmed: true) } label: { Label("I saw it", systemImage: "eye") }
+                }
+                if let d = detection {
+                    Button { d.confirmed.toggle() } label: {
+                        Label(d.confirmed ? "I didn't see it" : "I saw it", systemImage: d.confirmed ? "eye.slash" : "eye")
+                    }
+                }
+                if let url = listener.lookupURL(index) {
+                    Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
+                }
+                Divider()
+                Button(role: .destructive) { listener.mute(index) } label: { Label("Never show this species", systemImage: "speaker.slash") }
+            }
     }
 }

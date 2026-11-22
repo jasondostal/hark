@@ -17,6 +17,26 @@ struct LogView: View {
 
     enum Mode: String, CaseIterable { case timeline = "Timeline", sessions = "Sessions", species = "Species", map = "Map" }
 
+    private var isFiltered: Bool { group != nil || confirmedOnly }
+    private func clearFilter() { group = nil; confirmedOnly = false }
+
+    private var filterMenu: some View {
+        Menu {
+            Toggle(isOn: $confirmedOnly) { Label("Only ones I saw", systemImage: "eye") }
+            Picker("Group", selection: $group) {
+                Text("Everything").tag(ListenGroup?.none)
+                ForEach(ListenGroup.allCases.filter { $0 != .sound }, id: \.self) { g in
+                    Label { Text(g.title) } icon: { Image(symbol: g.symbol) }.tag(ListenGroup?.some(g))
+                }
+            }
+            if isFiltered { Button("Show everything", role: .destructive) { clearFilter() } }
+        } label: {
+            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                .font(.title2).frame(width: 44, height: 36).contentShape(Rectangle())
+        }
+        .accessibilityLabel(isFiltered ? "Filter, on" : "Filter")
+    }
+
     private var shown: [Detection] {
         let q = search.trimmingCharacters(in: .whitespaces)
         return all.filter { d in
@@ -28,36 +48,30 @@ struct LogView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                Picker("View", selection: $mode) {
-                    ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented).padding(.horizontal).padding(.bottom, 6)
+            Group {
                 switch mode {
-                case .timeline: TimelineList(detections: shown, all: all, confirmedOnly: $confirmedOnly)
+                case .timeline: TimelineList(detections: shown, all: all, filtered: isFiltered, clear: clearFilter)
                 case .sessions: SessionsList(detections: shown)
-                case .species: SpeciesList(detections: shown, all: all, confirmedOnly: $confirmedOnly)
+                case .species: SpeciesList(detections: shown, all: all)
                 case .map: LogMap(detections: shown)
                 }
+            }
+            // View switcher + filter at the bottom, where the thumb is.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack(spacing: 10) {
+                    Picker("View", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    filterMenu
+                }
+                .padding(.horizontal).padding(.vertical, 8)
+                .background(.bar)
             }
             .navigationTitle("Log")
             .searchable(text: $search, prompt: "Search species")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Picker("Group", selection: $group) {
-                            Text("Everything").tag(ListenGroup?.none)
-                            ForEach(ListenGroup.allCases.filter { $0 != .sound }, id: \.self) { g in
-                                Label { Text(g.title) } icon: { Image(symbol: g.symbol) }.tag(ListenGroup?.some(g))
-                            }
-                        }
-                    } label: {
-                        Image(systemName: group == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    }
-                }
-            }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
             .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
             .onAppear {   // screenshot aid
@@ -85,7 +99,8 @@ struct SpeciesKey: Hashable { let scientific: String }
 private struct TimelineList: View {
     let detections: [Detection]
     let all: [Detection]
-    @Binding var confirmedOnly: Bool
+    let filtered: Bool
+    let clear: () -> Void
     @Environment(\.modelContext) private var ctx
 
     private var days: [(Date, [Detection])] {
@@ -95,7 +110,12 @@ private struct TimelineList: View {
     var body: some View {
         List {
             Section {
-                Toggle("Only ones I saw", isOn: $confirmedOnly)
+                if filtered {
+                    Button { clear() } label: {
+                        Label("Filtered: \(detections.count) of \(all.count). Show everything", systemImage: "line.3.horizontal.decrease.circle.fill")
+                            .font(.callout)
+                    }
+                }
                 HStack {
                     stat("\(Set(all.map(\.scientific)).count)", "species heard")
                     Divider()
@@ -105,7 +125,7 @@ private struct TimelineList: View {
                 }
             }
             if detections.isEmpty {
-                ContentUnavailableView(confirmedOnly ? "Nothing confirmed yet" : "Nothing logged yet", systemImage: "mic",
+                ContentUnavailableView(filtered ? "Nothing matches the filter" : "Nothing logged yet", systemImage: "mic",
                                        description: Text("Everything Hark identifies is saved here with time, place and a clip."))
             }
             ForEach(days, id: \.0) { day, items in
@@ -134,24 +154,24 @@ private struct TimelineList: View {
 
 struct LogRow: View {
     let detection: Detection
+    private var subtitle: String {
+        let time = detection.firstHeard.formatted(date: .omitted, time: .shortened)
+        return "\(time) · \(Int(detection.confidence * 100))%" + (detection.source == "live" ? "" : " · by hand")
+    }
     var body: some View {
         HStack(spacing: 12) {
             TaxonIcon(group: detection.taxon)
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(detection.common).font(.headline)
-                    if detection.confirmed { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).font(.caption) }
+                    if detection.confirmed {
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).font(.caption).accessibilityLabel("seen")
+                    }
                     if detection.isFirst { NewBadge() }
                 }
-                Text(detection.scientific).font(.caption).italic().foregroundStyle(.secondary)
+                Text(subtitle).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
-            Spacer()
-            VStack(alignment: .trailing) {
-                Text(detection.firstHeard.formatted(date: .omitted, time: .shortened)).font(.caption.monospacedDigit())
-                Text("\(Int(detection.confidence * 100))%\(detection.source == "live" ? "" : " · \(detection.source)")")
-                    .font(.caption2).foregroundStyle(.secondary)
-                if detection.latitude != nil { Image(systemName: "location.fill").font(.caption2).foregroundStyle(.tertiary) }
-            }
+            Spacer(minLength: 8)
             if detection.clipFile != nil { ClipButton(file: detection.clipFile, symbol: "") }
         }
     }
@@ -190,7 +210,6 @@ struct ClipButton: View {
 private struct SpeciesList: View {
     let detections: [Detection]
     let all: [Detection]
-    @Binding var confirmedOnly: Bool
     @State private var sort: Sort = .recent
     enum Sort: String, CaseIterable { case recent = "Recent", count = "Most heard", name = "A–Z" }
 
@@ -225,7 +244,6 @@ private struct SpeciesList: View {
     var body: some View {
         List {
             Section {
-                Toggle("Only ones I saw", isOn: $confirmedOnly)
                 Picker("Sort", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
             } footer: { Text("\(rows.count) species") }
             if growth.count > 1 {
@@ -377,7 +395,6 @@ struct DetectionDetail: View {
                     LabeledContent("Until", value: detection.lastHeard.formatted(date: .omitted, time: .standard))
                 }
                 LabeledContent("Best confidence", value: "\(Int(detection.confidence * 100))%")
-                LabeledContent("Windows", value: "\(detection.windows)")
                 LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {
