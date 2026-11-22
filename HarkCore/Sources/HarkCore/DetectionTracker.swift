@@ -26,10 +26,18 @@ public struct DetectionTracker: Sendable {
     }
 
     public var gap: TimeInterval
+    /// A new species needs this many windows (seconds of live listening) within `confirmSpan` before it opens and is
+    /// logged. One-window blips are most of the false IDs; tools/bakeoff/tune.py: 2 windows cut junk by about a
+    /// quarter for 0-2% of real calls.
+    public var confirmWindows: Int
+    public var confirmSpan: TimeInterval
     public private(set) var occurrences: [Occurrence] = []   // in order first heard
     private var open: [Int: Int] = [:]                        // class index -> occurrences index
+    private var pending: [Int: Occurrence] = [:]              // heard, not yet confirmed
 
-    public init(gap: TimeInterval = 60) { self.gap = gap }
+    public init(gap: TimeInterval = 60, confirmWindows: Int = 2, confirmSpan: TimeInterval = 5) {
+        self.gap = gap; self.confirmWindows = confirmWindows; self.confirmSpan = confirmSpan
+    }
 
     public enum Change: Equatable, Sendable { case started(Occurrence), updated(Occurrence) }
 
@@ -44,10 +52,17 @@ public struct DetectionTracker: Sendable {
                 occurrences[k].bestConfidence = max(occurrences[k].bestConfidence, conf)
                 changes.append(.updated(occurrences[k]))
             } else {
-                let o = Occurrence(id: UUID(), index: idx, firstHeard: w.time, lastHeard: w.time, bestConfidence: conf, windows: 1)
-                open[idx] = occurrences.count
-                occurrences.append(o)
-                changes.append(.started(o))
+                var o = pending[idx].flatMap { w.time.timeIntervalSince($0.lastHeard) <= confirmSpan ? $0 : nil }
+                    ?? Occurrence(id: UUID(), index: idx, firstHeard: w.time, lastHeard: w.time, bestConfidence: conf, windows: 0)
+                o.lastHeard = w.time; o.windows += 1; o.bestConfidence = max(o.bestConfidence, conf)
+                if o.windows >= confirmWindows {
+                    pending[idx] = nil
+                    open[idx] = occurrences.count
+                    occurrences.append(o)
+                    changes.append(.started(o))
+                } else {
+                    pending[idx] = o
+                }
             }
         }
         return changes
@@ -58,5 +73,5 @@ public struct DetectionTracker: Sendable {
         occurrences.filter { now.timeIntervalSince($0.lastHeard) <= window }.sorted { $0.bestConfidence > $1.bestConfidence }
     }
 
-    public mutating func reset() { occurrences = []; open = [:] }
+    public mutating func reset() { occurrences = []; open = [:]; pending = [:] }
 }

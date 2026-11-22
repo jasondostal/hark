@@ -14,9 +14,11 @@ public enum Fusion {
         return min(0.99, 0.30 * expf((logit - ref) / 2))
     }
 
-    /// "Agree, or one is sure", relative to a group threshold t (bake-off: at t = 0.30 this is Perch >= 0.25 and
-    /// BirdNET+ >= 0.40, or Perch >= 0.70, or BirdNET+ >= 0.85; it found 6-7 more of every 100 calls than Perch
-    /// alone at the same noise). `g` is BirdNET+ on Perch's scale.
+    /// "Agree, or one is sure". The agreement bar scales with the group threshold t (at t = 0.30: Perch >= 0.25 and
+    /// BirdNET+ >= 0.40). The "sure" bars are fixed (Perch 0.70, BirdNET+ about 0.85 = 0.41 on Perch's scale) or the
+    /// threshold if higher: scaling them too punished Strict (distant birds Perch is sure of but BirdNET+ barely hears)
+    /// and made Sensitive noisy. tools/bakeoff/tune.py, live replay with 2-window confirmation: Balanced finds 92% /
+    /// 83% (iNat / yard) vs Perch alone 86% / 75% at the same noise. `g` is BirdNET+ on Perch's scale.
     public static func agree(_ p: Float, _ g: Float, threshold t: Float) -> Bool { p >= 0.83 * t && g >= 0.47 * t }
-    public static func sure(_ p: Float, _ g: Float, threshold t: Float) -> Bool { p >= 2.33 * t || g >= 1.37 * t }
+    public static func sure(_ p: Float, _ g: Float, threshold t: Float) -> Bool { p >= max(0.70, t) || g >= max(0.41, 1.03 * t) }
 }

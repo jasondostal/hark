@@ -27,7 +27,7 @@ final class ScoringTests: XCTestCase {
 final class TrackerTests: XCTestCase {
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     func testContinuousHearingIsOneOccurrence() {
-        var tr = DetectionTracker(gap: 60)
+        var tr = DetectionTracker(gap: 60, confirmWindows: 1)
         tr.add(WindowResult(time: t0, hits: [(7, 0.4)]))
         let c = tr.add(WindowResult(time: t0 + 30, hits: [(7, 0.8)]))
         XCTAssertEqual(tr.occurrences.count, 1)
@@ -36,14 +36,28 @@ final class TrackerTests: XCTestCase {
         guard case .updated = c[0] else { return XCTFail("expected update") }
     }
     func testGapStartsNewOccurrence() {
-        var tr = DetectionTracker(gap: 60)
+        var tr = DetectionTracker(gap: 60, confirmWindows: 1)
         tr.add(WindowResult(time: t0, hits: [(7, 0.4)]))
         let c = tr.add(WindowResult(time: t0 + 61, hits: [(7, 0.5)]))
         XCTAssertEqual(tr.occurrences.count, 2)
         guard case .started = c[0] else { return XCTFail("expected start") }
     }
+    func testOneWindowBlipIsNotLogged() {
+        var tr = DetectionTracker()                       // default: 2 windows within 5 s
+        XCTAssertTrue(tr.add(WindowResult(time: t0, hits: [(7, 0.4)])).isEmpty)
+        XCTAssertTrue(tr.occurrences.isEmpty)
+        // a second hit 6 s later is too late to confirm the first: still pending
+        XCTAssertTrue(tr.add(WindowResult(time: t0 + 6, hits: [(7, 0.4)])).isEmpty)
+        // confirmed by a hit within 5 s; first heard is kept from the first of the pair
+        let c = tr.add(WindowResult(time: t0 + 7, hits: [(7, 0.6)]))
+        guard case .started(let o) = c.first else { return XCTFail("expected start") }
+        XCTAssertEqual(o.firstHeard, t0 + 6)
+        XCTAssertEqual(o.windows, 2)
+        XCTAssertEqual(o.bestConfidence, 0.6)
+    }
+
     func testActiveSortsByConfidence() {
-        var tr = DetectionTracker()
+        var tr = DetectionTracker(confirmWindows: 1)
         tr.add(WindowResult(time: t0, hits: [(1, 0.3), (2, 0.9)]))
         XCTAssertEqual(tr.active(at: t0 + 1, within: 8).map(\.index), [2, 1])
         tr.add(WindowResult(time: t0 + 20, hits: [(3, 0.5)]))
