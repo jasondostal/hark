@@ -60,6 +60,9 @@ final class SpectrogramDSP {
         let dsp = SpectrogramDSP()
         samples.withUnsafeBufferPointer { s in
             data.withUnsafeMutableBufferPointer { d in
+                // Settle the noise floor on the clip first, so its start isn't drawn bright while the floor is still
+                // finding the background (it starts from the quietest columns, then follows quiet fast, loud slowly).
+                for c in 0..<min(cols, 300) { dsp.column(s.baseAddress! + c * hop, into: d.baseAddress! + c * bins) }
                 for c in 0..<cols { dsp.column(s.baseAddress! + c * hop, into: d.baseAddress! + c * bins) }
             }
         }

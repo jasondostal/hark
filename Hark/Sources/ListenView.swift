@@ -42,6 +42,9 @@ struct ListenView: View {
         .onAppear {
             listener.modelContext = ctx
             WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
+            #if DEBUG
+            Task { await DemoData.seedIfRequested(ctx) }      // screenshot aid: -demolog <dir>
+            #endif
         }
     }
 

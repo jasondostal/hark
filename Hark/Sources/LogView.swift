@@ -75,8 +75,17 @@ struct LogView: View {
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
             .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
             .onAppear {   // screenshot aid
-                if ProcessInfo.processInfo.arguments.contains("-opensession"), let s = SessionSummary.build(all, records).first {
-                    mode = .sessions; path.append(s)
+                let args = ProcessInfo.processInfo.arguments
+                if let i = args.firstIndex(of: "-opensession") {   // optional index: -opensession 2 = third most recent
+                    let n = i + 1 < args.count ? Int(args[i + 1]) ?? 0 : 0
+                    Task {   // after -demolog has seeded
+                        try? await Task.sleep(for: .seconds(2))
+                        let list = SessionSummary.build(all, records)
+                        if list.indices.contains(n) { mode = .sessions; path.append(list[n]) }
+                    }
+                }
+                if let i = args.firstIndex(of: "-openspecies"), i + 1 < args.count {
+                    mode = .species; path.append(SpeciesKey(scientific: args[i + 1]))
                 }
             }
             .navigationDestination(for: SpeciesKey.self) { SpeciesPage(scientific: $0.scientific) }
