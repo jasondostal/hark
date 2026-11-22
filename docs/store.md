@@ -6,8 +6,8 @@ Jason in the web UI. `tools/asc/listing.py` pushes the fields below.
 
 ## Open before submitting
 
-1. Support and privacy pages written in the ducktyping repo (`src/pages/hark/`), not deployed; the whoami line wants
-   Jason's read.
+1. Support and privacy pages written in the ducktyping repo (`src/pages/hark/`), not deployed. No whoami section
+   (Jason: that was only for Bent).
 2. Screenshots (6.9"), build upload, attach the build, submit.
 
 ## Name and subtitle (30 characters each)
