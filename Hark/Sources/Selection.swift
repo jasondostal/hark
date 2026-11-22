@@ -151,7 +151,7 @@ struct FrozenSpectrogram: View {
                 palette.background
                 if let img = selection.viewImage {
                     let x0 = x(0)
-                    Image(decorative: img, scale: 1).resizable().interpolation(.medium)
+                    Image(decorative: img, scale: 1).resizable().interpolation(SpectrogramStyle.shared.pixel ? .none : .medium)
                         .frame(width: w - x0, height: h).offset(x: x0)
                 } else {
                     ProgressView().tint(palette.labelColor).frame(width: w, height: h)
@@ -180,7 +180,7 @@ struct FrozenSpectrogram: View {
             }
             .clipped()
         }
-        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor) } }
+        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel) } }
     }
 }
 
@@ -193,7 +193,7 @@ struct SelectionOverview: View {
             let v0 = CGFloat(max(selection.viewStart, 0)) / t * w, v1 = CGFloat(selection.viewEnd) / t * w
             ZStack(alignment: .topLeading) {
                 Color.black
-                if let o = selection.overview { Image(decorative: o, scale: 1).resizable().interpolation(.medium) }
+                if let o = selection.overview { Image(decorative: o, scale: 1).resizable().interpolation(SpectrogramStyle.shared.pixel ? .none : .medium) }
                 Color.black.opacity(0.55).frame(width: v0, height: h)
                 Color.black.opacity(0.55).frame(width: max(w - v1, 0), height: h).offset(x: v1)
                 RoundedRectangle(cornerRadius: 3).stroke(.white, lineWidth: 1.5).frame(width: max(v1 - v0, 4), height: h - 1).offset(x: v0, y: 0.5)

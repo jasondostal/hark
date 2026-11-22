@@ -3,14 +3,16 @@ import HarkCore
 
 /// Spectrogram color schemes. Index 0 is the background; levels run quiet -> loud.
 enum SpectrogramPalette: String, CaseIterable, Identifiable {
-    case aurora, ocean, magma, viridis, owling, grayscale, paper
+    case aurora, ocean, magma, viridis, owling, grayscale, paper, arcade
     var id: String { rawValue }
     var title: String {
         switch self {
         case .aurora: "Aurora"; case .ocean: "Ocean"; case .magma: "Magma"; case .viridis: "Viridis"
-        case .owling: "Owling"; case .grayscale: "Night"; case .paper: "Paper"
+        case .owling: "Owling"; case .grayscale: "Night"; case .paper: "Paper"; case .arcade: "8-bit"
         }
     }
+    /// 8-bit: chunky blocks, a handful of flat colors, a pixel font, steps instead of smooth scrolling.
+    var isPixel: Bool { self == .arcade }
     var stops: [(Float, Float, Float)] {
         switch self {
         // night sky: indigo and violet low, curtain green high, pale mint at the loudest
@@ -22,9 +24,16 @@ enum SpectrogramPalette: String, CaseIterable, Identifiable {
         case .viridis: [(0.07, 0.0, 0.15), (0.23, 0.32, 0.55), (0.13, 0.57, 0.55), (0.37, 0.79, 0.38), (0.99, 0.91, 0.14)]
         case .grayscale: [(0.0, 0.0, 0.0), (0.35, 0.35, 0.35), (1.0, 1.0, 1.0)]
         case .paper: [(1.0, 1.0, 1.0), (0.62, 0.62, 0.62), (0.0, 0.0, 0.0)]
+        // the pixel icons' night: indigo, violet, green, mint, white, flat steps
+        case .arcade: [(0.055, 0.035, 0.14), (0.17, 0.10, 0.37), (0.44, 0.31, 0.75), (0.25, 0.81, 0.56), (0.66, 0.95, 0.78), (0.96, 1.0, 0.96)]
         }
     }
     func color(_ t: Float) -> (UInt8, UInt8, UInt8) {
+        if isPixel {   // flat steps; quiet stays background so the blocks don't fizz, and white is only the loudest
+            let s = stops, t = min(max(t, 0), 1)
+            let i = [0.36, 0.50, 0.63, 0.77, 0.92].lastIndex(where: { t >= $0 }).map { $0 + 1 } ?? 0
+            return (UInt8(s[i].0 * 255), UInt8(s[i].1 * 255), UInt8(s[i].2 * 255))
+        }
         let s = stops, x = min(max(t, 0), 1) * Float(s.count - 1)
         let i = min(Int(x), s.count - 2), f = x - Float(i)
         func c(_ p: Float, _ q: Float) -> UInt8 { UInt8(max(0, min(255, (p + (q - p) * f) * 255))) }
@@ -42,6 +51,7 @@ enum SpectrogramPalette: String, CaseIterable, Identifiable {
         switch self {
         case .paper: .black.opacity(0.6)
         case .owling: Color(red: 1, green: 0.25, blue: 0.15).opacity(0.75)
+        case .arcade: Color(red: 0.66, green: 0.95, blue: 0.78).opacity(0.85)
         default: .white.opacity(0.7)
         }
     }
@@ -61,10 +71,18 @@ final class SpectrogramStyle: @unchecked Sendable {
     private let lock = NSLock()
     private var _lut = SpectrogramPalette.aurora.lut
     private var _span: Float = 36
+    private var _pixel = false
+    private var _pixelBands = 4
+    /// Mel bands per 8-bit block row: 4 (32 rows) for the short portrait panel, 2 (64 rows) for tall landscape,
+    /// so blocks stay about square.
+    var pixelBands: Int { lock.lock(); defer { lock.unlock() }; return _pixelBands }
+    func set(panelHeight h: CGFloat) { lock.lock(); _pixelBands = h > 330 ? 2 : 4; lock.unlock() }
+    /// 8-bit look: images are built in blocks (see SpectrogramDSP.pixelBlock).
+    var pixel: Bool { lock.lock(); defer { lock.unlock() }; return _pixel }
     var lut: [UInt32] { lock.lock(); defer { lock.unlock() }; return _lut }
     /// dB above the noise floor that maps to full brightness. Smaller = punchier.
     var span: Float { lock.lock(); defer { lock.unlock() }; return _span }
-    func set(palette: SpectrogramPalette) { let l = palette.lut; lock.lock(); _lut = l; lock.unlock() }
+    func set(palette: SpectrogramPalette) { let l = palette.lut; lock.lock(); _lut = l; _pixel = palette.isPixel; lock.unlock() }
     /// contrast 0 (soft, 54 dB) ... 1 (punchy, 24 dB)
     func set(contrast: Double) { lock.lock(); _span = Float(54 - 30 * min(max(contrast, 0), 1)); lock.unlock() }
 }
@@ -115,4 +133,9 @@ extension Float {
 }
 extension Double {
     var shownPercent: Int { Float(self).shownPercent }
+}
+
+extension Font {
+    /// The 8-bit theme's pixel face (Silkscreen, OFL), at a size that keeps its pixels whole.
+    static func pixel(_ size: CGFloat) -> Font { .custom("Silkscreen-Regular", fixedSize: size) }
 }

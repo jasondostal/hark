@@ -21,6 +21,8 @@ struct AcknowledgementsView: View {
                license: "CC BY-SA 4.0", url: "https://github.com/tphakala/openfauna"),
         Credit(name: "Font Awesome Free 6.5.2", use: "The frog, locust and spider icons.",
                license: "CC BY 4.0", url: "https://fontawesome.com/license/free"),
+        Credit(name: "Silkscreen", use: "The pixel font of the 8-bit spectrogram. By Jason Kottke.",
+               license: "SIL Open Font License 1.1", url: "https://fonts.google.com/specimen/Silkscreen"),
     ]
 
     var body: some View {

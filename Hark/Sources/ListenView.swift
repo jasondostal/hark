@@ -123,6 +123,7 @@ struct ListenView: View {
             }
         }
         .frame(height: height)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { SpectrogramStyle.shared.set(panelHeight: $0) }
         .popoverTip(SelectTip(), arrowEdge: .top)
         .overlay(alignment: .top) {
             if selection.isFrozen && selection.canPan {

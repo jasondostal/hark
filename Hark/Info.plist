@@ -39,6 +39,10 @@
 	<string>Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Silkscreen-Regular.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

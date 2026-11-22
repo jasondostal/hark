@@ -73,12 +73,35 @@ final class SpectrogramDSP {
     static func image(_ levels: [UInt8], columns: Int, range: Range<Int>? = nil) -> CGImage? {
         let r = (range ?? 0..<columns).clamped(to: 0..<columns)
         guard !r.isEmpty else { return nil }
-        let w = r.count, h = bins
         let lut = SpectrogramStyle.shared.lut
+        if SpectrogramStyle.shared.pixel { return pixelImage(levels, columns: columns, range: r, lut: lut) }
+        let w = r.count, h = bins
         var px = [UInt32](repeating: lut[0], count: w * h)
         for x in 0..<w {
             let base = (r.lowerBound + x) * h
             for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(levels[base + b])] }
+        }
+        return cgImage(&px, w, h)
+    }
+
+    /// 8-bit blocks: columns per block (about 7 blocks a second) and mel bands per block (SpectrogramStyle.pixelBands).
+    static var pixelBlock: (columns: Int, bands: Int) { (14, SpectrogramStyle.shared.pixelBands) }
+
+    /// Each block is the loudest level inside it, on absolute block numbers so blocks don't shimmer.
+    private static func pixelImage(_ levels: [UInt8], columns: Int, range r: Range<Int>, lut: [UInt32]) -> CGImage? {
+        let k = pixelBlock.columns, q = pixelBlock.bands
+        let g0 = r.lowerBound / k, g1 = (r.upperBound + k - 1) / k
+        let w = max(g1 - g0, 1), h = bins / q
+        var px = [UInt32](repeating: lut[0], count: w * h)
+        for x in 0..<w {
+            for row in 0..<h {
+                var m: UInt8 = 0
+                for c in ((g0 + x) * k)..<min((g0 + x + 1) * k, columns) where c >= 0 {
+                    let base = c * bins + row * q
+                    for b in 0..<q where levels[base + b] > m { m = levels[base + b] }
+                }
+                px[(h - 1 - row) * w + x] = lut[Int(m)]
+            }
         }
         return cgImage(&px, w, h)
     }
@@ -194,29 +217,37 @@ final class LiveSpectrogram: @unchecked Sendable {
         playhead = min(playhead, Double(produced))
 
         let visible = seconds * SpectrogramDSP.columnsPerSecond
-        let k = max(1, Int((Double(visible) / Double(Self.maxImageWidth)).rounded(.up)))
+        let pixel = SpectrogramStyle.shared.pixel
+        let k = pixel ? SpectrogramDSP.pixelBlock.columns : max(1, Int((Double(visible) / Double(Self.maxImageWidth)).rounded(.up)))
+        let q = pixel ? SpectrogramDSP.pixelBlock.bands : 1
         let n = visible / k
         let pos = max(playhead, 0) / Double(k)
         let endGroup = Int(pos.rounded(.down))
-        let w = n + 1, h = Self.bins
+        let w = n + 1, h = Self.bins / q
         let lut = SpectrogramStyle.shared.lut
         var px = [UInt32](repeating: lut[0], count: w * h)
-        var col = [UInt8](repeating: 0, count: h)
+        let bands = Self.bins
+        var col = [UInt8](repeating: 0, count: bands)
         let oldest = produced - Self.capacity
         for x in 0..<w {
             let g = endGroup - n + x
-            for b in 0..<h { col[b] = 0 }
+            for b in 0..<bands { col[b] = 0 }
             var any = false
             for c in (g * k)..<(g * k + k) where c >= 0 && c > oldest && c < produced {
-                let base = (c % Self.capacity) * h
-                for b in 0..<h where ring[base + b] > col[b] { col[b] = ring[base + b] }
+                let base = (c % Self.capacity) * bands
+                for b in 0..<bands where ring[base + b] > col[b] { col[b] = ring[base + b] }
                 any = true
             }
             guard any else { continue }
-            for b in 0..<h { px[(h - 1 - b) * w + x] = lut[Int(col[b])] }
+            for row in 0..<h {
+                var m: UInt8 = 0
+                for b in (row * q)..<(row * q + q) where col[b] > m { m = col[b] }
+                px[(h - 1 - row) * w + x] = lut[Int(m)]
+            }
         }
         guard let img = SpectrogramDSP.cgImage(&px, w, h) else { return nil }
-        return Frame(image: img, groups: n, fraction: CGFloat(pos - Double(endGroup)))
+        // 8-bit steps a whole block at a time, like an old handheld; otherwise it glides.
+        return Frame(image: img, groups: n, fraction: pixel ? 0 : CGFloat(pos - Double(endGroup)))
     }
 }
 
@@ -232,7 +263,7 @@ struct SpectrogramView: View {
                     palette.background
                     if let f = source.frame(now: tl.date.timeIntervalSinceReferenceDate) {
                         let colW = g.size.width / CGFloat(f.groups)
-                        Image(decorative: f.image, scale: 1).resizable().interpolation(.medium)
+                        Image(decorative: f.image, scale: 1).resizable().interpolation(palette.isPixel ? .none : .medium)
                             .frame(width: g.size.width + colW, height: g.size.height)
                             .offset(x: -f.fraction * colW)
                     } else {
@@ -243,20 +274,21 @@ struct SpectrogramView: View {
                 .clipped()
             }
         }
-        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor) } }
+        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel) } }
     }
 }
 
 /// kHz ticks on the mel axis, so you can tell a 2 kHz owl from an 8 kHz warbler.
 struct FrequencyAxis: View {
     var color: Color = .white.opacity(0.7)
+    var pixel = false
     var body: some View {
         GeometryReader { g in
             ForEach([1, 2, 4, 8], id: \.self) { k in
                 let y = g.size.height * (1 - SpectrogramDSP.yFraction(hz: Float(k * 1000)))
                 HStack(spacing: 3) {
                     Rectangle().fill(color.opacity(0.6)).frame(width: 6, height: 1)
-                    Text("\(k)k").font(.system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(color)
+                    Text("\(k)k").font(pixel ? .pixel(8) : .system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(color)
                 }
                 .position(x: 16, y: y)
             }
