@@ -16,6 +16,10 @@ struct ListenView: View {
 
     @Environment(\.verticalSizeClass) private var verticalSize
     private var landscape: Bool { verticalSize == .compact }
+    /// Landscape full screen: the list column hides so the spectrogram spans the phone. It comes back while a
+    /// selection is open, since that's where the results are.
+    @AppStorage("landscapeFull") private var fullScreen = false
+    private var showColumn: Bool { !fullScreen || selection.isFrozen }
 
     var body: some View {
         @Bindable var listener = listener
@@ -58,11 +62,16 @@ struct ListenView: View {
                         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { w in
                             listener.widthScale = w / max(portraitWidth, 1)
                         }
-                    list
-                        .frame(width: 270)
-                        .overlay(alignment: .bottom) { celebration.padding(.bottom, 16) }
+                        .overlay(alignment: .bottom) { if !showColumn { celebration.padding(.bottom, 70) } }
+                    if showColumn {
+                        list
+                            .frame(width: 270)
+                            .overlay(alignment: .bottom) { celebration.padding(.bottom, 16) }
+                            .transition(.move(edge: .trailing))
+                    }
                     sideRail
                 }
+                .animation(.snappy, value: showColumn)
             }
             .onDisappear { listener.widthScale = 1 }
         } else {
@@ -120,6 +129,7 @@ struct ListenView: View {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
             }
         }
+        .overlay(alignment: .topLeading) { if landscape && !showColumn { hearingTags } }
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
     }
 
@@ -178,6 +188,16 @@ struct ListenView: View {
             .tint(overlayTint)
             .popoverTip(ModeTip(), arrowEdge: .bottom)
             .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
+            if landscape {
+                Button { fullScreen.toggle() } label: {
+                    Image(systemName: fullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .tint(overlayTint)
+                .accessibilityLabel(fullScreen ? "Show the list" : "Full screen spectrogram")
+            }
             Spacer()
             if listener.state == .listening {
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
@@ -294,6 +314,33 @@ struct ListenView: View {
         }
         .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 2)
         .background(.bar)
+    }
+
+    /// Full screen: what's calling right now, as small tags over the old (left) end of the spectrogram.
+    private var hearingTags: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(listener.idMode == .auto ? Array(listener.hearingNow.prefix(4)) : []) { o in
+                if let l = listener.label(o.index) {
+                    HStack(spacing: 6) {
+                        Image(symbol: l.group.symbol).font(.caption)
+                        Text(l.common).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        if listener.agreed.contains(o.index) {
+                            Image(systemName: "checkmark.seal.fill").font(.caption2).foregroundStyle(.green)
+                        }
+                        Text("\(o.bestConfidence.shownPercent)%").font(.caption.monospacedDigit()).opacity(0.75)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .environment(\.colorScheme, listener.palette == .paper ? .light : .dark)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+            }
+        }
+        .animation(.snappy, value: listener.hearingNow.map(\.index))
+        .padding(.leading, 44).padding(.top, 10)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Hearing now")
     }
 
     /// Landscape: the same three buttons, top to bottom, on the trailing edge where the right thumb is.
