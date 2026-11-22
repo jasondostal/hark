@@ -17,7 +17,7 @@ final class Detection {
     var longitude: Double?
     var confirmed: Bool             // "I saw it": the person verified the ID
     var sessionID: UUID
-    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "rewind"
+    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "selection" (picked out on the spectrogram; "rewind" in older logs)
     var clipFile: String?           // saved audio in ClipStore.directory
     var isFirst: Bool = false       // the first time this species ever entered the log
 

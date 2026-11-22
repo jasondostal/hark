@@ -27,6 +27,7 @@
 		7FD45C007008A852A54909C7 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B48A5AE947C4689B53B3004 /* ListenView.swift */; };
 		83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DDD14312784E530E18C727 /* HarkApp.swift */; };
 		88F9D4A157078EBE52DC2172 /* HarkWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B724A1122028E8DD168A59D /* HarkWidgets.swift */; };
+		8A7B6EE84120389827349390 /* Selection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A22DEDDE5DBC520A8B6EBE /* Selection.swift */; };
 		927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
@@ -39,7 +40,6 @@
 		D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E7771A2D007367737E31C57 /* SessionsView.swift */; };
 		DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
-		F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0866C9EDC3F7F622E07C87 /* RewindView.swift */; };
 		FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +70,7 @@
 /* Begin PBXFileReference section */
 		00375AF7ACBCAB26D38963C6 /* HarkCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = HarkCore; path = HarkCore; sourceTree = SOURCE_ROOT; };
 		02323BC7629C8A7FCBB9FF7F /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		05A22DEDDE5DBC520A8B6EBE /* Selection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Selection.swift; sourceTree = "<group>"; };
 		06EBD12AEC09B58BD19BA241 /* HarkWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = HarkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		180D52A9CD94D53DCE390487 /* SpectrogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrogramView.swift; sourceTree = "<group>"; };
 		1B48A5AE947C4689B53B3004 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
@@ -87,7 +88,6 @@
 		9B724A1122028E8DD168A59D /* HarkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkWidgets.swift; sourceTree = "<group>"; };
 		9E7771A2D007367737E31C57 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		A8032DCD59B9F6ABEDA20FFE /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
-		AD0866C9EDC3F7F622E07C87 /* RewindView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindView.swift; sourceTree = "<group>"; };
 		B04E37DE3CF665C023C142F1 /* Hark.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0A371842CFB8FC187A89231 /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
 		BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -177,7 +177,7 @@
 				86872589C4BEEAB5C631E619 /* LiveActivityController.swift */,
 				7F04DC862C13853B63457E26 /* LocationProvider.swift */,
 				5B1093B1BA56386EE9987A87 /* LogView.swift */,
-				AD0866C9EDC3F7F622E07C87 /* RewindView.swift */,
+				05A22DEDDE5DBC520A8B6EBE /* Selection.swift */,
 				2E9BF582C048F510851B11AB /* SelfTest.swift */,
 				9E7771A2D007367737E31C57 /* SessionsView.swift */,
 				BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */,
@@ -355,7 +355,7 @@
 				F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */,
 				081C408439612913D2882248 /* LogView.swift in Sources */,
 				AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */,
-				F83CC1DF9EDB3BE1F971C9AD /* RewindView.swift in Sources */,
+				8A7B6EE84120389827349390 /* Selection.swift in Sources */,
 				14E001EC8E92B8F4575F1CD1 /* SelfTest.swift in Sources */,
 				D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */,
 				927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */,

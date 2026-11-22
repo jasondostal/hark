@@ -2,7 +2,7 @@ import SwiftUI
 import Accelerate
 import CoreGraphics
 
-/// Spectrogram math shared by the live view and Rewind: a 1024-point FFT every 10 ms (hop 320 at 32 kHz),
+/// Spectrogram math shared by the live view and touch-to-select: a 1024-point FFT every 10 ms (hop 320 at 32 kHz),
 /// 128 mel bands (150 Hz to 15 kHz), log power over a per-band noise floor. Steady background (road rumble,
 /// wind, furnace) fades to dark, and so does the natural low-frequency tilt. Each floor follows quiet quickly
 /// and loud slowly (about 3 s), so a call doesn't raise its own floor. Not thread-safe; one per stream.
@@ -52,7 +52,7 @@ final class SpectrogramDSP {
         warm += 1
     }
 
-    /// Whole-clip spectrogram (Rewind, saved clips): column-major levels, 128 per column.
+    /// Whole-clip spectrogram (selections, saved clips): column-major levels, 128 per column.
     static func levels(of samples: [Float]) -> (data: [UInt8], columns: Int) {
         guard samples.count >= n else { return ([], 0) }
         let cols = (samples.count - n) / hop + 1
@@ -159,6 +159,12 @@ final class LiveSpectrogram: @unchecked Sendable {
             }
         }
         if off > 0 { tail.removeFirst(off) }
+    }
+
+    /// How far the right edge of the screen trails the newest audio, in samples (to freeze exactly what's shown).
+    func lagSamples() -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return max(0, Int((Double(produced) - playhead) * Double(SpectrogramDSP.hop))) + tail.count
     }
 
     struct Frame { let image: CGImage; let groups: Int; let fraction: CGFloat }

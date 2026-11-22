@@ -16,8 +16,9 @@ struct HarkApp: App {
                 await listener.loadModel()
                 // Testing aid: start listening right away (simulator / devicectl launches).
                 if ProcessInfo.processInfo.arguments.contains("-autolisten") { await listener.start() }
-                if ProcessInfo.processInfo.arguments.contains("-rewind") {   // screenshot aid
-                    try? await Task.sleep(for: .seconds(9)); listener.openRewind()
+                if ProcessInfo.processInfo.arguments.contains("-select") {   // screenshot aid: freeze, grab 5 s, identify
+                    try? await Task.sleep(for: .seconds(9)); listener.freezeForSelection()
+                    let s = listener.selection; s.grab(around: max(s.viewEnd - 3 * 32_000, 0)); await s.analyze(listener)
                 }
             }
         }

@@ -22,9 +22,9 @@ struct ListenView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
         .animation(.spring, value: listener.celebration?.id)
-        .sheet(item: $listener.rewind) { RewindView(clip: $0) }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showLog) { LogView() }
+        .onChange(of: listener.state) { _, s in if s == .listening { listener.selection.unfreeze() } }
         .onAppear {
             listener.modelContext = ctx
             WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
@@ -33,33 +33,107 @@ struct ListenView: View {
 
     // MARK: Spectrogram
 
+    private var selection: Selection { listener.selection }
+
+    /// Live, it scrolls; the first touch freezes it (listening carries on) and a drag picks out a call.
     private var spectrogramPanel: some View {
-        SpectrogramView(source: listener.live, running: listener.state == .listening,
-                        palette: listener.palette, frequencyLabels: listener.frequencyLabels)
-            .frame(height: 250)
-            .contentShape(Rectangle())
-            .onTapGesture { if listener.canRewind { listener.openRewind() } }
-            .overlay(alignment: .bottom) {
-                HStack(spacing: 12) {
-                    Button { listener.openRewind() } label: {
-                        Label("Rewind", systemImage: "gobackward")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 6).padding(.vertical, 4)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(listener.palette == .paper ? .black : .white)
-                    .disabled(!listener.canRewind)
-                    Spacer()
-                    if listener.state == .listening {
-                        Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
-                        LevelBar(db: listener.levelDB).frame(width: 70)
-                            .accessibilityLabel("Microphone level")
-                    }
+        GeometryReader { g in
+            Group {
+                if selection.isFrozen {
+                    FrozenSpectrogram(selection: selection, palette: listener.palette, frequencyLabels: listener.frequencyLabels)
+                } else {
+                    SpectrogramView(source: listener.live, running: listener.state == .listening,
+                                    palette: listener.palette, frequencyLabels: listener.frequencyLabels)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 10)
-                .background(LinearGradient(colors: [.clear, .black.opacity(listener.palette == .paper ? 0 : 0.45)],
-                                           startPoint: .top, endPoint: .bottom))
             }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { v in touchMoved(v, width: g.size.width) }
+                .onEnded { v in touchEnded(v, width: g.size.width) })
+        }
+        .frame(height: 250)
+        .overlay(alignment: .top) {
+            if selection.isFrozen && selection.canPan {
+                SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
+            }
+        }
+        .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
+    }
+
+    private func touchMoved(_ v: DragGesture.Value, width: CGFloat) {
+        if !selection.isFrozen {
+            guard listener.canSelect else { return }
+            listener.freezeForSelection()
+        }
+        guard selection.isFrozen, abs(v.translation.width) > 6 else { return }
+        selection.select(selection.sample(atX: v.startLocation.x, width: width), selection.sample(atX: v.location.x, width: width))
+    }
+
+    private func touchEnded(_ v: DragGesture.Value, width: CGFloat) {
+        guard selection.isFrozen else { return }
+        if abs(v.translation.width) <= 6 { selection.grab(around: selection.sample(atX: v.location.x, width: width)) }
+        Task { await selection.analyze(listener) }
+    }
+
+    private var overlayTint: Color { listener.palette == .paper ? .black : .white }
+    private var overlayShade: LinearGradient {
+        LinearGradient(colors: [.clear, .black.opacity(listener.palette == .paper ? 0 : 0.45)], startPoint: .top, endPoint: .bottom)
+    }
+
+    private var liveControls: some View {
+        @Bindable var listener = listener
+        return HStack(spacing: 12) {
+            Menu {
+                Picker("Identify", selection: $listener.idMode) {
+                    Label("Auto: identify as it hears", systemImage: "sparkles").tag(Listener.IDMode.auto)
+                    Label("Manual: only what you select", systemImage: "hand.draw").tag(Listener.IDMode.manual)
+                }
+            } label: {
+                Label(listener.idMode == .auto ? "Auto" : "Manual", systemImage: listener.idMode == .auto ? "sparkles" : "hand.draw")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+            }
+            .buttonStyle(.bordered)
+            .tint(overlayTint)
+            .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
+            Spacer()
+            if listener.state == .listening {
+                Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
+                LevelBar(db: listener.levelDB).frame(width: 70)
+                    .accessibilityLabel("Microphone level")
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(overlayShade.allowsHitTesting(false))
+    }
+
+    private var frozenControls: some View {
+        let player = ClipPlayer.shared
+        let playing = player.playingID == selection.playID
+        return HStack(spacing: 10) {
+            Button { selection.unfreeze() } label: {
+                Label("Back to live", systemImage: "xmark")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+            }
+            .buttonStyle(.bordered)
+            .tint(overlayTint)
+            Text(selection.caption)
+                .font(.caption.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
+                .allowsHitTesting(false)
+            Spacer()
+            Button { player.toggle(id: selection.playID, samples: selection.selectedSamples) } label: {
+                Image(systemName: playing ? "stop.fill" : "play.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 28).padding(.vertical, 4)
+            }
+            .buttonStyle(.bordered)
+            .tint(overlayTint)
+            .disabled(selection.range.isEmpty)
+            .accessibilityLabel(playing ? "Stop playback" : "Play the selection")
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(overlayShade.allowsHitTesting(false))
     }
 
     // MARK: Hearing now / this session
@@ -72,19 +146,26 @@ struct ListenView: View {
             Section { Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout) }
         default: EmptyView()
         }
+        if selection.isFrozen { SelectionSection(selection: selection) }
         let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty
-        if !active && listener.state == .ready {
+        if !active && listener.state == .ready && !selection.isFrozen {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Hear something?").font(.title3.bold())
                     Tip(symbol: "mic.fill", text: "Tap **Listen**. Birds, frogs, insects and mammals show up here as Hark hears them.")
-                    Tip(symbol: "gobackward", text: "Missed it? **Rewind** the last minute and pick out the call.")
+                    Tip(symbol: "hand.draw", text: "Missed it? **Touch the spectrogram** to pause it, then drag across the call. It reaches back a full minute.")
                     Tip(symbol: "button.horizontal.top.press", text: "Put **Start Listening** on your Action Button. See Settings.")
                 }
                 .padding(.vertical, 6)
             }
         }
-        if active {
+        if active && listener.idMode == .manual && listener.state == .listening {
+            Section("Manual mode") {
+                Label("Hark only identifies what you pick. Touch the spectrogram and drag across a call.", systemImage: "hand.draw")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+        }
+        if active && listener.idMode == .auto {
             Section("Hearing now") {
                 if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
@@ -96,13 +177,13 @@ struct ListenView: View {
                     if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index) }
                 }
             }
-            if !listener.session.isEmpty || !listener.manual.isEmpty {
-                Section("This session") {
-                    ForEach(listener.manual) { d in ManualRow(detection: d) }
-                    ForEach(listener.session) { o in
-                        if let l = listener.label(o.index) {
-                            SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
-                        }
+        }
+        if !listener.session.isEmpty || !listener.manual.isEmpty {
+            Section("This session") {
+                ForEach(listener.manual) { d in ManualRow(detection: d) }
+                ForEach(listener.session) { o in
+                    if let l = listener.label(o.index) {
+                        SessionRow(label: l, occurrence: o, detection: listener.detection(for: o)).muteSwipe(o.index)
                     }
                 }
             }

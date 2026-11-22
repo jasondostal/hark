@@ -145,13 +145,17 @@ struct SettingsView: View {
     private var listening: some View {
         @Bindable var listener = listener
         return Section {
+            Picker("Identify", selection: $listener.idMode) {
+                Text("Auto").tag(Listener.IDMode.auto); Text("Manual").tag(Listener.IDMode.manual)
+            }
+            .pickerStyle(.segmented)
             Toggle("Keep screen on", isOn: $listener.keepScreenOn)
             Picker("Stop listening after", selection: $listener.stopAfterMinutes) {
                 Text("15 min").tag(15); Text("30 min").tag(30); Text("1 hour").tag(60)
                 Text("2 hours").tag(120); Text("4 hours").tag(240); Text("Never").tag(0)
             }
         } header: { Text("Listening") } footer: {
-            Text("Hark keeps listening and logging with the screen locked, shown on the Lock Screen and Dynamic Island. A new species buzzes the phone.")
+            Text("Auto identifies everything it hears and keeps logging with the screen locked (shown on the Lock Screen and Dynamic Island; a new species buzzes the phone). Manual only identifies what you select on the spectrogram. Either way, touch the spectrogram to pick out a call from the last minute.")
         }
     }
 

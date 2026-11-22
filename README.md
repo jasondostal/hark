@@ -11,7 +11,7 @@ Free, noncommercial iPhone app: pull it out, hear something, find out what it is
 - `Hark/`: SwiftUI app.
   - Listen: AudioCapture (AVAudioEngine, .measurement, -> 32 kHz mono), Listener (scores the newest 5 s once a
     second; DetectionPolicy triage -> hits are logged, maybes / unusual-here shown for logging by hand), live FFT
-    spectrogram (SpectrogramDSP, independent of Perch), Rewind (last 60 s: drag to select, play, analyze).
+    spectrogram (SpectrogramDSP, independent of Perch), touch-to-select (touch freezes the last 60 s, drag picks a call, Perch scores it; Auto vs Manual ID mode).
   - Every logged detection keeps a clip (ClipStore, AAC m4a). ListeningSession records each listen + its route.
   - Log: Timeline / Sessions (route map + species timeline chart) / Species (life list, growth curve, species pages
     with time-of-day + month charts) / Map. Search + group filter.
@@ -36,5 +36,5 @@ xcodebuild -project Hark.xcodeproj -scheme Hark -destination 'generic/platform=i
 xcrun devicectl device install app --device <udid> DerivedData/Build/Products/Release-iphoneos/Hark.app
 xcrun devicectl device process launch --console --device <udid> dev.ducktyping.hark -selftest   # ANE parity + timing
 ```
-Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-rewind`,
+Launch args (testing/screenshots): `-feedfile a.wav,b.wav` (stream files instead of the mic), `-select` (freeze + identify 9 s in),
 `-settings`, `-logtab`, `-opensession`, `-selftest` (golden windows on ANE/GPU/CPU, prints HARK-SELFTEST lines), `-autolisten` (start listening on launch).

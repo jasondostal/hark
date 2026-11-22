@@ -6,7 +6,7 @@ import HarkCore
 import CoreML
 import CoreLocation
 
-/// Holds the newest 60 s of 32 kHz audio (Rewind reaches back this far). Appended synchronously on the audio thread (so chunks stay in order;
+/// Holds the newest 60 s of 32 kHz audio (touch-to-select reaches back this far). Appended synchronously on the audio thread (so chunks stay in order;
 /// hopping through Tasks could reorder them), read by the scoring loop.
 final class AudioStore: @unchecked Sendable {
     static let seconds = 60
@@ -25,8 +25,8 @@ actor Inference {
     func classify(_ w: [Float]) throws -> PerchClassifier.Output { try classifier.classify(w) }
 }
 
-/// A frozen copy of recent audio for Rewind. `end` is when the last sample was heard.
-struct RewindClip: Identifiable {
+/// A frozen copy of recent audio for touch-to-select. `end` is when the last sample was heard.
+struct AudioSnapshot: Identifiable {
     let id = UUID()
     let samples: [Float]
     let end: Date
@@ -50,6 +50,8 @@ struct Maybe: Identifiable, Equatable {
 final class Listener {
     static let shared = Listener()
     enum State: Equatable { case loading, ready, listening, failed(String) }
+    /// Auto: Perch checks every second and logs what it hears. Manual: nothing is identified until you select it.
+    enum IDMode: String { case auto, manual }
 
     private(set) var state: State = .loading
     private(set) var labels: LabelTable?
@@ -90,7 +92,7 @@ final class Listener {
     private var clipBest: [UUID: Float] = [:]      // occurrence id -> confidence of its saved clip
     private var quietUntil = Date.distantPast     // ignore the mic while Hark plays audio
     var modelContext: ModelContext?
-    var rewind: RewindClip?
+    let selection = Selection()
     private var pendingStart = false
     private var startedAt = Date()
     private var sessionSpecies: Set<Int> = []
@@ -109,6 +111,12 @@ final class Listener {
     }
     var contrast: Double = UserDefaults.standard.object(forKey: "contrast") as? Double ?? 0.6 {
         didSet { UserDefaults.standard.set(contrast, forKey: "contrast"); SpectrogramStyle.shared.set(contrast: contrast) }
+    }
+    var idMode: IDMode = IDMode(rawValue: UserDefaults.standard.string(forKey: "idMode") ?? "") ?? .auto {
+        didSet {
+            UserDefaults.standard.set(idMode.rawValue, forKey: "idMode")
+            if idMode == .manual { hearingNow = []; maybes = []; recentMaybes = [:] }
+        }
     }
     /// Seconds of audio across the live spectrogram.
     var spectrogramSeconds: Int = UserDefaults.standard.object(forKey: "spectrogramSeconds") as? Int ?? 10 {
@@ -192,7 +200,7 @@ final class Listener {
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
         sessionSpecies = []; startedAt = .now
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []
-        store.reset(); live.reset()
+        store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
         audio.onSamples = { [weak self] s, db in
             store.append(s)
@@ -277,7 +285,7 @@ final class Listener {
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
-        guard let inference, let labels, state == .listening else { return }
+        guard let inference, let labels, state == .listening, idMode == .auto else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
         guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)
@@ -346,15 +354,16 @@ final class Listener {
         }
     }
 
-    // MARK: Rewind
+    // MARK: Touch-to-select
 
-    var canRewind: Bool { state == .listening || store.count >= 32_000 }
+    var canSelect: Bool { store.count >= 32_000 }
 
-    /// Freeze the last minute for Rewind.
-    func openRewind() {
+    /// Freeze the last minute and show it where the live spectrogram was.
+    func freezeForSelection() {
         let n = min(store.count, 32_000 * AudioStore.seconds)
-        guard n >= 32_000 else { return }
-        rewind = RewindClip(samples: store.latest(n), end: .now)
+        guard n >= 32_000, !selection.isFrozen else { return }
+        selection.freeze(AudioSnapshot(samples: store.latest(n), end: .now), seconds: spectrogramSeconds,
+                         lagSamples: state == .listening ? live.lagSamples() : 0)
     }
 
     /// Score any stretch of audio: 5 s windows (padded or overlapping), best score per class across windows.
@@ -370,12 +379,12 @@ final class Listener {
         return policy.triage(scores: Windowing.maxPool(rows), labels: labels, range: localRange, muted: muted, topK: 15)
     }
 
-    /// Log a species picked out in Rewind, with the selection as its clip.
+    /// Log a species picked out of a selection, with the selection as its clip.
     func logSelection(_ index: Int, confidence: Float, samples: [Float], at: Date, confirmed: Bool) {
         guard let ctx = modelContext, let l = label(index) else { return }
         let loc = location.last?.coordinate
         let d = Detection(label: l, confidence: Double(confidence), at: at,
-                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "rewind")
+                          latitude: loc?.latitude, longitude: loc?.longitude, sessionID: sessionID, source: "selection")
         d.confirmed = confirmed
         markIfNew(d)
         ctx.insert(d)

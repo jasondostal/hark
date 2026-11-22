@@ -378,7 +378,7 @@ struct DetectionDetail: View {
                 }
                 LabeledContent("Best confidence", value: "\(Int(detection.confidence * 100))%")
                 LabeledContent("Windows", value: "\(detection.windows)")
-                LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out in Rewind"][detection.source] ?? detection.source)
+                LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {
                 Section("Where") { DetectionMap(detections: [detection]).frame(height: 180).listRowInsets(EdgeInsets()) }
