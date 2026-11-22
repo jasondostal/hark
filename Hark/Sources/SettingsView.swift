@@ -12,7 +12,15 @@ struct SettingsView: View {
     /// row each, showing its current value, that opens its own page.
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
+                Section {
+                    ThemePicker()
+                    Picker("Names", selection: Binding(get: { NameBook.shared.style }, set: { NameBook.shared.style = $0 })) {
+                        ForEach(NameBook.Style.allCases) { Text($0.title).tag($0) }
+                    }
+                } header: { Text("Look") } footer: {
+                    Text("\(AppTheme.stored.title): \(AppTheme.stored.blurb) Each look brings its own spectrogram colors; change those under Spectrogram. Names: which name leads. Give a species your own name on its page in the Log.")
+                }
                 detection
                 Section {
                     NavigationLink { page("Listen for") { listenFor } } label: {
@@ -37,7 +45,7 @@ struct SettingsView: View {
                     }
                 }
                 about
-            }
+            }.themedRows() }.themedList()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
@@ -47,7 +55,7 @@ struct SettingsView: View {
     }
 
     private func page<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        Form { content() }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+        Form { Group { content() }.themedRows() }.themedList().navigationTitle(title).navigationBarTitleDisplayMode(.inline)
     }
 
     private func row(_ title: String, _ symbol: String, _ value: String) -> some View {
@@ -294,7 +302,7 @@ struct SettingsView: View {
 struct ThresholdsView: View {
     @Environment(Listener.self) private var listener
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 ForEach(ListenGroup.allCases, id: \.self) { g in
                     let s = listener.policy.setting(g)
@@ -320,7 +328,7 @@ struct ThresholdsView: View {
                     Button("Reset to \(p.title)") { listener.policy.apply(p) }
                 }
             }
-        }
+        }.themedRows() }.themedList()
         .navigationTitle("Thresholds")
         .navigationBarTitleDisplayMode(.inline)
     }

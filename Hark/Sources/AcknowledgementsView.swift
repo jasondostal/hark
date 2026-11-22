@@ -21,12 +21,14 @@ struct AcknowledgementsView: View {
                license: "CC BY-SA 4.0", url: "https://github.com/tphakala/openfauna"),
         Credit(name: "Font Awesome Free 6.5.2", use: "The frog, locust and spider icons.",
                license: "CC BY 4.0", url: "https://fontawesome.com/license/free"),
-        Credit(name: "Silkscreen", use: "The pixel font of the 8-bit spectrogram. By Jason Kottke.",
+        Credit(name: "Silkscreen", use: "The pixel font of the 8-bit look. By Jason Kottke.",
                license: "SIL Open Font License 1.1", url: "https://fonts.google.com/specimen/Silkscreen"),
+        Credit(name: "Saira Stencil One", use: "The Duck Blind look's headings. By the Saira Stencil Project Authors (Omnibus-Type).",
+               license: "SIL Open Font License 1.1", url: "https://fonts.google.com/specimen/Saira+Stencil+One"),
     ]
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 ForEach(credits) { c in
                     VStack(alignment: .leading, spacing: 4) {
@@ -46,7 +48,7 @@ struct AcknowledgementsView: View {
             Section {
                 NavigationLink("Apache License 2.0") { LicenseText(title: "Apache License 2.0", resource: "LICENSE-Apache-2.0") }
             } header: { Text("License texts") }
-        }
+        }.themedRows() }.themedList()
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)
     }

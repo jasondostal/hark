@@ -513,7 +513,7 @@ final class Listener {
         for i in hits where logged.contains(i) && now.timeIntervalSince(lastMarker[i] ?? .distantPast) >= 6 {
             guard let p = live.peak(seconds: 4, avoiding: used) else { continue }
             used.append(p.band); lastMarker[i] = now
-            markers.append(Marker(index: i, group: labels[i].group, name: labels[i].common, column: p.column, band: p.band))
+            markers.append(Marker(index: i, group: labels[i].group, name: labels[i].displayName, column: p.column, band: p.band))
         }
         if markers.count > 150 { markers.removeFirst(markers.count - 150) }
     }
@@ -610,7 +610,7 @@ final class Listener {
         let n = (try? ctx.fetchCount(FetchDescriptor<Detection>(predicate: #Predicate { $0.scientific == s }))) ?? 1
         guard n == 0 else { return false }
         d.isFirst = true
-        let c = (UUID(), d.common)
+        let c = (UUID(), d.displayName)
         celebration = c
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         Task { try? await Task.sleep(for: .seconds(5)); if celebration?.id == c.0 { celebration = nil } }
@@ -623,7 +623,7 @@ final class Listener {
         if !firstEver, UIApplication.shared.applicationState == .active {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
-        liveActivity.newSpecies(l.common, symbol: l.group.symbol, count: sessionSpecies.count, firstEver: firstEver)
+        liveActivity.newSpecies(l.displayName, symbol: l.group.symbol, count: sessionSpecies.count, firstEver: firstEver)
     }
 
     /// Log a maybe by hand ("Log", or "I saw it" = logged and confirmed).

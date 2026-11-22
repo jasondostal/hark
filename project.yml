@@ -38,7 +38,7 @@ targets:
         NSMicrophoneUsageDescription: Hark listens through the microphone to identify birds, frogs, insects and mammals. Audio is analyzed on this device and never leaves it.
         NSLocationWhenInUseUsageDescription: Hark tags each sound it identifies with where you heard it, and checks IDs against the species found there at this time of year. Your location stays on this iPhone.
         UILaunchScreen: {}
-        UIAppFonts: [Silkscreen-Regular.ttf]
+        UIAppFonts: [Silkscreen-Regular.ttf, SairaStencilOne-Regular.ttf]
         CFBundleURLTypes:
           - CFBundleURLName: dev.ducktyping.hark
             CFBundleURLSchemes: [hark]

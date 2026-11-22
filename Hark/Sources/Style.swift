@@ -3,12 +3,12 @@ import HarkCore
 
 /// Spectrogram color schemes. Index 0 is the background; levels run quiet -> loud.
 enum SpectrogramPalette: String, CaseIterable, Identifiable {
-    case aurora, ocean, magma, viridis, owling, grayscale, paper, arcade
+    case aurora, ocean, magma, viridis, owling, grayscale, paper, arcade, dawn
     var id: String { rawValue }
     var title: String {
         switch self {
         case .aurora: "Aurora"; case .ocean: "Ocean"; case .magma: "Magma"; case .viridis: "Viridis"
-        case .owling: "Owling"; case .grayscale: "Night"; case .paper: "Paper"; case .arcade: "8-bit"
+        case .owling: "Owling"; case .grayscale: "Night"; case .paper: "Paper"; case .arcade: "8-bit"; case .dawn: "Dawn"
         }
     }
     /// 8-bit: chunky blocks, a handful of flat colors, a pixel font, steps instead of smooth scrolling.
@@ -26,6 +26,8 @@ enum SpectrogramPalette: String, CaseIterable, Identifiable {
         case .paper: [(1.0, 1.0, 1.0), (0.62, 0.62, 0.62), (0.0, 0.0, 0.0)]
         // the pixel icons' night: indigo, violet, green, mint, white, flat steps
         case .arcade: [(0.055, 0.035, 0.14), (0.17, 0.10, 0.37), (0.44, 0.31, 0.75), (0.25, 0.81, 0.56), (0.66, 0.95, 0.78), (0.96, 1.0, 0.96)]
+        // first light over the marsh: dark reeds, ember, amber, a pale sky at the loudest
+        case .dawn: [(0.05, 0.047, 0.03), (0.20, 0.15, 0.12), (0.48, 0.25, 0.16), (0.79, 0.50, 0.18), (0.95, 0.77, 0.43), (1.0, 0.94, 0.80)]
         }
     }
     func color(_ t: Float) -> (UInt8, UInt8, UInt8) {
@@ -87,26 +89,38 @@ final class SpectrogramStyle: @unchecked Sendable {
     func set(contrast: Double) { lock.lock(); _span = Float(54 - 30 * min(max(contrast, 0), 1)); lock.unlock() }
 }
 
-/// Emoji for the kind of animal or sound, on a soft disc tinted by group.
-/// A plain group glyph (bird, frog, bug...) in a tinted circle.
+/// A group glyph (bird, frog, bug...) in a tinted circle; in the 8-bit look, the pixel critter in a square.
 struct TaxonIcon: View {
     var group: TaxonGroup
     var size: CGFloat = 34
     var faint = false
+    @Environment(\.theme) private var theme
     var body: some View {
-        Image(symbol: group.symbol)
-            .font(.system(size: size * 0.46, weight: .semibold))
-            .foregroundStyle(Self.tint(group))
-            .frame(width: size, height: size)
-            .background(Self.tint(group).opacity(faint ? 0.08 : 0.15), in: Circle())
-            .opacity(faint ? 0.5 : 1)
-    }
-    static func tint(_ g: TaxonGroup) -> Color {
-        switch g {
-        case .bird: .blue; case .amphibian: .green; case .insect: .orange; case .mammal: .brown
-        case .reptile: .mint; case .fish: .cyan; case .sound: .gray; case .other, .unknown: .purple
+        let tint = theme.tint(group)
+        Group {
+            if theme.isPixel {
+                Group {
+                    if let s = AppTheme.sprite(group) {
+                        Image(s).interpolation(.none).resizable().scaledToFit().padding(size * 0.1)
+                    } else {
+                        Image(symbol: group.symbol).font(.system(size: size * 0.46, weight: .bold)).foregroundStyle(tint)
+                    }
+                }
+                .frame(width: size, height: size)
+                .background(Color(hex: 0x2C1F5E).opacity(faint ? 0.5 : 1))
+                .overlay { Rectangle().stroke(Color(hex: 0x3A2A78), lineWidth: 2) }
+            } else {
+                Image(symbol: group.symbol)
+                    .font(.system(size: size * 0.46, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: size, height: size)
+                    .background(tint.opacity(faint ? 0.08 : (theme == .classic ? 0.15 : 0.2)),
+                                in: theme == .blind ? AnyShape(RoundedRectangle(cornerRadius: size * 0.3)) : AnyShape(Circle()))
+            }
         }
+        .opacity(faint ? 0.5 : 1)
     }
+    static func tint(_ g: TaxonGroup) -> Color { AppTheme.classic.tint(g) }
 }
 
 extension HarkCore.Label {

@@ -42,6 +42,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Silkscreen-Regular.ttf</string>
+		<string>SairaStencilOne-Regular.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

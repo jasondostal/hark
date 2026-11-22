@@ -15,6 +15,7 @@ struct ListenView: View {
     @State private var dragStarted = false
 
     @Environment(\.verticalSizeClass) private var verticalSize
+    @Environment(\.theme) private var theme
     private var landscape: Bool { verticalSize == .compact }
     /// Landscape full screen: the list column hides so the spectrogram spans the phone. It comes back while a
     /// selection is open, since that's where the results are.
@@ -24,11 +25,11 @@ struct ListenView: View {
     var body: some View {
         @Bindable var listener = listener
         layout
-        .background(Color(.systemGroupedBackground))
+        .background(.appBackground)
         .environment(\.compactRows, landscape)
         .animation(.spring, value: listener.celebration?.id)
-        .sheet(isPresented: $showSettings) { SettingsView() }
-        .sheet(isPresented: $showLog) { LogView() }
+        .sheet(isPresented: $showSettings) { SettingsView().themeRoot() }
+        .sheet(isPresented: $showLog) { LogView().themeRoot() }
         .onChange(of: listener.state) { _, s in
             if s == .listening { listener.selection.unfreeze(); SelectTip.listening = true }
         }
@@ -86,8 +87,9 @@ struct ListenView: View {
     }
 
     private var list: some View {
-        List { content }
+        List { Group { content }.themedRows() }
             .listStyle(.insetGrouped)
+            .themedList()
             .contentMargins(.top, 8, for: .scrollContent)
             .contentMargins(.horizontal, landscape ? 8 : nil, for: .scrollContent)
             .listSectionSpacing(landscape ? .compact : .default)
@@ -273,13 +275,13 @@ struct ListenView: View {
             }
         }
         if active && listener.idMode == .manual && listener.state == .listening && !selection.isFrozen {
-            Section("Manual mode") {
+            Section {
                 Label("Hark only identifies what you pick. Touch the spectrogram and drag across a call.", systemImage: "hand.draw")
                     .font(.callout).foregroundStyle(.secondary)
-            }
+            } header: { Text("Manual mode").themedHeader() }
         }
         if active && listener.idMode == .auto {
-            Section("Hearing now") {
+            Section {
                 if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
                 }
@@ -290,10 +292,10 @@ struct ListenView: View {
                 ForEach(listener.maybes) { m in
                     if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index, maybe: m) }
                 }
-            }
+            } header: { Text("Hearing now").themedHeader() }
         }
         if !listener.session.isEmpty || !listener.manual.isEmpty {
-            Section("This session") {
+            Section {
                 ForEach(listener.manual) { d in ManualRow(detection: d) }
                 ForEach(listener.session) { o in
                     if let l = listener.label(o.index) {
@@ -301,7 +303,7 @@ struct ListenView: View {
                             .muteSwipe(o.index, detection: listener.detection(for: o))
                     }
                 }
-            }
+            } header: { Text("This session").themedHeader() }
         }
     }
 
@@ -316,7 +318,7 @@ struct ListenView: View {
             BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
         }
         .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 2)
-        .background(.bar)
+        .background(.appBar)
     }
 
     /// Full screen: what's calling right now, as small tags over the old (left) end of the spectrogram.
@@ -326,9 +328,9 @@ struct ListenView: View {
                 if let l = listener.label(o.index) {
                     HStack(spacing: 6) {
                         Image(symbol: l.group.symbol).font(.caption)
-                        Text(l.common).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text(l.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
                         if listener.agreed.contains(o.index) {
-                            Image(systemName: "checkmark.seal.fill").font(.caption2).foregroundStyle(.green)
+                            Image(systemName: "checkmark.seal.fill").font(.caption2).foregroundStyle(.good)
                         }
                         Text("\(o.bestConfidence.shownPercent)%").font(.caption.monospacedDigit()).opacity(0.75)
                     }
@@ -358,16 +360,16 @@ struct ListenView: View {
         .padding(.vertical, 8)
         .frame(width: 84)
         .frame(maxHeight: .infinity)
-        .background(.bar)
+        .background(.appBar)
     }
 
     @ViewBuilder private var celebration: some View {
         if let c = listener.celebration {
             HStack(spacing: 10) {
-                Image(systemName: "sparkles").font(.title2).foregroundStyle(.yellow)
+                Image(systemName: "sparkles").font(.title2).foregroundStyle(.celebrate)
                 VStack(alignment: .leading) {
-                    Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.orange)
-                    Text(c.name).font(.headline)
+                    Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.celebrate)
+                    Text(c.name).speciesName(.headline)
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 12)
@@ -383,7 +385,7 @@ private struct Tip: View {
     let text: LocalizedStringKey
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(Color.accentColor).frame(width: 22)
+            Image(systemName: symbol).foregroundStyle(.tint).frame(width: 22)
             Text(text).font(.callout).foregroundStyle(.secondary)
         }
     }
@@ -392,19 +394,30 @@ private struct Tip: View {
 /// The shutter-style Listen / Stop button.
 struct ListenButton: View {
     @Environment(Listener.self) private var listener
+    @Environment(\.theme) private var theme
     var body: some View {
         let listening = listener.state == .listening
+        let style = ListenStyle(theme: theme, listening: listening)
         Button { Task { await listener.toggle() } } label: {
             ZStack {
-                Circle().stroke(Color.primary.opacity(0.15), lineWidth: 4).frame(width: 78, height: 78)
-                Circle().fill(listening ? Color.red : Color.green).frame(width: 66, height: 66)
+                if theme.isPixel {   // a chunky square key with a hard drop shadow
+                    Rectangle().fill(style.shadow).frame(width: 62, height: 62).offset(x: 5, y: 5)
+                    Rectangle().fill(style.fill).frame(width: 62, height: 62)
+                        .overlay { Rectangle().stroke(style.ring, lineWidth: 3) }
+                } else {
+                    Circle().stroke(style.ring, lineWidth: 4).frame(width: 78, height: 78)
+                    Circle().fill(style.fill).frame(width: 66, height: 66)
+                        .shadow(color: style.glow ?? .clear, radius: style.glow == nil ? 0 : 14)
+                }
                 if listener.state == .loading {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(style.glyph)
                 } else {
                     Image(systemName: listening ? "stop.fill" : "mic.fill")
-                        .font(.system(size: listening ? 24 : 27, weight: .semibold)).foregroundStyle(.white)
+                        .font(.system(size: listening ? 24 : 27, weight: .semibold)).foregroundStyle(style.glyph)
                 }
             }
+            .frame(width: 80, height: 80)
+            .animation(.snappy, value: listening)
         }
         .buttonStyle(.plain)
         .disabled(listener.state == .loading)
@@ -449,10 +462,10 @@ struct NowRow: View {
     private var compactBody: some View {
         HStack(spacing: 10) {
             TaxonIcon(group: label.group)
-            Text(label.common).font(.headline).lineLimit(2).minimumScaleFactor(0.85)
+            SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .headline).lineLimit(2).minimumScaleFactor(0.85)
             Spacer(minLength: 4)
             if agreed {
-                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.good)
                     .accessibilityLabel("Perch and BirdNET+ agree")
             }
             Text("\(confidence.shownPercent)%").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
@@ -464,11 +477,11 @@ struct NowRow: View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
-                Text(label.common).font(.headline)
-                if label.group.isSpecies { Text(label.scientific).font(.caption).italic().foregroundStyle(.secondary) }
+                SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .headline)
+                SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies)
                 if agreed {
                     Label("Both models", systemImage: "checkmark.seal.fill")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(.green)
+                        .font(.caption2.weight(.semibold)).foregroundStyle(.good)
                         .accessibilityLabel("Perch and BirdNET+ agree")
                 }
                 if typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }   // big text: bar under the name
@@ -496,7 +509,7 @@ struct MaybeRow: View {
                         .offset(x: 3, y: 3)
                 }
             VStack(alignment: .leading) {
-                Text(maybe.unusual ? label.common : "\(label.common)?")
+                Text(maybe.unusual ? label.displayName : "\(label.displayName)?")
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(maybe.best.shownPercent)%")
                     .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
@@ -511,7 +524,7 @@ struct MaybeRow: View {
         Button { listener.logMaybe(maybe, confirmed: false) } label: { Image(systemName: "plus") }
             .buttonStyle(.bordered).accessibilityLabel("Log it")
         Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
-            .buttonStyle(.bordered).tint(.green).accessibilityLabel("I saw it")
+            .buttonStyle(.bordered).tint(GoodStyle()).accessibilityLabel("I saw it")
     }
 }
 
@@ -521,7 +534,8 @@ struct ManualRow: View {
         HStack(spacing: 12) {
             TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading) {
-                HStack(spacing: 6) { Text(detection.common); if detection.isFirst { NewBadge() } }
+                HStack(spacing: 6) { SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies); if detection.isFirst { NewBadge() } }
+                SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, row: true)
                 Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(detection.confidence.shownPercent)%")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -546,7 +560,8 @@ struct SessionRow: View {
         HStack(spacing: 12) {
             TaxonIcon(group: label.group)
             VStack(alignment: .leading) {
-                HStack(spacing: 6) { Text(label.common); if detection?.isFirst == true { NewBadge() } }
+                HStack(spacing: 6) { SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies); if detection?.isFirst == true { NewBadge() } }
+                SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, row: true)
                 Text(subtitle)
                     .font(.caption).foregroundStyle(.secondary)
                 if typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
@@ -573,7 +588,7 @@ struct ConfirmButton: View {
                 .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
         }
         .buttonStyle(.bordered)
-        .tint(detection.confirmed ? .green : .secondary)
+        .tint(detection.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.secondary))
     }
 }
 
@@ -584,7 +599,7 @@ struct ConfidenceBar: View {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.quaternary)
-                    Capsule().fill(Color.accentColor).frame(width: g.size.width * CGFloat(Fusion.display(value)))
+                    Capsule().fill(.tint).frame(width: g.size.width * CGFloat(Fusion.display(value)))
                 }
             }
             .frame(width: 56, height: 6)

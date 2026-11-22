@@ -10,6 +10,7 @@ struct HarkApp: App {
         WindowGroup {
             ListenView()
             .environment(listener)
+            .themeRoot()
             .onOpenURL { url in
                 if url.host == "listen" { Task { await listener.requestStart() } }
             }

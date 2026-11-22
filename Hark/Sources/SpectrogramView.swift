@@ -343,15 +343,21 @@ extension SpectrogramView {
 
 /// A critter's group glyph on a tinted disc, pinned over the spectrogram.
 struct CritterMarker: View {
+    @Environment(\.theme) private var theme
     let group: TaxonGroup
     var name: String?
     var pixel = false
     var body: some View {
         VStack(spacing: 2) {
-            Image(symbol: group.symbol)
-                .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+            Group {
+                if pixel, let s = AppTheme.sprite(group) {
+                    Image(s).interpolation(.none).resizable().scaledToFit().padding(2)
+                } else {
+                    Image(symbol: group.symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                }
+            }
                 .frame(width: 24, height: 24)
-                .background(TaxonIcon.tint(group), in: pixel ? AnyShape(Rectangle()) : AnyShape(Circle()))
+                .background(pixel ? Color(hex: 0x1B1240) : theme.tint(group), in: pixel ? AnyShape(Rectangle()) : AnyShape(Circle()))
                 .overlay { (pixel ? AnyShape(Rectangle()) : AnyShape(Circle())).stroke(.white.opacity(0.85), lineWidth: pixel ? 2 : 1.5) }
                 .shadow(color: .black.opacity(0.4), radius: 3)
             if let name {

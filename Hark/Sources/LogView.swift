@@ -43,7 +43,8 @@ struct LogView: View {
         return all.filter { d in
             (!confirmedOnly || d.confirmed)
             && (group == nil || ListenGroup(d.taxon) == group)
-            && (q.isEmpty || d.common.localizedCaseInsensitiveContains(q) || d.scientific.localizedCaseInsensitiveContains(q))
+            && (q.isEmpty || d.common.localizedCaseInsensitiveContains(q) || d.scientific.localizedCaseInsensitiveContains(q)
+                || (NameBook.shared.nickname(d.scientific)?.localizedCaseInsensitiveContains(q) ?? false))
         }
     }
 
@@ -88,7 +89,10 @@ struct LogView: View {
             .searchable(text: $search, prompt: "Search species")
             .modifier(MinimizedSearch(on: verticalSize == .compact))   // landscape: search shrinks to a button
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { LogExportMenu(detections: shown) }
+            }
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
             .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
             .onAppear {   // screenshot aid
@@ -101,6 +105,9 @@ struct LogView: View {
                         if list.indices.contains(n) { mode = .sessions; path.append(list[n]) }
                     }
                 }
+                #if DEBUG
+                if args.contains("-exportpdf"), let u = try? PDFExport(rows: all.map(ExportRow.init)).write() { NSLog("HARK pdf: %@", u.path) }
+                #endif
                 if let i = args.firstIndex(of: "-openspecies"), i + 1 < args.count {
                     mode = .species; path.append(SpeciesKey(scientific: args[i + 1]))
                 }
@@ -134,7 +141,7 @@ private struct TimelineList: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 if filtered {
                     Button { clear() } label: {
@@ -161,7 +168,7 @@ private struct TimelineList: View {
                             .swipeActions(edge: .leading) {
                                 Button { d.confirmed.toggle() } label: {
                                     Label(d.confirmed ? "Unconfirm" : "I saw it", systemImage: "eye")
-                                }.tint(.green)
+                                }.tint(GoodStyle())
                             }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) { deleteDetection(d, in: ctx) } label: { Label("Delete", systemImage: "trash") }
@@ -169,7 +176,7 @@ private struct TimelineList: View {
                     }
                 }
             }
-        }
+        }.themedRows() }.themedList()
     }
 
     private func stat(_ n: String, _ label: String) -> some View {
@@ -189,12 +196,13 @@ struct LogRow: View {
             TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(detection.common).font(.headline)
+                    SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, style: .headline)
                     if detection.confirmed {
-                        Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).font(.caption).accessibilityLabel("seen")
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(.good).font(.caption).accessibilityLabel("seen")
                     }
                     if detection.isFirst { NewBadge() }
                 }
+                SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, row: true)
                 Text(subtitle).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
@@ -221,7 +229,7 @@ struct ClipButton: View {
                 player.toggle(id: file, samples: nil, file: ClipStore.url(file))
             } label: {
                 Image(systemName: player.playingID == file ? "stop.circle.fill" : "play.circle.fill")
-                    .font(.title2).foregroundStyle(Color.accentColor)
+                    .font(.title2).foregroundStyle(.tint)
             }
             .buttonStyle(.borderless)
             .frame(width: 32)
@@ -253,7 +261,9 @@ private struct SpeciesList: View {
         switch sort {
         case .recent: return r.sorted { $0.last > $1.last }
         case .count: return r.sorted { ($0.count, $0.last) > ($1.count, $1.last) }
-        case .name: return r.sorted { $0.common.localizedCaseInsensitiveCompare($1.common) == .orderedAscending }
+        case .name:
+            let b = NameBook.shared
+            return r.sorted { b.plain($0.common, $0.scientific).localizedCaseInsensitiveCompare(b.plain($1.common, $1.scientific)) == .orderedAscending }
         }
     }
 
@@ -268,7 +278,7 @@ private struct SpeciesList: View {
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 Picker("Sort", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
             } footer: { Text("\(rows.count) species") }
@@ -277,7 +287,7 @@ private struct SpeciesList: View {
                     Chart(growth, id: \.0) { p in
                         LineMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
                         AreaMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
-                            .foregroundStyle(Color.accentColor.opacity(0.15))
+                            .foregroundStyle(.tint.opacity(0.15))
                     }
                     .frame(height: 120)
                 }
@@ -288,8 +298,8 @@ private struct SpeciesList: View {
                         TaxonIcon(group: r.group)
                         VStack(alignment: .leading) {
                             HStack(spacing: 6) {
-                                Text(r.common).font(.headline)
-                                if r.confirmed { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).font(.caption) }
+                                SpeciesTitle(common: r.common, scientific: r.scientific, species: r.group.isSpecies, style: .headline)
+                                if r.confirmed { Image(systemName: "checkmark.seal.fill").foregroundStyle(.good).font(.caption) }
                             }
                             Text("first \(r.first.formatted(date: .abbreviated, time: .omitted)) · last \(r.last.formatted(.relative(presentation: .named)))")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -299,7 +309,7 @@ private struct SpeciesList: View {
                     }
                 }
             }
-        }
+        }.themedRows() }.themedList()
     }
 }
 
@@ -325,14 +335,14 @@ struct SpeciesPage: View {
     private var best: Detection? { detections.filter { $0.clipFile != nil }.max { $0.confidence < $1.confidence } }
 
     var body: some View {
-        List {
+        List { Group {
             if let first = detections.last {
                 Section {
                     HStack(spacing: 14) {
                         TaxonIcon(group: first.taxon, size: 56)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(first.common).font(.title2.bold())
-                            Text(scientific).italic().foregroundStyle(.secondary)
+                            SpeciesTitle(common: first.common, scientific: scientific, species: first.isSpecies, style: .title2)
+                            SpeciesSubtitle(common: first.common, scientific: scientific, species: first.isSpecies, font: .body)
                         }
                     }
                     LabeledContent("Times heard", value: "\(detections.count)")
@@ -347,7 +357,7 @@ struct SpeciesPage: View {
             if detections.count >= 2 {
                 Section("Time of day") {
                     Chart(hours, id: \.0) { h in
-                        BarMark(x: .value("Hour", h.0), y: .value("Detections", h.1)).foregroundStyle(Color.accentColor)
+                        BarMark(x: .value("Hour", h.0), y: .value("Detections", h.1)).foregroundStyle(.tint)
                     }
                     .chartXScale(domain: 0...23)
                     .chartXAxis { AxisMarks(values: [0, 6, 12, 18, 23]) { v in
@@ -359,7 +369,7 @@ struct SpeciesPage: View {
                 if Set(detections.map { Calendar.current.component(.month, from: $0.firstHeard) }).count > 1 {
                     Section("Through the year") {
                         Chart(months, id: \.0) { m in
-                            BarMark(x: .value("Month", m.0, unit: .month), y: .value("Detections", m.1)).foregroundStyle(Color.accentColor)
+                            BarMark(x: .value("Month", m.0, unit: .month), y: .value("Detections", m.1)).foregroundStyle(.tint)
                         }
                         .frame(height: 110)
                     }
@@ -372,19 +382,21 @@ struct SpeciesPage: View {
             Section("All detections") {
                 ForEach(detections) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
-            Section {
-                if let url = URL(string: detections.first?.inat.map { "https://www.inaturalist.org/taxa/\($0)" }
-                                 ?? "https://www.inaturalist.org/search?q=" + (scientific.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")) {
-                    Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
+            if let first = detections.first, first.isSpecies {
+                Section { NicknameRow(scientific: scientific) } header: { Text("Your name for it") } footer: {
+                    Text("Shows instead of its name everywhere in Hark, like \"Fred\" for the cardinal at your feeder. Clear it to go back.")
                 }
+                LearnMoreSection(scientific: scientific, common: first.common, group: first.taxon)
+            }
+            Section {
                 if listener.mutedNames.contains(scientific) {
                     Button("Show this species again") { listener.unmute(scientific) }
                 } else if let i = listener.labels?.index(ofScientific: scientific) {
                     Button("Never show this species", role: .destructive) { listener.mute(i) }
                 }
             }
-        }
-        .navigationTitle(detections.first?.common ?? scientific)
+        }.themedRows() }.themedList()
+        .navigationTitle(detections.first?.displayName ?? scientific)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -397,16 +409,16 @@ struct DetectionDetail: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 HStack(spacing: 14) {
                     TaxonIcon(group: detection.taxon, size: 52)
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack { Text(detection.common).font(.title2.bold()); if detection.isFirst { NewBadge() } }
-                        Text(detection.scientific).italic().foregroundStyle(.secondary)
+                        HStack { SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, style: .title2); if detection.isFirst { NewBadge() } }
+                        SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, font: .body)
                     }
                 }
-                NavigationLink(value: SpeciesKey(scientific: detection.scientific)) { Text("All \(detection.common) detections") }
+                NavigationLink(value: SpeciesKey(scientific: detection.scientific)) { Text("All \(detection.displayName) detections") }
             }
             if let file = detection.clipFile {
                 Section("Recording") {
@@ -426,11 +438,13 @@ struct DetectionDetail: View {
             if detection.latitude != nil {
                 Section("Where") { DetectionMap(detections: [detection]).frame(height: 180).listRowInsets(EdgeInsets()) }
             }
+            LearnMoreSection(scientific: detection.scientific, common: detection.common, group: detection.taxon)
             Section {
                 Button("Delete", role: .destructive) { deleteDetection(detection, in: ctx); dismiss() }
             }
-        }
-        .navigationTitle(detection.common)
+        }.themedRows() }.themedList()
+        .toolbar { ToolbarItem(placement: .primaryAction) { DetectionShareButton(detection: detection) } }
+        .navigationTitle(detection.displayName)
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -464,9 +478,9 @@ struct DetectionMap: View {
     var body: some View {
         Map {
             ForEach(detections.filter { $0.latitude != nil }) { d in
-                Annotation(d.common, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
+                Annotation(d.displayName, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
                     Image(symbol: d.taxon.symbol).font(.caption).padding(5)
-                        .background(d.confirmed ? Color.green : Color.accentColor, in: Circle()).foregroundStyle(.white)
+                        .background(d.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)
                 }
             }
         }

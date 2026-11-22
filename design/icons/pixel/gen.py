@@ -149,20 +149,21 @@ OWL_PAL = {"b": "#7a6650", "w": "#e8dcc4", "k": "#100c0a", "y": "#e8c040"}
 def make(name, sprite, pal, ox, oy, wx, wy, **kw):
     img = backdrop(); waves(img, wx, wy, **kw); blit(img, sprite, pal, ox, oy); return save(img, name)
 
-icons = [
-    make("chipmunk", CHIPMUNK, CHIP_PAL, 2, 7, 18, 14),
-    make("bird", BIRD, BIRD_PAL, 2, 8, 18, 13),
-    make("toad", TOAD, TOAD_PAL, 1, 10, 19, 17),
-    make("cricket", CRICKET, CRICKET_PAL, 1, 9, 19, 15),
-    make("owl", OWL, OWL_PAL, 3, 9, 19, 14),
-]
-# contact sheet, with the iOS squircle mask approximated by rounded corners
-sheet = Image.new("RGB", (5 * 300 + 60, 360), (245, 245, 247))
-for i, im in enumerate(icons):
-    s = im.resize((260, 260), Image.NEAREST)
-    m = Image.new("L", (260, 260), 0)
-    from PIL import ImageDraw
-    ImageDraw.Draw(m).rounded_rectangle((0, 0, 259, 259), radius=58, fill=255)
-    sheet.paste(s, (40 + i * 300, 50), m)
-sheet.save(os.path.join(HERE, "sheet.png"))
-print("ok")
+if __name__ == "__main__":
+    icons = [
+        make("chipmunk", CHIPMUNK, CHIP_PAL, 2, 7, 18, 14),
+        make("bird", BIRD, BIRD_PAL, 2, 8, 18, 13),
+        make("toad", TOAD, TOAD_PAL, 1, 10, 19, 17),
+        make("cricket", CRICKET, CRICKET_PAL, 1, 9, 19, 15),
+        make("owl", OWL, OWL_PAL, 3, 9, 19, 14),
+    ]
+    # contact sheet, with the iOS squircle mask approximated by rounded corners
+    sheet = Image.new("RGB", (5 * 300 + 60, 360), (245, 245, 247))
+    for i, im in enumerate(icons):
+        s = im.resize((260, 260), Image.NEAREST)
+        m = Image.new("L", (260, 260), 0)
+        from PIL import ImageDraw
+        ImageDraw.Draw(m).rounded_rectangle((0, 0, 259, 259), radius=58, fill=255)
+        sheet.paste(s, (40 + i * 300, 50), m)
+    sheet.save(os.path.join(HERE, "sheet.png"))
+    print("ok")

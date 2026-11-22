@@ -250,12 +250,12 @@ struct SelectionSection: View {
                 }
                 if l.group.isSpecies {
                     if selection.logged.contains(i) {
-                        Label("Logged", systemImage: "checkmark").font(.caption).foregroundStyle(.green)
+                        Label("Logged", systemImage: "checkmark").font(.caption).foregroundStyle(.good)
                     } else {
                         HStack {
                             Button("Log") { selection.log(i, p, confirmed: false, listener) }.buttonStyle(.bordered)
                             Button { selection.log(i, p, confirmed: true, listener) } label: { Label("I saw it", systemImage: "eye") }
-                                .buttonStyle(.bordered).tint(.green)
+                                .buttonStyle(.bordered).tint(GoodStyle())
                         }
                         .font(.caption)
                     }

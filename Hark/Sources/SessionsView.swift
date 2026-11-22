@@ -13,7 +13,7 @@ struct SessionSummary: Identifiable, Hashable {
     let record: ListeningSession?
     var duration: TimeInterval { max(end.timeIntervalSince(start), 0) }
     var species: [String] {   // most-heard first
-        Dictionary(grouping: detections, by: \.common).sorted { ($0.value.count, $0.key) > ($1.value.count, $1.key) }.map(\.key)
+        Dictionary(grouping: detections, by: \.displayName).sorted { ($0.value.count, $0.key) > ($1.value.count, $1.key) }.map(\.key)
     }
     static func == (a: Self, b: Self) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
@@ -40,7 +40,7 @@ struct SessionsList: View {
 
     var body: some View {
         let sessions = SessionSummary.build(detections, records)
-        List {
+        List { Group {
             if sessions.isEmpty {
                 ContentUnavailableView("No sessions yet", systemImage: "figure.walk",
                                        description: Text("Each time you listen becomes a session with its route and what you heard."))
@@ -62,7 +62,7 @@ struct SessionsList: View {
                     }
                 }
             }
-        }
+        }.themedRows() }.themedList()
     }
 
     static func duration(_ t: TimeInterval) -> String {
@@ -80,14 +80,14 @@ struct SessionPage: View {
         let minWidth = max(session.duration * 0.012, 4)
         var named = Set<String>()
         return session.detections.map {   // detections are sorted by time; label each species' first bar
-            Span(name: $0.common, start: $0.firstHeard,
+            Span(name: $0.displayName, start: $0.firstHeard,
                  end: max($0.lastHeard.addingTimeInterval(5), $0.firstHeard.addingTimeInterval(minWidth)),
                  confirmed: $0.confirmed, labeled: named.insert($0.common).inserted)
         }
     }
 
     var body: some View {
-        List {
+        List { Group {
             Section {
                 LabeledContent("Length", value: SessionsList.duration(session.duration))
                 LabeledContent("Species", value: "\(Set(session.detections.map(\.scientific)).count)")
@@ -104,7 +104,7 @@ struct SessionPage: View {
                     let names = session.species
                     Chart(spans) { s in
                         BarMark(xStart: .value("Start", s.start), xEnd: .value("End", s.end), y: .value("Species", s.name), height: 8)
-                            .foregroundStyle(s.confirmed ? Color.green : Color.accentColor)
+                            .foregroundStyle(s.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint))
                             .cornerRadius(2)
                             .annotation(position: .top, alignment: .leading, spacing: 2,
                                         overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
@@ -122,7 +122,7 @@ struct SessionPage: View {
             Section("Detections") {
                 ForEach(session.detections.reversed()) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
-        }
+        }.themedRows() }.themedList()
         .navigationTitle(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -136,9 +136,9 @@ struct SessionPage: View {
                     .stroke(.blue, lineWidth: 4)
             }
             ForEach(session.detections.filter { $0.latitude != nil }) { d in
-                Annotation(d.common, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
+                Annotation(d.displayName, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
                     Image(symbol: d.taxon.symbol).font(.caption2).padding(4)
-                        .background(d.confirmed ? Color.green : Color.accentColor, in: Circle()).foregroundStyle(.white)
+                        .background(d.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)
                 }
             }
         }

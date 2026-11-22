@@ -8,3 +8,4 @@ tools/data/
 xcuserdata/
 tools/.venv/
 DerivedData-dev/
+__pycache__/
