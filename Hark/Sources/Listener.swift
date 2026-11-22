@@ -138,7 +138,16 @@ final class Listener {
     private let store = AudioStore()
     private let audio = AudioCapture()
     private let location = LocationProvider()
-    private var tracker = DetectionTracker(gap: 60)
+    private var tracker = DetectionTracker(gap: 60, confirmWindows: Listener.storedConfirmSeconds, confirmSpan: TimeInterval(max(5, Listener.storedConfirmSeconds + 2)))
+    private static var storedConfirmSeconds: Int { max(1, UserDefaults.standard.object(forKey: "confirmSeconds") as? Int ?? 2) }
+    /// Seconds (scored windows) a new species must be heard, within a few seconds, before it's logged. More = fewer
+    /// one-off false IDs, a little slower; a bird that calls once, briefly, can be missed (touch the spectrogram).
+    var confirmSeconds: Int = Listener.storedConfirmSeconds {
+        didSet {
+            UserDefaults.standard.set(confirmSeconds, forKey: "confirmSeconds")
+            tracker.confirmWindows = confirmSeconds; tracker.confirmSpan = TimeInterval(max(5, confirmSeconds + 2))
+        }
+    }
     private var loop: Task<Void, Never>?
     private var sessionID = UUID()
     private var logged: [UUID: Detection] = [:]   // occurrence id -> its log row
