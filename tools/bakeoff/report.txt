@@ -1,0 +1,94 @@
+
+## inat_wi: all  (180 clips, 60 species)
+   top-1 correct: Perch 136/180, BirdNET+ 155/180
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)           152/180         0.53
+   BirdNET+ ≥ 0.50                     169/180         1.28
+   BirdNET+ ≥ 0.75                     162/180         0.51
+   Either (P≥.30 or B≥.50)             169/180         1.44
+   Both agree (P≥.15 and B≥.25)        159/180         0.61
+   Agree, or one is sure               168/180         0.72
+
+## inat_wi: species both models know  (171 clips, 57 species)
+   top-1 correct: Perch 136/171, BirdNET+ 148/171
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)           152/171         0.50
+   BirdNET+ ≥ 0.50                     162/171         1.26
+   BirdNET+ ≥ 0.75                     155/171         0.50
+   Either (P≥.30 or B≥.50)             162/171         1.39
+   Both agree (P≥.15 and B≥.25)        159/171         0.61
+   Agree, or one is sure               162/171         0.69
+   missing from Perch: ['Leuconotopicus villosus', 'Nannus hiemalis', 'Setophaga aestiva']
+   missing from BirdNET+: none
+
+## inat_wi: Amphibia  (18 clips, 6 species)
+   top-1 correct: Perch 13/18, BirdNET+ 15/18
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)            14/18          0.61
+   BirdNET+ ≥ 0.50                      17/18          1.22
+   BirdNET+ ≥ 0.75                      15/18          0.39
+   Either (P≥.30 or B≥.50)              17/18          1.44
+   Both agree (P≥.15 and B≥.25)         15/18          0.72
+   Agree, or one is sure                18/18          0.94
+
+## inat_wi: Insecta  (3 clips, 1 species)
+   top-1 correct: Perch 3/3, BirdNET+ 3/3
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)             3/3           0.00
+   BirdNET+ ≥ 0.50                       3/3           0.00
+   BirdNET+ ≥ 0.75                       3/3           0.00
+   Either (P≥.30 or B≥.50)               3/3           0.00
+   Both agree (P≥.15 and B≥.25)          3/3           0.00
+   Agree, or one is sure                 3/3           0.00
+
+## inat_wi: Mammalia  (12 clips, 4 species)
+   top-1 correct: Perch 11/12, BirdNET+ 11/12
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)            10/12          0.42
+   BirdNET+ ≥ 0.50                      11/12          1.00
+   BirdNET+ ≥ 0.75                      11/12          0.33
+   Either (P≥.30 or B≥.50)              11/12          1.17
+   Both agree (P≥.15 and B≥.25)         12/12          0.58
+   Agree, or one is sure                12/12          0.75
+
+## yard: all  (48 clips, 25 species)
+   top-1 correct: Perch 33/48, BirdNET+ 29/48
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)            37/48          0.58
+   BirdNET+ ≥ 0.50                      37/48          1.27
+   BirdNET+ ≥ 0.75                      26/48          0.58
+   Either (P≥.30 or B≥.50)              41/48          1.33
+   Both agree (P≥.15 and B≥.25)         38/48          0.75
+   Agree, or one is sure                41/48          0.79
+   missing from Perch: none
+   missing from BirdNET+: none
+
+## yard: Amphibia  (2 clips, 1 species)
+   top-1 correct: Perch 2/2, BirdNET+ 1/2
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)             2/2           0.00
+   BirdNET+ ≥ 0.50                       1/2           0.00
+   BirdNET+ ≥ 0.75                       0/2           0.00
+   Either (P≥.30 or B≥.50)               2/2           0.00
+   Both agree (P≥.15 and B≥.25)          1/2           0.00
+   Agree, or one is sure                 2/2           0.00
+
+## yard: Insecta  (4 clips, 2 species)
+   top-1 correct: Perch 2/4, BirdNET+ 2/4
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)             3/4           0.50
+   BirdNET+ ≥ 0.50                       4/4           1.25
+   BirdNET+ ≥ 0.75                       0/4           0.00
+   Either (P≥.30 or B≥.50)               4/4           1.25
+   Both agree (P≥.15 and B≥.25)          4/4           0.50
+   Agree, or one is sure                 4/4           0.50
+
+## yard: Mammalia  (4 clips, 2 species)
+   top-1 correct: Perch 3/4, BirdNET+ 0/4
+   rule                                  found  others/clip
+   Perch ≥ 0.30 (Hark today)             2/4           0.75
+   BirdNET+ ≥ 0.50                       1/4           1.50
+   BirdNET+ ≥ 0.75                       0/4           1.25
+   Either (P≥.30 or B≥.50)               2/4           1.50
+   Both agree (P≥.15 and B≥.25)          2/4           1.25
+   Agree, or one is sure                 2/4           1.25
