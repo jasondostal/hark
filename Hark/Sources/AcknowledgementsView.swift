@@ -15,8 +15,8 @@ struct AcknowledgementsView: View {
                license: "Data CC0 / CC BY, per dataset", url: "https://www.gbif.org"),
         Credit(name: "eBird", use: "Recent sightings near you, when you add your own eBird API key. Data from the Cornell Lab of Ornithology.",
                license: "eBird API Terms of Use", url: "https://ebird.org"),
-        Credit(name: "OpenFauna", use: "Common names and taxonomy.",
-               license: "See OpenFauna", url: "https://github.com/tphakala/birdnet-go"),
+        Credit(name: "OpenFauna", use: "Common names, taxonomy and iNaturalist links. Hark's species list is adapted from it (names, groups and icons added) and shared under the same license.",
+               license: "CC BY-SA 4.0", url: "https://github.com/tphakala/openfauna"),
         Credit(name: "Font Awesome Free 6.5.2", use: "The frog, locust and spider icons.",
                license: "CC BY 4.0", url: "https://fontawesome.com/license/free"),
     ]

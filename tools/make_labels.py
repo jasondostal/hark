@@ -1,5 +1,6 @@
 """Build Hark's label table: Perch class index -> scientific name, English common name, group.
-Sources: Perch labels.csv (iNat taxonomy + FSD50K events); OpenFauna (via birdnet-go) for names/class."""
+Sources: Perch labels.csv (iNat taxonomy + FSD50K events); OpenFauna (github.com/tphakala/openfauna, CC BY-SA 4.0,
+via birdnet-go) for names/class. The output labels.json is an adaptation, so it is CC BY-SA 4.0 too."""
 import csv, gzip, json, sys
 labels=[l.strip() for l in open(sys.argv[1])][1:]
 want=set(labels)
