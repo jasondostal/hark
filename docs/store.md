@@ -6,9 +6,9 @@ Jason in the web UI. `tools/asc/listing.py` pushes the fields below.
 
 ## Open before submitting
 
-1. Support and privacy pages written in the ducktyping repo (`src/pages/hark/`), not deployed. No whoami section
-   (Jason: that was only for Bent).
-2. Screenshots (6.9"), build upload, attach the build, submit.
+1. ~~Support and privacy pages~~ LIVE 2026-11-21 at ducktyping.dev/hark/ (no whoami section: that was only for Bent).
+2. ~~Screenshots~~ uploaded 2026-11-21. Build 1.0 (1) archived and uploaded 2026-11-21.
+3. Jason checks the store build on his phone (TestFlight), then attach the build and submit.
 
 ## Name and subtitle (30 characters each)
 
@@ -117,6 +117,8 @@ Not applicable. Third-party components and their licenses are listed in Settings
 
 ## Screenshots (6.9", 1320 × 2868)
 
-To do: from the 17 Pro Max simulator with `-feedfile` recordings and a made-up log, in store order: live listening with
-"Both models", a paused selection with results, the log timeline, a session with route and chart, a species page,
-Settings, the Owling (red) spectrogram.
+Uploaded 2026-11-21, `tools/shots/store/` in order: live listening with "Both models", a paused selection with results,
+the log timeline, a session with route and chart, Settings. Made on the iPhone 18 Pro Max simulator (1320 × 2868),
+status bar overridden to 9:41, location Horicon Marsh, with `-demolog ~/working/perch-spike/audio_yard` (Debug-only
+made-up log) and `-feedfile` yard recordings. The Owling shot was dropped: the owl/peeper recordings render almost
+empty in red.
