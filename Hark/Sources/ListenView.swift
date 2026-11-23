@@ -257,10 +257,13 @@ struct ListenView: View {
     @ViewBuilder private var content: some View {
         switch listener.state {
         case .loading:
-            Section { HStack(spacing: 10) { ProgressView(); Text("Getting Perch ready… (the first launch takes a moment)").font(.callout) } }
+            Section { HStack(spacing: 10) { ProgressView(); Text("Setting up the models on this iPhone. Only after installing or updating; a few seconds.").font(.callout) } }
         case .failed(let msg):
             Section { Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout) }
-        default: EmptyView()
+        default:
+            if listener.perchPending {
+                Section { HStack(spacing: 10) { ProgressView(); Text("Perch is still setting up; listening with BirdNET+ until it joins.").font(.callout).foregroundStyle(.secondary) } }
+            }
         }
         if selection.isFrozen { SelectionSection(selection: selection) }
         let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty

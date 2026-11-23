@@ -21,11 +21,14 @@ Jason in the web UI. `tools/asc/listing.py` pushes the fields below.
 
 ## Promotional text (170; changeable without review)
 
-Identifies birds, frogs, insects and mammals by sound, live on your iPhone, with two models listening at once. Free, no account, no ads. Audio never leaves the phone.
+Two AI models listen at once, all on your iPhone: birds, frogs, insects and mammals, live, even with no signal. Free, no account, no ads. Audio never leaves the phone.
 
 ## Description (4000)
 
 Hold up your phone and Hark tells you who's singing: birds, frogs, insects and mammals, live, as they call. Everything runs on the phone. It's free, with no subscription, no account and no ads.
+
+ALL ON YOUR IPHONE
+There's no server behind Hark. Two full-size AI models, Google DeepMind's Perch 2.0 and BirdNET+ 3.0, are built into the app and run on your iPhone's Neural Engine, the chip Apple makes for machine learning. Every second, Hark scores the last five seconds of sound against about fifteen thousand species with both models, in a fraction of a second. The species ranges and week-by-week seasons are in the app too. So it works just the same deep in a marsh with no signal or in Airplane Mode, and no recording ever leaves your phone. (The first launch after installing or updating takes a few extra seconds while iOS sets the models up for your phone's chip.)
 
 LIVE
 • A scrolling spectrogram and a list of what's calling right now, updated every second
@@ -52,12 +55,14 @@ YOUR LOG
 • Sessions, with your route on a map and when each species called
 • A species list with your life list growing over time, time-of-day and seasonal charts
 • Mark the ones you saw; search and filter by group
+• Wrong ID? Swipe "Not it" and Hark drops it and ignores it for the rest of the walk (with Undo)
+• Share a card of a find, with the place or without
 
 ONE PRESS
 Start listening from the Action Button, Control Center, a widget or Siri.
 
 MAKE IT YOURS
-Sensitive, Balanced or Strict, or fine-tune each group. Seven spectrogram color schemes, including an all-red one that saves your night vision on an owl prowl. Choose how many seconds the spectrogram shows, its contrast, your microphone and a rumble filter for wind and road noise.
+Sensitive, Balanced or Strict, or fine-tune each group. Nine spectrogram color schemes, including an 8-bit one and an all-red one that saves your night vision on an owl prowl. Choose how many seconds the spectrogram shows, its contrast, your microphone and a rumble filter for wind and road noise.
 
 PRIVATE
 Audio is identified on the phone and never uploaded. No account, no analytics, no tracking. Your log stays on your phone.

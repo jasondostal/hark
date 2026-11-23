@@ -233,34 +233,62 @@ final class Listener {
 
     static let hop: Duration = .seconds(1)
 
+    /// First launch after an install or update, iOS prepares each model for this phone's Neural Engine
+    /// (measured on an iPhone 15 Pro: Perch 8.9 s, BirdNET+ 4.4 s; 0.1 s each from then on). Hark is ready as soon
+    /// as one can listen; the other joins when it's done.
     func loadModel() async {
-        guard inference == nil else { return }
+        guard labels == nil else { return }
+        guard let modelURL = Bundle.main.url(forResource: "Perch", withExtension: "mlmodelc"),
+              let labelsURL = Bundle.main.url(forResource: "labels", withExtension: "json") else {
+            state = .failed("Model files missing from the app bundle"); return
+        }
+        let rangesURL = Bundle.main.url(forResource: "ranges", withExtension: "bin")
+        let (table, rm) = await Task.detached(priority: .userInitiated) {
+            (try? HarkCore.Label.table ?? LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
+        }.value
+        guard let table else { state = .failed("Couldn't read the species list"); return }
+        labels = table; ranges = rm
+        geo = await Task.detached(priority: .utility) { GeoModel() }.value
+        updateContext()
+        refreshMuted()
+        // iOS prepares one model at a time, so the quicker one goes first: listening starts with BirdNET+ in ~4 s
+        // and Perch joins ~9 s later.
+        await loadBirdNETIfNeeded()
+        await loadPerch(modelURL)
+        if state == .loading {
+            state = .failed(perchError.map { "Couldn't load Perch: \($0)" } ?? "Couldn't load the models")
+        }
+    }
+    private var perchError: String?
+    /// Perch is still being prepared while Hark listens with BirdNET+ alone.
+    var perchPending: Bool { inference == nil && perchError == nil && model != .birdnet }
+
+    private func loadPerch(_ url: URL) async {
         do {
-            guard let modelURL = Bundle.main.url(forResource: "Perch", withExtension: "mlmodelc"),
-                  let labelsURL = Bundle.main.url(forResource: "labels", withExtension: "json") else {
-                state = .failed("Model files missing from the app bundle"); return
-            }
-            let rangesURL = Bundle.main.url(forResource: "ranges", withExtension: "bin")
-            let (clf, table, rm) = try await Task.detached(priority: .userInitiated) {
+            let clf = try await Task.detached(priority: .userInitiated) {
                 #if targetEnvironment(simulator)
                 let units: MLComputeUnits = .cpuOnly   // simulator: no ANE, and its GPU path gives wrong answers
                 #else
                 let units: MLComputeUnits = .cpuAndNeuralEngine   // device: ANE; no GPU, so it keeps working in the background
                 #endif
-                let c = try PerchClassifier(url: modelURL, computeUnits: units)
-                _ = try c.classify([Float](repeating: 0, count: PerchClassifier.windowSamples))   // warm up / ANE compile
-                return (c, try HarkCore.Label.table ?? LabelTable(contentsOf: labelsURL), rangesURL.flatMap { try? RangeMap(contentsOf: $0) })
+                let t0 = Date()
+                let c = try PerchClassifier(url: url, computeUnits: units)
+                _ = try c.classify([Float](repeating: 0, count: PerchClassifier.windowSamples))   // warm up
+                NSLog("HARK-LOAD perch %.1f s", Date().timeIntervalSince(t0))
+                return c
             }.value
-            inference = Inference(clf); labels = table; ranges = rm
-            geo = await Task.detached(priority: .utility) { GeoModel() }.value
-            await loadBirdNETIfNeeded()
-            updateContext()
-            refreshMuted()
-            state = .ready
-            if pendingStart { pendingStart = false; await start() }
+            inference = Inference(clf)
         } catch {
-            state = .failed("Couldn't load Perch: \(error.localizedDescription)")
+            perchError = error.localizedDescription
         }
+        modelLoaded()
+    }
+    private var canListen: Bool { inference != nil || (model != .perch && birdnet != nil) }
+    /// Ready once either model can listen; start a listen that was asked for while loading.
+    private func modelLoaded() {
+        guard state == .loading, canListen else { return }
+        state = .ready
+        if pendingStart { pendingStart = false; Task { await start() } }
     }
 
     func label(_ i: Int) -> HarkCore.Label? { labels.map { $0[i] } }
@@ -276,21 +304,24 @@ final class Listener {
             #else
             let units: MLComputeUnits = .cpuAndNeuralEngine
             #endif
+            let t0 = Date()
             guard let c = try? BirdNET3Classifier(url: url, computeUnits: units), let d = try? Data(contentsOf: mapURL) else { return nil }
             _ = try? c.classify([Float](repeating: 0, count: BirdNET3Classifier.windowSamples))   // warm up
+            NSLog("HARK-LOAD birdnet %.1f s", Date().timeIntervalSince(t0))
             let map = d.withUnsafeBytes { Array($0.bindMemory(to: UInt16.self)).map { UInt16(littleEndian: $0) } }
             return BirdNETInference(c, map: map)
         }.value
+        modelLoaded()
     }
 
     /// Score audio with the chosen model(s) and triage it. Perch scores are padded to the full label table
     /// (BirdNET+-only species score 0 for Perch, and vice versa).
     private func identify(_ samples: [Float], topK: Int = 12) async -> DetectionPolicy.Triage? {
-        guard let inference, let labels else { return nil }
+        guard let labels else { return nil }
         let n = labels.count
         var perch: [Float]?
         var human: Float = 0
-        if model != .birdnet || birdnet == nil {
+        if let inference, model != .birdnet || birdnet == nil {
             var rows: [[Float]] = []
             for st in Windowing.starts(length: samples.count) {
                 guard let out = try? await inference.classify(Windowing.window(samples, start: st)) else { continue }
@@ -319,7 +350,7 @@ final class Listener {
 
     func start() async {
         // .failed too, so a mic hiccup can be retried with the same button instead of leaving the app stuck.
-        guard state != .listening, state != .loading, inference != nil else { return }
+        guard state != .listening, state != .loading, canListen else { return }
         ClipPlayer.shared.stop()
         let feeding = ProcessInfo.processInfo.arguments.contains("-feedfile")
         let allowed = feeding ? true : await AudioCapture.requestPermission()
@@ -556,7 +587,7 @@ final class Listener {
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
-        guard inference != nil, let labels, state == .listening, idMode == .auto else { return }
+        guard canListen, let labels, state == .listening, idMode == .auto else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
         guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)
