@@ -148,7 +148,8 @@ def emoji(s, c, g):
 
 out=[]; miss=0
 for li,s in enumerate(labels):
-    if ' ' not in s and ('_' in s or s[:1].isupper() and s not in cls):
+    # one-word sound classes; 'Siren' is also a salamander genus, so it's a sound by name, not by taxonomy lookup
+    if ' ' not in s and ('_' in s or s[:1].isupper() and (s not in cls or s=='Siren')):
         c=s.replace('_and_',' / ').replace('_',' ')
         out.append({'s':s,'c':c,'g':'sound','e':emoji(s,c,'sound')}); continue
     c=en_us.get(s) or en.get(s)
