@@ -510,6 +510,7 @@ final class Listener {
         if context?.status(i) == .outOfSeason {
             return "unusual for \(Date.now.formatted(.dateTime.month(.wide)))"
         }
+        if context?.status(i) == .rare { return "rare here" }
         return "unusual here"
     }
 

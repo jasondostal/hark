@@ -7,7 +7,9 @@ import Foundation
 ///  3. the BirdNET geomodel: place + week of the year (12,258 Perch species)
 ///  4. the GBIF range map: place only (everything else with GBIF records)
 public struct LocalContext: Sendable, Equatable {
-    public enum Status: UInt8, Sendable { case unknown, expected, outOfRange, outOfSeason }
+    /// rare: the geomodel never expects it here but GBIF has a record in the cell (often one vagrant). Flagged, so a
+    /// single weak hit isn't logged as a state rarity.
+    public enum Status: UInt8, Sendable { case unknown, expected, outOfRange, outOfSeason, rare }
     public enum Source: UInt8, Sendable { case none, ebird, patch, geomodel, gbif }
 
     private let statuses: [UInt8]
@@ -44,8 +46,8 @@ public struct LocalContext: Sendable, Equatable {
             if let geo, i < geo.week.count, let p = geo.week[i] {
                 if p >= Self.geoThreshold { set(.expected, .geomodel) }
                 else if let y = geo.yearMax[i], y >= Self.geoThreshold { set(.outOfSeason, .geomodel) }
-                // The geomodel never expects it here, but GBIF has records nearby: a rarity, not an error. Don't flag.
-                else if gbif == .inRange { set(.unknown, .gbif) }
+                // The geomodel never expects it here, but GBIF has a record nearby: a rarity. Flag it (shown, logged by hand).
+                else if gbif == .inRange { set(.rare, .gbif) }
                 else { set(.outOfRange, .geomodel) }
                 continue
             }

@@ -66,9 +66,11 @@ final class PolicyTests: XCTestCase {
         c = LocalContext(count: 5, range: gbif, geo: geo, patch: [1], ebird: [4])
         XCTAssertEqual(c.status(1), .expected); XCTAssertEqual(c.source(1), .patch)
         XCTAssertEqual(c.status(4), .expected); XCTAssertEqual(c.source(4), .ebird)
-        // geomodel says never, GBIF has records nearby: a rarity, not flagged
+        // geomodel says never, GBIF has a record nearby: a rarity, flagged (shown, logged by hand)
         let rare = LocalContext(count: 5, range: LocalRange(cell: 0, present: [false, true, false, false, false], hasRange: [true, true, false, false, true]), geo: geo)
-        XCTAssertEqual(rare.status(1), .unknown)
+        XCTAssertEqual(rare.status(1), .rare)
+        let rt = Self.legacy().triage(scores: [0, 0.6, 0, 0, 0], labels: labels, context: rare)
+        XCTAssertTrue(rt.hits.isEmpty); XCTAssertEqual(rt.unusual.map(\.index), [1])
     }
 
     func testFusion() {

@@ -153,7 +153,7 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
                 if hit && both { t.agreed.insert(i) }
             }
             let status: LocalContext.Status = (rangeMode == .off || !label.group.isSpecies) ? .unknown : (context?.status(i) ?? .unknown)
-            let unlikely = status == .outOfRange || status == .outOfSeason
+            let unlikely = status == .outOfRange || status == .outOfSeason || status == .rare
             if p >= s.threshold {
                 if unlikely {
                     if rangeMode == .flag { t.unusual.append((i, p)) }
