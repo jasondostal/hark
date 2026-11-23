@@ -115,18 +115,13 @@ struct LogView: View {
             }
             .navigationDestination(for: SpeciesKey.self) { SpeciesPage(scientific: $0.scientific) }
         }
+        .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 64) }   // above the view switcher
     }
 }
 
 struct SpeciesKey: Hashable { let scientific: String }
 
 /// Delete a detection and its clip.
-@MainActor func deleteDetection(_ d: Detection, in ctx: ModelContext) {
-    if ClipPlayer.shared.playingID == d.clipFile { ClipPlayer.shared.stop() }
-    ClipStore.delete(d.clipFile)
-    ctx.delete(d)
-    WidgetBridge.refresh(ctx, listening: Listener.shared.state == .listening)
-}
 
 // MARK: Timeline
 
@@ -172,7 +167,7 @@ private struct TimelineList: View {
                                 }.tint(GoodStyle())
                             }
                             .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) { deleteDetection(d, in: ctx) } label: { Label("Delete", systemImage: "trash") }
+                                Button(role: .destructive) { withAnimation { deleteWithUndo(d, in: ctx) } } label: { Label("Delete", systemImage: "trash") }
                                 Button { withAnimation { Listener.shared.notIt(d) } } label: { Label("Not it", systemImage: "xmark") }.tint(.orange)
                             }
                     }
@@ -443,7 +438,7 @@ struct DetectionDetail: View {
             LearnMoreSection(scientific: detection.scientific, common: detection.common, group: detection.taxon)
             Section {
                 Button("Not it: wrong ID", role: .destructive) { Listener.shared.notIt(detection); dismiss() }
-                Button("Delete", role: .destructive) { deleteDetection(detection, in: ctx); dismiss() }
+                Button("Delete", role: .destructive) { deleteWithUndo(detection, in: ctx); dismiss() }
             } footer: { Text("Not it removes this and tells Hark it was wrong this time. To stop seeing a species altogether, long-press it on the Listen screen.") }
         }.themedRows() }.themedList()
         .toolbar { ToolbarItem(placement: .primaryAction) { DetectionShareButton(detection: detection) } }

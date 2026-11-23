@@ -405,40 +405,80 @@ final class Listener {
     func unmute(_ scientific: String) { mutedNames.removeAll { $0 == scientific } }
 
     /// "Not it": this ID was wrong just now. Takes it off the screen and out of the log, and ignores the species
-    /// for the rest of this session (the siren keeps going), without muting it for good. Noted for tuning.
-    @discardableResult
-    func notIt(_ index: Int) -> Set<UUID> {
-        guard let l = label(index) else { return [] }
+    /// for the rest of this session (the siren keeps going), without muting it for good. Noted for tuning. Undoable.
+    func notIt(_ index: Int) {
+        guard let l = label(index) else { return }
         notHere.insert(index)
-        var removed: [Detection] = []
-        for o in tracker.occurrences where o.index == index {
-            if let d = logged.removeValue(forKey: o.id) { removed.append(d) }
-            clipBest[o.id] = nil
+        let occs = tracker.occurrences.filter { $0.index == index }
+        var removed: [Detection] = [], keyed: [UUID: UUID] = [:]      // detection id -> occurrence id
+        var best: [UUID: Float] = [:]
+        for o in occs {
+            if let d = logged.removeValue(forKey: o.id) { removed.append(d); keyed[d.id] = o.id }
+            best[o.id] = clipBest.removeValue(forKey: o.id)
         }
-        removed += manual.filter { $0.scientific == l.scientific }
-        manual.removeAll { $0.scientific == l.scientific }; manualIndices.remove(index)
-        if removed.isEmpty { WrongIDs.note(l, confidence: recentMaybes[index]?.best, source: "maybe") }
-        let ids = Set(removed.map(\.id))
-        removed.forEach(rejectDetection)
+        let hand = manual.filter { $0.scientific == l.scientific }
+        removed += hand
+        let handIDs = Set(hand.map(\.id))
+        manual.removeAll { $0.scientific == l.scientific }
+        let wasManual = manualIndices.remove(index) != nil
+        let tag = UUID()
+        if removed.isEmpty { WrongIDs.note(l, confidence: recentMaybes[index]?.best, source: "maybe", tag: tag) }
+        removed.forEach { WrongIDs.note($0, tag: tag) }
+        let undoFiles = modelContext.map { removeDetections(removed, in: $0) }
         tracker.drop(index)
-        hearingNow = tracker.active(at: .now)
-        session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
+        refreshSession()
         maybes.removeAll { $0.index == index }; recentMaybes[index] = nil
         markers.removeAll { $0.index == index }
-        sessionSpecies.remove(index); agreed.remove(index)
-        return ids
+        let wasSession = sessionSpecies.remove(index) != nil, wasAgreed = agreed.remove(index) != nil
+        let session = sessionID
+
+        UndoCenter.shared.offer("Not it: \(l.displayName)", undo: { [weak self] in
+            guard let self else { return }
+            WrongIDs.forget(tag)
+            guard self.sessionID == session else {
+                // a new session started since: just put the rows back in the log
+                if let ctx = self.modelContext { undoFiles?.snapshots.forEach { _ = $0.restore(in: ctx) }; try? ctx.save() }
+                return
+            }
+            self.notHere.remove(index)
+            if let ctx = self.modelContext, let snaps = undoFiles?.snapshots {
+                for snap in snaps {
+                    let d = snap.restore(in: ctx)
+                    if let o = keyed[snap.id] { self.logged[o] = d }
+                    if handIDs.contains(snap.id) { self.manual.append(d) }
+                }
+                self.manual.sort { $0.firstHeard > $1.firstHeard }
+                try? ctx.save()
+                WidgetBridge.refresh(ctx, listening: self.state == .listening)
+            }
+            for (o, b) in best { self.clipBest[o] = b }
+            if wasManual { self.manualIndices.insert(index) }
+            if wasSession { self.sessionSpecies.insert(index) }
+            if wasAgreed { self.agreed.insert(index) }
+            self.tracker.restore(occs)
+            self.refreshSession()
+        }, commit: { undoFiles?.commit() })
     }
-    /// A logged row the person says was wrong: noted for tuning, then deleted with its clip.
-    func rejectDetection(_ d: Detection) {
-        WrongIDs.note(d)
-        if let ctx = modelContext { deleteDetection(d, in: ctx); try? ctx.save() }
+    private func refreshSession() {
+        hearingNow = tracker.active(at: .now)
+        session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
     }
     /// From the Log: if it's from the session that's running, treat it like "Not it" there too.
     func notIt(_ d: Detection) {
-        let id = d.id
-        var gone: Set<UUID> = []
-        if state == .listening, d.sessionID == sessionID, let i = labels?.index(ofScientific: d.scientific) { gone = notIt(i) }
-        if !gone.contains(id) { rejectDetection(d) }
+        if state == .listening, d.sessionID == sessionID, let i = labels?.index(ofScientific: d.scientific),
+           logged.values.contains(where: { $0.id == d.id }) || manual.contains(where: { $0.id == d.id }) {
+            notIt(i); return
+        }
+        guard let ctx = modelContext else { return }
+        let tag = UUID(), name = d.displayName
+        WrongIDs.note(d, tag: tag)
+        let (snaps, commit) = removeDetections([d], in: ctx)
+        UndoCenter.shared.offer("Not it: \(name)", undo: {
+            WrongIDs.forget(tag)
+            snaps.forEach { _ = $0.restore(in: ctx) }
+            try? ctx.save()
+            WidgetBridge.refresh(ctx, listening: Listener.shared.state == .listening)
+        }, commit: commit)
     }
     func commonName(_ scientific: String) -> String {
         labels?.labels.first { $0.scientific == scientific }?.common ?? scientific

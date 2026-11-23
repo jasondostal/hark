@@ -62,6 +62,7 @@
 		D092BDEECF1F57BB8F47707C /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E7771A2D007367737E31C57 /* SessionsView.swift */; };
 		DD80AF8FA017E204CA65D3FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */; };
 		F52E33B7D2EC1E0C8629476C /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F04DC862C13853B63457E26 /* LocationProvider.swift */; };
+		FCF102032CD90175EE4BCAA6 /* UndoToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = E57057B4556BAF1B8EB58C1F /* UndoToast.swift */; };
 		FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */; };
 /* End PBXBuildFile section */
 
@@ -144,6 +145,7 @@
 		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		DE6827D3D2A7830D066C7F79 /* selftest.f32 */ = {isa = PBXFileReference; path = selftest.f32; sourceTree = "<group>"; };
 		E3499EF8200DD71390F7DF3D /* Symbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Symbols.swift; sourceTree = "<group>"; };
+		E57057B4556BAF1B8EB58C1F /* UndoToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoToast.swift; sourceTree = "<group>"; };
 		F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-Apache-2.0.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -248,6 +250,7 @@
 				180D52A9CD94D53DCE390487 /* SpectrogramView.swift */,
 				D941B45C78432B52FF73B873 /* Style.swift */,
 				58B6C9AE043448A282C4B970 /* Theme.swift */,
+				E57057B4556BAF1B8EB58C1F /* UndoToast.swift */,
 				32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */,
 				5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */,
 			);
@@ -457,6 +460,7 @@
 				2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */,
 				5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */,
 				A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */,
+				FCF102032CD90175EE4BCAA6 /* UndoToast.swift in Sources */,
 				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
 				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
 				9C3F6698C79657CBA3A83182 /* WrongIDs.swift in Sources */,

@@ -88,6 +88,7 @@ struct ListenView: View {
 
     private var list: some View {
         List { Group { content }.themedRows() }
+            .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
             .listStyle(.insetGrouped)
             .themedList()
             .contentMargins(.top, 8, for: .scrollContent)
@@ -523,8 +524,8 @@ struct MaybeRow: View {
     }
 
     @ViewBuilder private var buttons: some View {
-        Button { listener.logMaybe(maybe, confirmed: false) } label: { Image(systemName: "plus") }
-            .buttonStyle(.bordered).accessibilityLabel("Log it")
+        Button("Log it") { listener.logMaybe(maybe, confirmed: false) }
+            .buttonStyle(.bordered).fixedSize()
         Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
             .buttonStyle(.bordered).tint(GoodStyle()).accessibilityLabel("I saw it")
     }

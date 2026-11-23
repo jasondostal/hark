@@ -82,4 +82,13 @@ public struct DetectionTracker: Sendable {
         open = [:]
         for (k, o) in occurrences.enumerated() { open[o.index] = k }   // later occurrences of a species win, as in add()
     }
+
+    /// Undo of `drop`: put occurrences back where they were (in order first heard).
+    public mutating func restore(_ back: [Occurrence]) {
+        let ids = Set(occurrences.map(\.id))
+        occurrences += back.filter { !ids.contains($0.id) }
+        occurrences.sort { $0.firstHeard < $1.firstHeard }
+        open = [:]
+        for (k, o) in occurrences.enumerated() { open[o.index] = k }
+    }
 }

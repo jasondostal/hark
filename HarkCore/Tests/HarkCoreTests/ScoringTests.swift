@@ -46,6 +46,19 @@ final class TrackerTests: XCTestCase {
         XCTAssertTrue(c.allSatisfy { if case .updated = $0 { true } else { false } })
         XCTAssertEqual(tr.occurrences.first { $0.index == 3 }?.bestConfidence, 0.9)
     }
+    func testRestoreUndoesDrop() {
+        var tr = DetectionTracker(gap: 60, confirmWindows: 1)
+        tr.add(WindowResult(time: t0, hits: [(7, 0.5), (9, 0.6)]))
+        tr.add(WindowResult(time: t0 + 1, hits: [(3, 0.7)]))
+        let gone = tr.occurrences.filter { $0.index == 7 }
+        tr.drop(7)
+        tr.restore(gone)
+        tr.restore(gone)                                                   // twice is harmless
+        XCTAssertEqual(Set(tr.occurrences.map(\.index)), [7, 9, 3]); XCTAssertEqual(tr.occurrences.last?.index, 3)
+        let c = tr.add(WindowResult(time: t0 + 2, hits: [(7, 0.8)]))       // and it extends again, not restarts
+        guard case .updated = c.first else { return XCTFail("expected update") }
+        XCTAssertEqual(tr.occurrences.count, 3)
+    }
     func testGapStartsNewOccurrence() {
         var tr = DetectionTracker(gap: 60, confirmWindows: 1)
         tr.add(WindowResult(time: t0, hits: [(7, 0.4)]))
