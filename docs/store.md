@@ -12,6 +12,7 @@ Jason in the web UI. `tools/asc/listing.py` pushes the fields below.
    Content rights declared USES_THIRD_PARTY_CONTENT (models, GBIF, OpenFauna, eBird, all licensed; listing.py sets it).
    WITHDRAWN the same night (Jason OK'd): live logging needs tuning first (single-second blips get logged).
    Resubmit = bump CURRENT_PROJECT_VERSION, archive, upload, attach, tools/asc/submit.py <build>.
+   RESUBMITTED 2026-11-22 ~21:40 CST on Jason's go: build 3 (Not it + Undo, rare-here flag, ~3 s first launch, on-device copy), WAITING_FOR_REVIEW (submission 3ab2421f-c90c-4b62-9f7a-017e7c5419e7). Upload needs the API key flags (-authenticationKeyPath/-ID/-IssuerID); plain -exportArchive failed 'Failed to Use Accounts'.
 4. After approval: set APP_STORE_URL in ducktyping src/pages/hark/index.astro, add Hark to src/lib/apps.ts, deploy.
 
 ## Name and subtitle (30 characters each)
