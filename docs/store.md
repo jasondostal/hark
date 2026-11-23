@@ -105,7 +105,7 @@ Hark identifies wildlife by sound: birds, frogs, insects and mammals. It is for 
 
 2. HOW TO TEST IT
 - Open the app and tap the large green microphone button at the bottom. Allow microphone access (and location, optionally).
-- Play birdsong from another device near the iPhone, for example any recording of a Northern Cardinal, American Robin or Blue Jay. Within a few seconds the species appears under "Hearing now" and is logged under "This session".
+- Play birdsong from another device near the iPhone. Test recordings are at https://ducktyping.dev/hark/#test-sounds (a Canada Goose, Blue Jay or Barred Owl works well). Within a few seconds the species appears under "Hearing now" and is logged under "This session". The same page has rain, wind and coughing, which should not be logged.
 - Touch the spectrogram at the top: it pauses on the last minute of sound. Drag across a call to identify just that stretch; results appear at the top of the list with Log and "I saw it" buttons. "Back to live" returns to the live view.
 - The Log button (bottom left) opens the detection log (Timeline, Sessions, Species, Map). Settings (bottom right) has the model choice, sensitivity, spectrogram colors and the optional eBird key.
 No credentials or sample files are needed.
