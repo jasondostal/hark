@@ -75,6 +75,21 @@ final class Listener {
     enum State: Equatable { case loading, ready, listening, failed(String) }
     /// Auto: Perch checks every second and logs what it hears. Manual: nothing is identified until you select it.
     enum IDMode: String { case auto, manual }
+    /// What a press of Listen starts. Live: open-ended listening. Point count: stand still for a set time and tally
+    /// what's heard there. Survey: a walk, with the route recorded more finely and no time limit.
+    enum Mode: String, CaseIterable, Identifiable {
+        case live, point, survey
+        var id: String { rawValue }
+        var title: String { switch self { case .live: "Live"; case .point: "Point count"; case .survey: "Survey" } }
+        var symbol: String { switch self { case .live: "dot.radiowaves.left.and.right"; case .point: "mappin.and.ellipse"; case .survey: "figure.walk" } }
+        var blurb: String {
+            switch self {
+            case .live: "Listen for as long as you like."
+            case .point: "Stay in one spot for a set time; Hark tallies every species heard there."
+            case .survey: "Walk a route; Hark maps it and what you heard along the way."
+            }
+        }
+    }
 
     private(set) var state: State = .loading
     private(set) var labels: LabelTable?
@@ -105,6 +120,7 @@ final class Listener {
         didSet { UserDefaults.standard.set(showMaybes, forKey: "showMaybes"); if !showMaybes { maybes.removeAll { !$0.unusual } } }
     }
     private var humanSoundIndices: [Int] = []
+    private var bodySoundIndices: [Int] = []
     private var synonymIndices: [(species: Int, sounds: [Int])]?
     /// Muted species, by scientific name (stable if the label table changes).
     private(set) var mutedNames: [String] = UserDefaults.standard.stringArray(forKey: "muted") ?? [] {
@@ -144,13 +160,25 @@ final class Listener {
     private let location = LocationProvider()
     private var tracker = DetectionTracker(gap: 60, confirmWindows: Listener.storedConfirmSeconds, confirmSpan: TimeInterval(max(5, Listener.storedConfirmSeconds + 2)))
     private static var storedConfirmSeconds: Int { max(1, UserDefaults.standard.object(forKey: "confirmSeconds") as? Int ?? 2) }
-    /// Seconds (scored windows) a new species must be heard, within a few seconds, before it's logged. More = fewer
+    /// Seconds a new species must be heard, within a few seconds, before it's logged. More = fewer
     /// one-off false IDs, a little slower; a bird that calls once, briefly, can be missed (touch the spectrogram).
     var confirmSeconds: Int = Listener.storedConfirmSeconds {
-        didSet {
-            UserDefaults.standard.set(confirmSeconds, forKey: "confirmSeconds")
-            tracker.confirmWindows = confirmSeconds; tracker.confirmSpan = TimeInterval(max(5, confirmSeconds + 2))
-        }
+        didSet { UserDefaults.standard.set(confirmSeconds, forKey: "confirmSeconds"); applyConfirm() }
+    }
+    /// Seconds between checks while listening (0.5 ... 5). 1.0 shipped with 1 s; slower saves battery on long walks,
+    /// faster catches a brief call a beat sooner. Each check costs about 35 ms of Neural Engine time with both models.
+    var scoreInterval: Double = min(max(UserDefaults.standard.object(forKey: "scoreInterval") as? Double ?? 1, 0.5), 5) {
+        didSet { UserDefaults.standard.set(scoreInterval, forKey: "scoreInterval"); applyConfirm() }
+    }
+    /// "Hear it for" in checks: at one check a second, 2 s is 2 checks in a row. Slower checking still needs two
+    /// (each already covers 5 s of sound); faster checking needs proportionally more.
+    static func confirm(seconds: Int, interval: Double) -> (windows: Int, span: TimeInterval) {
+        let w = seconds <= 1 ? 1 : max(2, Int((Double(seconds) / interval).rounded()))
+        return (w, max(5, Double(seconds) + 2, Double(w) * interval + interval + 1))
+    }
+    private func applyConfirm() {
+        let c = Self.confirm(seconds: confirmSeconds, interval: scoreInterval)
+        tracker.confirmWindows = c.windows; tracker.confirmSpan = c.span
     }
     private var loop: Task<Void, Never>?
     private var sessionID = UUID()
@@ -167,6 +195,7 @@ final class Listener {
     private let liveActivity = LiveActivityController()
     private var sessionRecord: ListeningSession?
     private var lastTrackPoint: CLLocation?
+    private var lastSave = Date.distantPast
 
     // Listening options (persisted)
     var keepScreenOn: Bool = UserDefaults.standard.object(forKey: "keepScreenOn") as? Bool ?? true {
@@ -199,10 +228,53 @@ final class Listener {
     var frequencyLabels: Bool = UserDefaults.standard.object(forKey: "frequencyLabels") as? Bool ?? true {
         didSet { UserDefaults.standard.set(frequencyLabels, forKey: "frequencyLabels") }
     }
-    /// High-pass cutoff in Hz (0 = off): 80 trims wind and handling noise, 200 trims road rumble.
+    /// High-pass cutoff in Hz (0 = off): 80 trims wind and handling noise, 200 trims road rumble, and up to 1 kHz
+    /// for heavy wind or surf (which also takes out owls, doves, grouse and bitterns).
     var rumbleFilter: Double = UserDefaults.standard.object(forKey: "rumbleFilter") as? Double ?? 0 {
         didSet { UserDefaults.standard.set(rumbleFilter, forKey: "rumbleFilter"); audio.setHighPass(rumbleFilter) }
     }
+    /// Microphone gain in dB (0 = off). See AudioCapture.setGain.
+    var gainDB: Double = UserDefaults.standard.object(forKey: "gainDB") as? Double ?? 0 {
+        didSet { UserDefaults.standard.set(gainDB, forKey: "gainDB"); audio.setGain(dB: gainDB) }
+    }
+    /// How the spectrogram is computed and drawn (never what the models hear).
+    var fftSize: Int = [512, 1024, 2048].contains(UserDefaults.standard.integer(forKey: "fftSize")) ? UserDefaults.standard.integer(forKey: "fftSize") : 1024 {
+        didSet { UserDefaults.standard.set(fftSize, forKey: "fftSize"); applySpectrogramConfig() }
+    }
+    var topKHz: Double = min(max(UserDefaults.standard.object(forKey: "topKHz") as? Double ?? 15, 4), 16) {
+        didSet { UserDefaults.standard.set(topKHz, forKey: "topKHz"); applySpectrogramConfig() }
+    }
+    var fadeBackground: Bool = UserDefaults.standard.object(forKey: "fadeBackground") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(fadeBackground, forKey: "fadeBackground"); applySpectrogramConfig() }
+    }
+    var quality: SpectrogramQuality = SpectrogramQuality(rawValue: UserDefaults.standard.string(forKey: "spectrogramQuality") ?? "") ?? .standard {
+        didSet { UserDefaults.standard.set(quality.rawValue, forKey: "spectrogramQuality"); SpectrogramStyle.shared.set(quality: quality) }
+    }
+    /// Share of the screen (above the buttons) the spectrogram takes in portrait; 1 = all of it, no list.
+    var spectrogramHeight: Double = min(max(UserDefaults.standard.object(forKey: "spectrogramHeight") as? Double ?? Listener.standardHeight, 0.2), 1) {
+        didSet { UserDefaults.standard.set(spectrogramHeight, forKey: "spectrogramHeight") }
+    }
+    static let standardHeight = 0.32
+    private func applySpectrogramConfig() {
+        SpectrogramStyle.shared.set(config: SpectrogramConfig(fft: fftSize, topHz: Float(topKHz * 1000), fadeBackground: fadeBackground))
+        selection.unfreeze()      // a frozen minute was drawn the old way
+    }
+
+    // Modes (persisted)
+    var mode: Mode = Mode(rawValue: UserDefaults.standard.string(forKey: "listenMode") ?? "") ?? .live {
+        didSet { UserDefaults.standard.set(mode.rawValue, forKey: "listenMode") }
+    }
+    var pointMinutes: Int = max(1, UserDefaults.standard.object(forKey: "pointMinutes") as? Int ?? 5) {
+        didSet { UserDefaults.standard.set(pointMinutes, forKey: "pointMinutes") }
+    }
+    /// The mode of the session that's running (the picker can change underneath it).
+    private(set) var activeMode: Mode = .live
+    /// Point count: when it ends.
+    private(set) var endsAt: Date?
+    /// The point count that just finished, for the "see the tally" row. Cleared by the next Listen.
+    private(set) var finishedCount: (session: UUID, species: Int)?
+    /// Point counts and surveys always identify as they go; Manual is a Live thing.
+    var autoID: Bool { idMode == .auto || (state == .listening ? activeMode : mode) != .live }
     /// Preferred input port UID (nil = automatic). Applies next time listening starts.
     var inputUID: String? = UserDefaults.standard.string(forKey: "inputUID") {
         didSet { UserDefaults.standard.set(inputUID, forKey: "inputUID"); audio.preferredInputUID = inputUID }
@@ -228,10 +300,12 @@ final class Listener {
         SpectrogramStyle.shared.set(contrast: contrast)
         live.setSeconds(shownSeconds)
         audio.setHighPass(rumbleFilter)
+        audio.setGain(dB: gainDB)
         audio.preferredInputUID = inputUID
+        SpectrogramStyle.shared.set(quality: quality)
+        SpectrogramStyle.shared.set(config: SpectrogramConfig(fft: fftSize, topHz: Float(topKHz * 1000), fadeBackground: fadeBackground))
+        applyConfirm()
     }
-
-    static let hop: Duration = .seconds(1)
 
     /// First launch after an install or update, iOS prepares each model for this phone's Neural Engine
     /// (measured on an iPhone 15 Pro: Perch 8.9 s, BirdNET+ 4.4 s; 0.1 s each from then on). Hark is ready as soon
@@ -283,7 +357,7 @@ final class Listener {
         }
         modelLoaded()
     }
-    private var canListen: Bool { inference != nil || (model != .perch && birdnet != nil) }
+    var canListen: Bool { inference != nil || (model != .perch && birdnet != nil) }
     /// Ready once either model can listen; start a listen that was asked for while loading.
     private func modelLoaded() {
         guard state == .loading, canListen else { return }
@@ -316,7 +390,8 @@ final class Listener {
 
     /// Score audio with the chosen model(s) and triage it. Perch scores are padded to the full label table
     /// (BirdNET+-only species score 0 for Perch, and vice versa).
-    private func identify(_ samples: [Float], topK: Int = 12) async -> DetectionPolicy.Triage? {
+    /// `local: false` (a recording from who knows where or when) skips the location + season check.
+    func identify(_ samples: [Float], topK: Int = 12, local: Bool = true) async -> DetectionPolicy.Triage? {
         guard let labels else { return nil }
         let n = labels.count
         var perch: [Float]?
@@ -333,11 +408,18 @@ final class Listener {
             Fusion.poolSynonyms(&p, synonymIndices ?? [])
             if humanSoundIndices.isEmpty { humanSoundIndices = Fusion.humanSoundClasses.compactMap { labels.index(ofScientific: $0) } }
             human = humanSoundIndices.reduce(0) { $0 + p[$1] }
+            if policy.guardBodySounds {
+                if bodySoundIndices.isEmpty { bodySoundIndices = Fusion.bodySoundClasses.compactMap { labels.index(ofScientific: $0) } }
+                human += bodySoundIndices.reduce(0) { $0 + p[$1] }
+            }
             perch = p
         }
         var bn: [Float]?
         if model != .perch, let birdnet { bn = try? await birdnet.scores(samples, labelCount: n) }
-        updateContext()
+        if local { updateContext() }
+        var policy = policy
+        if !local { policy.rangeMode = .off }
+        let hidden = local ? hidden : muted       // "Not it" belongs to the live session, not to a recording
         switch (perch, bn) {
         case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
         case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
@@ -350,7 +432,7 @@ final class Listener {
 
     func start() async {
         // .failed too, so a mic hiccup can be retried with the same button instead of leaving the app stuck.
-        guard state != .listening, state != .loading, canListen else { return }
+        guard state != .listening, state != .loading, canListen, !FileAnalysis.shared.running else { return }
         ClipPlayer.shared.stop()
         let feeding = ProcessInfo.processInfo.arguments.contains("-feedfile")
         let allowed = feeding ? true : await AudioCapture.requestPermission()
@@ -360,6 +442,8 @@ final class Listener {
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
         sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]; notHere = []
+        activeMode = mode; finishedCount = nil
+        endsAt = mode == .point ? startedAt.addingTimeInterval(Double(pointMinutes) * 60) : nil
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
         audio.onSamples = { [weak self] s, db in
@@ -374,26 +458,46 @@ final class Listener {
         } else { do { try audio.start() } catch {
             state = .failed("Couldn't start the microphone: \(error.localizedDescription)"); return
         } }
-        location.start(background: true)
+        location.start(background: true, precise: activeMode == .survey)
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
         state = .listening
         liveActivity.start()
         let rec = ListeningSession(id: sessionID, started: startedAt)
-        modelContext?.insert(rec); sessionRecord = rec; lastTrackPoint = nil
+        rec.kind = activeMode.rawValue
+        if activeMode == .point { rec.plannedSeconds = pointMinutes * 60 }
+        modelContext?.insert(rec); sessionRecord = rec; lastTrackPoint = nil; lastSave = .now
         try? modelContext?.save()
         WidgetBridge.refresh(modelContext, listening: true, now: true)
         loop = Task { [weak self] in
+            var lastScore = Date.distantPast, lastUpkeep = Date.distantPast
             while !Task.isCancelled {
-                try? await Task.sleep(for: Self.hop)
-                guard let self else { return }
-                if self.stopAfterMinutes > 0, Date().timeIntervalSince(self.startedAt) > Double(self.stopAfterMinutes) * 60 {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, !Task.isCancelled else { return }
+                let now = Date()
+                if let end = self.endsAt, now >= end { self.finishPointCount(); return }
+                // The safety net is for a forgotten Live session; a survey runs until you stop it.
+                if self.activeMode == .live, self.stopAfterMinutes > 0, now.timeIntervalSince(self.startedAt) > Double(self.stopAfterMinutes) * 60 {
                     self.stop(); return
                 }
-                self.updateSessionRecord()
-                self.updateContext()          // also in Manual mode, so selections get season context
-                await self.scoreLatest()
+                if now.timeIntervalSince(lastUpkeep) >= 1 {
+                    lastUpkeep = now
+                    self.updateSessionRecord()
+                    self.updateContext()          // also in Manual mode, so selections get season context
+                }
+                if now.timeIntervalSince(lastScore) >= self.scoreInterval - 0.02 {
+                    lastScore = now
+                    await self.scoreLatest()
+                }
             }
         }
+    }
+
+    /// Time's up: stop, buzz, and offer the tally.
+    private func finishPointCount() {
+        let id = sessionID, n = sessionSpecies.count + Set(manual.map(\.scientific)).subtracting(sessionSpecies.compactMap { label($0)?.scientific }).count
+        stop()
+        finishedCount = (id, n)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     func stop() {
@@ -402,6 +506,7 @@ final class Listener {
         audio.stop(); location.stop()
         liveActivity.end()
         sessionRecord?.ended = .now; sessionRecord = nil
+        endsAt = nil
         try? modelContext?.save()
         WidgetBridge.refresh(modelContext, listening: false, now: true)
         UIApplication.shared.isIdleTimerDisabled = false
@@ -413,9 +518,11 @@ final class Listener {
     private func updateSessionRecord() {
         guard let rec = sessionRecord else { return }
         rec.ended = .now
-        if Int(rec.ended.timeIntervalSince(rec.started)) % 10 == 0, modelContext?.hasChanges == true { try? modelContext?.save() }
+        if rec.ended.timeIntervalSince(lastSave) >= 10, modelContext?.hasChanges == true { try? modelContext?.save(); lastSave = .now }
         guard let loc = location.last, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 100 else { return }
-        if let last = lastTrackPoint, loc.distance(from: last) < 25 { return }
+        if rec.latitude == nil { rec.latitude = loc.coordinate.latitude; rec.longitude = loc.coordinate.longitude }   // where it started (a point count's station)
+        if activeMode == .point { return }                       // standing still: GPS wander isn't a route
+        if let last = lastTrackPoint, loc.distance(from: last) < (activeMode == .survey ? 10 : 25) { return }
         rec.trackLat.append(loc.coordinate.latitude); rec.trackLon.append(loc.coordinate.longitude)
         lastTrackPoint = loc
     }
@@ -587,7 +694,7 @@ final class Listener {
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
-        guard canListen, let labels, state == .listening, idMode == .auto else { return }
+        guard canListen, let labels, state == .listening, autoID else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
         guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)
@@ -712,6 +819,17 @@ final class Listener {
     }
 
     func detection(for o: DetectionTracker.Occurrence) -> Detection? { logged[o.id] }
+
+    /// A species found in an imported recording (FileAnalysis). No place, no fanfare; it still counts as a first.
+    func logFileDetection(_ o: DetectionTracker.Occurrence, session: UUID) -> Detection? {
+        guard let ctx = modelContext, let l = label(o.index), l.group.isSpecies else { return nil }
+        let d = Detection(label: l, confidence: Double(o.bestConfidence), at: o.firstHeard, latitude: nil, longitude: nil,
+                          sessionID: session, source: "file")
+        let s = d.scientific
+        d.isFirst = ((try? ctx.fetchCount(FetchDescriptor<Detection>(predicate: #Predicate { $0.scientific == s }))) ?? 1) == 0
+        ctx.insert(d)
+        return d
+    }
 
     /// "New for you!": flag the first-ever detection of a species, celebrate it on screen (or on the Lock Screen).
     private(set) var celebration: (id: UUID, name: String)?

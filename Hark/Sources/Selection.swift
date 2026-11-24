@@ -143,6 +143,7 @@ struct FrozenSpectrogram: View {
     let selection: Selection
     var palette: SpectrogramPalette = .aurora
     var frequencyLabels = true
+    var topHz: Float = 15_000
     var body: some View {
         GeometryReader { g in
             let w = g.size.width, h = g.size.height
@@ -180,7 +181,7 @@ struct FrozenSpectrogram: View {
             }
             .clipped()
         }
-        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel) } }
+        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel, topHz: topHz) } }
     }
 }
 

@@ -27,6 +27,10 @@ public enum Fusion {
         "Male_speech_and_man_speaking", "Music", "Musical_instrument", "Piano", "Plucked_string_instrument", "Singing",
         "Speech", "Speech_synthesizer", "Telephone", "Wind_instrument_and_woodwind_instrument"]
     public static let humanGate: Float = 0.20
+    /// Sounds a person makes right at the phone. Optional extras for the guard (DetectionPolicy.guardBodySounds):
+    /// off by default, since 1.0 never counted them. Footsteps are left out on purpose: a walk would trip it all day.
+    public static let bodySoundClasses = ["Breathing", "Cough", "Sneeze", "Sigh", "Gasp", "Whispering",
+        "Burping_and_eructation", "Chewing_and_mastication"]
 
     /// Perch hears pets mostly as AudioSet sound classes: on 40 ESC-50 dog barks "Domestic Dog" itself never passed
     /// 0.18 while "Dog" + "Bark" held most of the score (Perch alone logged 0/40). Their score is moved onto the

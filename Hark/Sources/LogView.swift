@@ -5,6 +5,8 @@ import Charts
 import HarkCore
 
 struct LogView: View {
+    /// Open straight onto this session (a finished point count, an analyzed recording).
+    var openSession: UUID?
     @Query(sort: \Detection.firstHeard, order: .reverse) private var all: [Detection]
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
@@ -95,8 +97,11 @@ struct LogView: View {
             }
             .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
             .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
-            .onAppear {   // screenshot aid
-                let args = ProcessInfo.processInfo.arguments
+            .onAppear {
+                if let id = openSession, path.isEmpty, let s = SessionSummary.build(all, records).first(where: { $0.id == id }) {
+                    mode = .sessions; path.append(s)
+                }
+                let args = ProcessInfo.processInfo.arguments   // screenshot aids
                 if let i = args.firstIndex(of: "-opensession") {   // optional index: -opensession 2 = third most recent
                     let n = i + 1 < args.count ? Int(args[i + 1]) ?? 0 : 0
                     Task {   // after -demolog has seeded
@@ -186,7 +191,7 @@ struct LogRow: View {
     let detection: Detection
     private var subtitle: String {
         let time = detection.firstHeard.formatted(date: .omitted, time: .shortened)
-        return "\(time) · \(detection.confidence.shownPercent)%" + (detection.source == "live" ? "" : " · by hand")
+        return "\(time) · \(detection.confidence.shownPercent)%" + (detection.source == "live" ? "" : detection.source == "file" ? " · from a recording" : " · by hand")
     }
     var body: some View {
         HStack(spacing: 12) {
@@ -430,7 +435,7 @@ struct DetectionDetail: View {
                     LabeledContent("Until", value: detection.lastHeard.formatted(date: .omitted, time: .standard))
                 }
                 LabeledContent("Best confidence", value: "\(detection.confidence.shownPercent)%")
-                LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram"][detection.source] ?? detection.source)
+                LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram", "file": "Found in a recording"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {
                 Section("Where") { DetectionMap(detections: [detection]).frame(height: 180).listRowInsets(EdgeInsets()) }

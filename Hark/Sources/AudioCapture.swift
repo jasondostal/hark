@@ -18,6 +18,21 @@ final class AudioCapture {
     /// 0 = off. Takes effect on the next chunk.
     func setHighPass(_ hz: Double) { filterLock.lock(); wantHz = hz; filterLock.unlock() }
 
+    /// Digital gain in dB (0 = off), after the filter, clipped at full scale. Feeds the models, the spectrogram
+    /// and saved clips alike. Perch doesn't care about level until the audio gets very quiet (peaks under about
+    /// 0.002 of full scale), where its scores collapse: that's what this is for (quiet external mics, distant calls).
+    private var gain: Float = 1
+    func setGain(dB: Double) { filterLock.lock(); gain = Float(pow(10, min(max(dB, 0), 40) / 20)); filterLock.unlock() }
+    private func amplify(_ x: inout [Float]) {
+        filterLock.lock(); var g = gain; filterLock.unlock()
+        guard g != 1 else { return }
+        var lo: Float = -1, hi: Float = 1
+        x.withUnsafeMutableBufferPointer { b in
+            vDSP_vsmul(b.baseAddress!, 1, &g, b.baseAddress!, 1, vDSP_Length(b.count))
+            vDSP_vclip(b.baseAddress!, 1, &lo, &hi, b.baseAddress!, 1, vDSP_Length(b.count))
+        }
+    }
+
     private func highPass(_ x: inout [Float]) {
         filterLock.lock(); let hz = wantHz; filterLock.unlock()
         if hz != haveHz {
@@ -116,6 +131,7 @@ final class AudioCapture {
         let n = Int(out.frameLength)
         var samples = Array(UnsafeBufferPointer(start: ch, count: n))
         highPass(&samples)
+        amplify(&samples)
         var rms: Float = 0
         vDSP_rmsqv(samples, 1, &rms, vDSP_Length(n))
         onSamples?(samples, 20 * log10(max(rms, 1e-7)))

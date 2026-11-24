@@ -132,3 +132,22 @@ the log timeline, a session with route and chart, Settings. Made on the iPhone 1
 status bar overridden to 9:41, location Horicon Marsh, with `-demolog <a folder of recordings>` (Debug-only
 made-up log) and `-feedfile` yard recordings. The Owling shot was dropped: the owl/peeper recordings render almost
 empty in red.
+
+## 1.1 (build 4): draft, not submitted
+
+What's New (draft):
+
+```
+Hark 1.1 is for people who want more control.
+
+• Modes: Live as before, plus Point count (stand still for a set time and get a tally) and Survey (walk a route; no time limit, finer track).
+• Analyze recordings: pick one audio file or many, and Hark listens to them the way it listens live. Each becomes a session in your Log.
+• Sessions: name them, add notes, see the tally, share or delete a single session.
+• Spectrogram: set its height up to full screen in portrait, FFT size, top frequency, background fade, and drawing quality.
+• Audio: microphone gain, and a high-pass filter you set in Hz.
+• Inference: one confidence slider, how often Hark checks, and a setting for the voices-and-music guard.
+• Fixes: a siren no longer counts as a salamander.
+```
+
+Ships with it: I-1 (siren), I-2 (OFL texts), I-3 (no selftest audio in the bundle).
+Not yet done before submitting: run on the phone (gain, modes, a real file from Files), new screenshots if we want them.

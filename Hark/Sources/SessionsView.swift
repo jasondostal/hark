@@ -15,6 +15,15 @@ struct SessionSummary: Identifiable, Hashable {
     var species: [String] {   // most-heard first
         Dictionary(grouping: detections, by: \.displayName).sorted { ($0.value.count, $0.key) > ($1.value.count, $1.key) }.map(\.key)
     }
+    var kind: String { record?.kind ?? "live" }
+    /// Your name for it, or what it was: "Point count", "Survey", a recording's file name.
+    var name: String? {
+        if let t = record?.title, !t.isEmpty { return t }
+        switch kind { case "point": return "Point count"; case "survey": return "Survey"; case "file": return "Recording"; default: return nil }
+    }
+    var symbol: String {
+        switch kind { case "point": "mappin.and.ellipse"; case "survey": "figure.walk"; case "file": "waveform"; default: "dot.radiowaves.left.and.right" }
+    }
     static func == (a: Self, b: Self) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
 
@@ -27,7 +36,7 @@ struct SessionSummary: Identifiable, Hashable {
             let start = r?.started ?? ds.first?.firstHeard
             let end = r?.ended ?? ds.map(\.lastHeard).max()
             guard let start, let end else { return nil }
-            if ds.isEmpty && end.timeIntervalSince(start) < 60 { return nil }   // a quick tap that heard nothing
+            if ds.isEmpty && end.timeIntervalSince(start) < 60 && (r?.kind ?? "live") == "live" { return nil }   // a quick tap that heard nothing
             return SessionSummary(id: id, start: start, end: max(end, ds.map(\.lastHeard).max() ?? end), detections: ds, record: r)
         }
         .sorted { $0.start > $1.start }
@@ -53,6 +62,9 @@ struct SessionsList: View {
                             Spacer()
                             Text(Self.duration(s.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
+                        if let n = s.name {
+                            Label(n, systemImage: s.symbol).font(.caption.weight(.semibold)).foregroundStyle(.tint).lineLimit(1)
+                        }
                         Text("\(Set(s.detections.map(\.scientific)).count) species · \(s.detections.count) detections")
                             .font(.caption).foregroundStyle(.secondary)
                         if !s.species.isEmpty {
@@ -65,6 +77,9 @@ struct SessionsList: View {
         }.themedRows() }.themedList()
     }
 
+    /// m:ss into a session.
+    static func clock(_ t: TimeInterval) -> String { String(format: "%d:%02d", Int(t) / 60, Int(t) % 60) }
+
     static func duration(_ t: TimeInterval) -> String {
         let m = Int(t / 60)
         return m < 1 ? "<1 min" : m < 60 ? "\(m) min" : "\(m / 60) h \(m % 60) min"
@@ -73,6 +88,20 @@ struct SessionsList: View {
 
 struct SessionPage: View {
     let session: SessionSummary
+    @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmDelete = false
+
+    /// The tally: each species once, with when it was first heard (time into the session) and how often.
+    private struct Tally: Identifiable { let id: String; let first: Detection; let count: Int; let best: Double; let offset: TimeInterval }
+    private var tally: [Tally] {
+        Dictionary(grouping: session.detections, by: \.scientific).map { s, ds in
+            let first = ds.min { $0.firstHeard < $1.firstHeard }!
+            return Tally(id: s, first: first, count: ds.reduce(0) { $0 + max($1.windows, 1) }, best: ds.map(\.confidence).max() ?? 0,
+                         offset: max(first.firstHeard.timeIntervalSince(session.start), 0))
+        }
+        .sorted { $0.offset < $1.offset }
+    }
 
     private struct Span: Identifiable { let id = UUID(); let name: String; let start: Date; let end: Date; let confirmed: Bool; var labeled = false }
 
@@ -89,6 +118,12 @@ struct SessionPage: View {
     var body: some View {
         List { Group {
             Section {
+                if let r = session.record {
+                    @Bindable var r = r
+                    TextField(session.name ?? "Name this session", text: $r.title)
+                        .font(.headline)
+                    LabeledContent("Kind", value: kindTitle)
+                } else if let n = session.name { Text(n).font(.headline) }
                 LabeledContent("Length", value: SessionsList.duration(session.duration))
                 LabeledContent("Species", value: "\(Set(session.detections.map(\.scientific)).count)")
                 if let r = session.record, r.trackLat.count > 1 {
@@ -96,8 +131,30 @@ struct SessionPage: View {
                         .formatted(.measurement(width: .abbreviated, usage: .road)))
                 }
             }
+            if let r = session.record {
+                @Bindable var r = r
+                Section("Notes") {
+                    TextField("Weather, habitat, who you were with…", text: $r.note, axis: .vertical).lineLimit(1...6)
+                }
+            }
+            if session.kind != "live", !tally.isEmpty {
+                Section {
+                    ForEach(tally) { t in
+                        NavigationLink(value: t.first) {
+                            HStack(spacing: 10) {
+                                TaxonIcon(group: t.first.taxon, size: 28)
+                                Text(t.first.displayName).lineLimit(1)
+                                Spacer(minLength: 4)
+                                Text("\(SessionsList.clock(t.offset)) · \(t.best.shownPercent)%").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: { Text("Tally") } footer: {
+                    Text("Each species once, in the order it was first heard, with the time into the \(session.kind == "file" ? "recording" : "session").")
+                }
+            }
             if hasMap {
-                Section("Route") { routeMap.frame(height: 240).listRowInsets(EdgeInsets()) }
+                Section(session.kind == "point" ? "Where" : "Route") { routeMap.frame(height: 240).listRowInsets(EdgeInsets()) }
             }
             if !spans.isEmpty {
                 Section("When each was heard") {
@@ -122,12 +179,39 @@ struct SessionPage: View {
             Section("Detections") {
                 ForEach(session.detections.reversed()) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
+            Section {
+                Button("Delete this session", role: .destructive) { confirmDelete = true }
+            }
         }.themedRows() }.themedList()
+        .toolbar { ToolbarItem(placement: .primaryAction) { LogExportMenu(detections: session.detections) } }
+        .confirmationDialog("Delete this session and its \(session.detections.count) detections?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { delete() }
+        } message: { Text("Their recordings go too. This can't be undone.") }
+        .onDisappear { try? ctx.save() }      // name and notes
         .navigationTitle(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var hasMap: Bool { (session.record?.trackLat.count ?? 0) > 1 || session.detections.contains { $0.latitude != nil } }
+    private var hasMap: Bool {
+        (session.record?.trackLat.count ?? 0) > 1 || session.detections.contains { $0.latitude != nil } || session.record?.latitude != nil
+    }
+
+    private var kindTitle: String {
+        switch session.kind {
+        case "point": (session.record?.plannedSeconds ?? 0) > 0 ? "Point count, \((session.record?.plannedSeconds ?? 0) / 60) min" : "Point count"
+        case "survey": "Survey"
+        case "file": "Recording"
+        default: "Live"
+        }
+    }
+
+    private func delete() {
+        let (_, commit) = removeDetections(session.detections, in: ctx)
+        commit()
+        if let r = session.record { ctx.delete(r) }
+        try? ctx.save()
+        dismiss()
+    }
 
     private var routeMap: some View {
         Map {
@@ -135,7 +219,12 @@ struct SessionPage: View {
                 MapPolyline(coordinates: zip(r.trackLat, r.trackLon).map { CLLocationCoordinate2D(latitude: $0, longitude: $1) })
                     .stroke(.blue, lineWidth: 4)
             }
-            ForEach(session.detections.filter { $0.latitude != nil }) { d in
+            if let r = session.record, session.kind == "point", let lat = r.latitude, let lon = r.longitude {
+                Annotation("Station", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                    Image(systemName: "mappin.circle.fill").font(.title).foregroundStyle(.red, .white)
+                }
+            }
+            ForEach(session.kind == "point" ? [] : session.detections.filter { $0.latitude != nil }) { d in
                 Annotation(d.displayName, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
                     Image(symbol: d.taxon.symbol).font(.caption2).padding(4)
                         .background(d.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)

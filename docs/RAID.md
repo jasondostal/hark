@@ -15,6 +15,7 @@ with the date and where it landed, so the history stays.
 
 | ID | Risk | Mitigation |
 |---|---|---|
+| R-4 | 1.1 settings that change what the models hear (gain, high-pass up to 1 kHz, check interval, voices guard, body sounds) were checked in the simulator and on the golden windows, not against the bake-off. Defaults are exactly 1.0's behavior. | Leave defaults alone. Bake-off any change of default first. Measured: Perch scores hold from -10 to +20 dB on the golden windows and collapse below about -20 dB (peaks under 0.002). |
 | R-3 | `ranges.bin` is derived from GBIF data that includes CC BY-NC datasets. | Hark stays free and noncommercial. Any paid version, tip jar or ads needs a license review of the range data first. |
 | R-2 | `labels.json` is CC BY-SA 4.0 (adapted from OpenFauna) inside an MIT repo. | NOTICE.md marks those files as CC BY-SA. Keep the attribution in the app. |
 | R-1 | The app is about 390 MB (two full models). Cellular download limits and storage complaints. | Regional Perch slices (35 MB) are an option if reviews complain. |

@@ -17,7 +17,7 @@ final class Detection {
     var longitude: Double?
     var confirmed: Bool             // "I saw it": the person verified the ID
     var sessionID: UUID
-    var source: String              // "live", or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "selection" (picked out on the spectrogram; "rewind" in older logs)
+    var source: String              // "live", "file" (found in an imported recording), or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "selection" (picked out on the spectrogram; "rewind" in older logs)
     var clipFile: String?           // saved audio in ClipStore.directory
     var isFirst: Bool = false       // the first time this species ever entered the log
 
@@ -41,6 +41,13 @@ final class ListeningSession {
     var ended: Date
     var trackLat: [Double] = []
     var trackLon: [Double] = []
+    // 1.1 (all defaulted, so 1.0 stores open as they are)
+    var kind: String = "live"       // "live", "point" (point count), "survey", "file" (an imported recording)
+    var plannedSeconds: Int = 0     // point count length
+    var title: String = ""          // your name for it; a file session starts with the file's name
+    var note: String = ""
+    var latitude: Double?           // where it started (a point count's station)
+    var longitude: Double?
 
     init(id: UUID, started: Date) { self.id = id; self.started = started; ended = started }
 }

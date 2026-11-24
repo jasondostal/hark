@@ -121,7 +121,7 @@ struct PDFExport: Transferable {
                 text(r.firstHeard.formatted(date: .omitted, time: .shortened), font(10).withMonospacedDigits(), soft, width: 60)
                 text(r.name, font(10, .medium), x: margin + 64, width: 260)
                 text("\(r.percent)%", font(10).withMonospacedDigits(), soft, x: margin + 330, width: 40)
-                let how = r.source == "live" ? "" : "by hand"
+                let how = r.source == "live" ? "" : r.source == "file" ? "recording" : "by hand"
                 text([r.confirmed ? "seen" : "", how].filter { !$0.isEmpty }.joined(separator: " · "), font(9), soft, x: margin + 380, width: 130)
                 y += 15
             }

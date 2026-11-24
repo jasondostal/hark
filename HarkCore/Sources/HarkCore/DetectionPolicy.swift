@@ -70,6 +70,16 @@ public enum Preset: String, CaseIterable, Sendable {
     public func threshold(_ g: ListenGroup) -> Float {
         Fusion.fromDisplay(g == .insect || g == .other ? shownInsect : shown)
     }
+    /// The insect / "other" bar that goes with a main bar anywhere on the slider: a line through the three presets
+    /// (70 -> 80, 85 -> 90, 92 -> 95), so the slider at a preset's value is exactly that preset.
+    public static func shownInsect(for shown: Float) -> Float {
+        let pts: [(Float, Float)] = [(0.50, 0.65), (0.70, 0.80), (0.85, 0.90), (0.92, 0.95), (0.98, 0.985)]
+        if shown <= pts[0].0 { return pts[0].1 }
+        for (a, b) in zip(pts, pts.dropFirst()) where shown <= b.0 {
+            return a.1 + (b.1 - a.1) * (shown - a.0) / (b.0 - a.0)
+        }
+        return pts[pts.count - 1].1
+    }
     /// Pre-1.0 presets (Perch scale), to move saved settings onto the new ones.
     public var legacyBase: Float { switch self { case .sensitive: 0.15; case .balanced: 0.30; case .strict: 0.50 } }
     public var blurb: String {
@@ -81,13 +91,38 @@ public enum Preset: String, CaseIterable, Sendable {
     }
 }
 
+/// How hard Hark leans on "there are people or music in this window" before it trusts an animal ID.
+/// The value is the summed human-sound score that trips the guard (Fusion.humanSoundClasses): lower trips sooner.
+public enum HumanGuard: String, Codable, CaseIterable, Sendable {
+    case off, light, standard, strong
+    public var gate: Float? {
+        switch self { case .off: nil; case .light: 0.40; case .standard: Fusion.humanGate; case .strong: 0.10 }
+    }
+    public var title: String { rawValue.capitalized }
+}
+
 /// Sorts one window's scores into what to show and log.
 public struct DetectionPolicy: Codable, Equatable, Sendable {
     public var groups: [ListenGroup: GroupSetting]
     public var rangeMode: RangeMode
+    /// Voices & music guard (1.0 shipped with .standard, fixed).
+    public var humanGuard: HumanGuard
+    /// Count breathing, coughs and sneezes toward the guard too (Fusion.bodySoundClasses).
+    public var guardBodySounds: Bool
 
-    public init(groups: [ListenGroup: GroupSetting] = [:], rangeMode: RangeMode = .flag) {
+    public init(groups: [ListenGroup: GroupSetting] = [:], rangeMode: RangeMode = .flag,
+                humanGuard: HumanGuard = .standard, guardBodySounds: Bool = false) {
         self.groups = groups; self.rangeMode = rangeMode
+        self.humanGuard = humanGuard; self.guardBodySounds = guardBodySounds
+    }
+
+    /// Settings saved by 1.0 have no guard keys: they keep what 1.0 did.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        groups = try c.decodeIfPresent([ListenGroup: GroupSetting].self, forKey: .groups) ?? [:]
+        rangeMode = try c.decodeIfPresent(RangeMode.self, forKey: .rangeMode) ?? .flag
+        humanGuard = try c.decodeIfPresent(HumanGuard.self, forKey: .humanGuard) ?? .standard
+        guardBodySounds = try c.decodeIfPresent(Bool.self, forKey: .guardBodySounds) ?? false
     }
 
     public func setting(_ g: ListenGroup) -> GroupSetting { groups[g] ?? g.defaultSetting }
@@ -110,6 +145,17 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
     }
     public mutating func set(_ g: ListenGroup, _ s: GroupSetting) { groups[g] = s }
 
+    /// One slider for every group: `shown` is the displayed logging bar for birds, frogs, mammals, reptiles and
+    /// sounds; insects and "other" follow it on their stricter line (Preset.shownInsect(for:)).
+    public mutating func apply(shown: Float) {
+        let insect = Preset.shownInsect(for: shown)
+        for g in ListenGroup.allCases {
+            groups[g] = GroupSetting(enabled: setting(g).enabled, threshold: Fusion.fromDisplay(g == .insect || g == .other ? insect : shown))
+        }
+    }
+    /// The main (bird) bar as displayed, for that slider.
+    public var shown: Float { Fusion.display(setting(.bird).threshold) }
+
     /// Under the threshold but above this, a species shows as a "maybe". Below half the threshold it's mostly noise.
     public func maybeFloor(_ g: ListenGroup) -> Float { max(0.08, setting(g).threshold * 0.5) }
 
@@ -127,11 +173,11 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
     /// `scores` are on Hark's (Perch) scale, one per label. With `second` (BirdNET+ on the same scale, Both mode), a
     /// species is a hit when the two agree or either is sure (Fusion), and its confidence is the stronger of the two.
     /// `humanSound`: Perch's summed music / speech score for the window (Fusion.humanSoundClasses). At or above
-    /// Fusion.humanGate only 'sure' animal IDs count and no animal maybes are shown.
+    /// the guard's gate (`humanGuard`) only 'sure' animal IDs count and no animal maybes are shown.
     public func triage(scores: [Float], second: [Float]? = nil, labels: LabelTable, context: LocalContext?,
                        muted: Set<Int> = [], topK: Int = 12, humanSound: Float = 0) -> Triage {
         var t = Triage()
-        let gated = humanSound >= Fusion.humanGate
+        let gated = humanGuard.gate.map { humanSound >= $0 } ?? false
         var candidates = Scoring.topK(scores, topK)
         if let second { candidates = Array(Set(candidates).union(Scoring.topK(second, topK))).sorted() }
         for i in candidates where i < labels.count {

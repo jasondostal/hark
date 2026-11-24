@@ -21,6 +21,16 @@ struct ListenView: View {
     /// selection is open, since that's where the results are.
     @AppStorage("landscapeFull") private var fullScreen = false
     private var showColumn: Bool { !fullScreen || selection.isFrozen }
+    /// Portrait full screen: by the expand button, or because Settings > Spectrogram > Height is all the way up.
+    /// The list comes back while a selection is open, as in landscape.
+    @AppStorage("portraitFull") private var portraitFull = false
+    private var heightIsFull: Bool { listener.spectrogramHeight >= 0.97 }
+    private var portraitIsFull: Bool { (portraitFull || heightIsFull) && !selection.isFrozen }
+    /// The spectrogram has the screen to itself right now.
+    private var fullNow: Bool { landscape ? !showColumn : portraitIsFull }
+    @State private var showFiles = ProcessInfo.processInfo.arguments.contains("-files")   // screenshot aid
+    /// A session to open the Log on (a finished point count, an analyzed file).
+    @State private var logSession: UUID?
 
     var body: some View {
         @Bindable var listener = listener
@@ -29,7 +39,13 @@ struct ListenView: View {
         .environment(\.compactRows, landscape)
         .animation(.spring, value: listener.celebration?.id)
         .sheet(isPresented: $showSettings) { SettingsView().themeRoot() }
-        .sheet(isPresented: $showLog) { LogView().themeRoot() }
+        .sheet(isPresented: $showLog, onDismiss: { logSession = nil }) { LogView(openSession: logSession).themeRoot() }
+        .sheet(isPresented: $showFiles) {
+            FileAnalysisView(open: { id in
+                showFiles = false; logSession = id
+                Task { try? await Task.sleep(for: .milliseconds(500)); showLog = true }
+            }).themeRoot()
+        }
         .onChange(of: listener.state) { _, s in
             if s == .listening { listener.selection.unfreeze(); SelectTip.listening = true }
         }
@@ -76,9 +92,14 @@ struct ListenView: View {
             }
             .onDisappear { listener.widthScale = 1 }
         } else {
-            VStack(spacing: 0) {
-                spectrogramPanel(height: 250)
-                list
+            GeometryReader { g in
+                // A selection needs room for its results, however tall the spectrogram is set.
+                let share = selection.isFrozen ? min(listener.spectrogramHeight, 0.45) : listener.spectrogramHeight
+                VStack(spacing: 0) {
+                    spectrogramPanel(height: portraitIsFull ? nil : max(140, g.size.height * share))
+                    if !portraitIsFull { list.transition(.move(edge: .bottom)) }
+                }
+                .animation(.snappy, value: portraitIsFull)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
@@ -105,12 +126,13 @@ struct ListenView: View {
         GeometryReader { g in
             Group {
                 if selection.isFrozen {
-                    FrozenSpectrogram(selection: selection, palette: listener.palette, frequencyLabels: listener.frequencyLabels)
+                    FrozenSpectrogram(selection: selection, palette: listener.palette, frequencyLabels: listener.frequencyLabels, topHz: Float(listener.topKHz * 1000))
                 } else {
                     SpectrogramView(source: listener.live, running: listener.state == .listening,
                                     palette: listener.palette, frequencyLabels: listener.frequencyLabels,
                                     markers: listener.critters ? listener.markers : [],
-                                    dock: listener.critters && landscape && !showColumn)
+                                    dock: listener.critters && fullNow,
+                                    quality: listener.quality, topHz: Float(listener.topKHz * 1000))
                 }
             }
             .contentShape(Rectangle())
@@ -135,7 +157,7 @@ struct ListenView: View {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
             }
         }
-        .overlay(alignment: .topLeading) { if landscape && !showColumn && !listener.critters { hearingTags } }
+        .overlay(alignment: .topLeading) { if fullNow && !listener.critters { hearingTags } }
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
     }
 
@@ -179,35 +201,62 @@ struct ListenView: View {
 
     private var liveControls: some View {
         @Bindable var listener = listener
-        return HStack(spacing: 12) {
+        let listening = listener.state == .listening
+        let shownMode = listening ? listener.activeMode : listener.mode
+        return HStack(spacing: 10) {
+            // What Listen does: live, a timed point count, a walked survey; or analyze recordings instead.
             Menu {
-                Picker("Identify", selection: $listener.idMode) {
-                    Label("Auto: identify as it hears", systemImage: "sparkles").tag(Listener.IDMode.auto)
-                    Label("Manual: only what you select", systemImage: "hand.draw").tag(Listener.IDMode.manual)
+                Picker("Mode", selection: $listener.mode) {
+                    ForEach(Listener.Mode.allCases) { m in Label(m.title, systemImage: m.symbol).tag(m) }
                 }
+                .disabled(listening)
+                Divider()
+                Button { showFiles = true } label: { Label("Analyze recordings…", systemImage: "waveform.badge.magnifyingglass") }
             } label: {
-                Label(listener.idMode == .auto ? "Auto" : "Manual", systemImage: listener.idMode == .auto ? "sparkles" : "hand.draw")
-                    .font(.subheadline.weight(.semibold))
+                Label(shownMode.title, systemImage: shownMode.symbol)
+                    .font(.subheadline.weight(.semibold)).lineLimit(1)
                     .padding(.horizontal, 6).padding(.vertical, 4)
             }
             .buttonStyle(.bordered)
             .tint(overlayTint)
-            .popoverTip(ModeTip(), arrowEdge: .bottom)
-            .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
-            if landscape {
-                Button { fullScreen.toggle() } label: {
-                    Image(systemName: fullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+            .accessibilityLabel("Mode: \(shownMode.title)")
+            if shownMode == .live {
+                Menu {
+                    Picker("Identify", selection: $listener.idMode) {
+                        Label("Auto: identify as it hears", systemImage: "sparkles").tag(Listener.IDMode.auto)
+                        Label("Manual: only what you select", systemImage: "hand.draw").tag(Listener.IDMode.manual)
+                    }
+                } label: {
+                    Label(listener.idMode == .auto ? "Auto" : "Manual", systemImage: listener.idMode == .auto ? "sparkles" : "hand.draw")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .tint(overlayTint)
+                .popoverTip(ModeTip(), arrowEdge: .bottom)
+                .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
+            }
+            if landscape || !heightIsFull {
+                let full = landscape ? fullScreen : portraitFull
+                Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
+                    Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         .font(.subheadline.weight(.semibold))
                         .padding(.vertical, 4)
                 }
                 .buttonStyle(.bordered)
                 .tint(overlayTint)
-                .accessibilityLabel(fullScreen ? "Show the list" : "Full screen spectrogram")
+                .accessibilityLabel(full ? "Show the list" : "Full screen spectrogram")
             }
-            Spacer()
+            Spacer(minLength: 0)
+            if listening, let end = listener.endsAt {
+                // Point count: time left
+                Text(timerInterval: Date.now...max(end, .now), countsDown: true)
+                    .font(.subheadline.monospacedDigit().weight(.semibold)).foregroundStyle(listener.palette.labelColor)
+                    .accessibilityLabel("Time left in the point count")
+            }
             if listener.state == .listening {
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
-                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: 70)
+                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil ? 70 : 40)
                     .accessibilityLabel("Microphone level")
             }
         }
@@ -278,13 +327,30 @@ struct ListenView: View {
                 .padding(.vertical, 6)
             }
         }
-        if active && listener.idMode == .manual && listener.state == .listening && !selection.isFrozen {
+        if let done = listener.finishedCount, listener.state != .listening, !selection.isFrozen {
+            Section {
+                Button { logSession = done.session; showLog = true } label: {
+                    Label("\(done.species) species. See the tally", systemImage: "checklist")
+                }
+            } header: { Text("Point count done").themedHeader() }
+        }
+        if listener.state == .ready && listener.mode != .live && !selection.isFrozen {
+            Section {
+                Label(listener.mode.blurb, systemImage: listener.mode.symbol).font(.callout).foregroundStyle(.secondary)
+                if listener.mode == .point {
+                    Picker("Count for", selection: Binding(get: { listener.pointMinutes }, set: { listener.pointMinutes = $0 })) {
+                        ForEach([3, 5, 10, 15, 20, 30], id: \.self) { Text("\($0) min").tag($0) }
+                    }
+                }
+            } header: { Text(listener.mode.title).themedHeader() }
+        }
+        if active && !listener.autoID && listener.state == .listening && !selection.isFrozen {
             Section {
                 Label("Hark only identifies what you pick. Touch the spectrogram and drag across a call.", systemImage: "hand.draw")
                     .font(.callout).foregroundStyle(.secondary)
             } header: { Text("Manual mode").themedHeader() }
         }
-        if active && listener.idMode == .auto {
+        if active && listener.autoID {
             Section {
                 if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
@@ -330,7 +396,7 @@ struct ListenView: View {
     /// Full screen: what's calling right now, as small tags over the old (left) end of the spectrogram.
     private var hearingTags: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(listener.idMode == .auto ? Array(listener.hearingNow.prefix(4)) : []) { o in
+            ForEach(listener.autoID ? Array(listener.hearingNow.prefix(4)) : []) { o in
                 if let l = listener.label(o.index) {
                     HStack(spacing: 6) {
                         Image(symbol: l.group.symbol).font(.caption)

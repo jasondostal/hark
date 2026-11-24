@@ -67,10 +67,27 @@ enum SpectrogramPalette: String, CaseIterable, Identifiable {
     }
 }
 
+/// How much work the live spectrogram does per frame.
+enum SpectrogramQuality: String, CaseIterable, Identifiable {
+    case low, standard, high
+    var id: String { rawValue }
+    var title: String { switch self { case .low: "Battery saver"; case .standard: "Standard"; case .high: "High" } }
+    /// Most image columns drawn across the view (10 s of audio is 1,000 columns before pooling).
+    var imageWidth: Int { switch self { case .low: 300; case .standard: 600; case .high: 1500 } }
+    var framesPerSecond: Double { self == .low ? 30 : 60 }
+    var interpolation: Image.Interpolation { self == .high ? .high : self == .low ? .low : .medium }
+}
+
 /// Current spectrogram look, read from the audio thread (contrast) and render paths (colors).
 final class SpectrogramStyle: @unchecked Sendable {
     static let shared = SpectrogramStyle()
     private let lock = NSLock()
+    private var _config = SpectrogramConfig()
+    private var _quality = SpectrogramQuality.standard
+    var config: SpectrogramConfig { lock.lock(); defer { lock.unlock() }; return _config }
+    func set(config c: SpectrogramConfig) { lock.lock(); _config = c; lock.unlock() }
+    var quality: SpectrogramQuality { lock.lock(); defer { lock.unlock() }; return _quality }
+    func set(quality q: SpectrogramQuality) { lock.lock(); _quality = q; lock.unlock() }
     private var _lut = SpectrogramPalette.aurora.lut
     private var _span: Float = 36
     private var _pixel = false

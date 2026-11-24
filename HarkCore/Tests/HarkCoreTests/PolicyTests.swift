@@ -143,6 +143,38 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(p.triage(scores: [0.75, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.3).hits.map(\.index), [0])
     }
 
+    func testGuardStrengthIsASetting() {
+        var p = Self.legacy()
+        p.humanGuard = .off      // music in the window no longer matters
+        XCTAssertEqual(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.9).hits.map(\.index), [0])
+        p.humanGuard = .light    // trips at 0.40, not at 0.30
+        XCTAssertEqual(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.3).hits.map(\.index), [0])
+        XCTAssertTrue(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.45).hits.isEmpty)
+        p.humanGuard = .strong   // trips at 0.10
+        XCTAssertTrue(p.triage(scores: [0.45, 0, 0, 0, 0], labels: labels, context: nil, humanSound: 0.12).hits.isEmpty)
+    }
+
+    func testSettingsSavedBy10StillLoad() throws {
+        // 1.0 wrote only groups + rangeMode
+        var old = DetectionPolicy(); old.apply(.strict); old.rangeMode = .hide
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(old)) as! [String: Any]
+        json["humanGuard"] = nil; json["guardBodySounds"] = nil
+        let p = try JSONDecoder().decode(DetectionPolicy.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertEqual(p.preset, .strict)
+        XCTAssertEqual(p.rangeMode, .hide)
+        XCTAssertEqual(p.humanGuard, .standard)
+        XCTAssertFalse(p.guardBodySounds)
+    }
+
+    func testOneSliderMatchesThePresets() {
+        var p = DetectionPolicy()
+        for preset in Preset.allCases { p.apply(shown: preset.shown); XCTAssertEqual(p.preset, preset) }
+        p.apply(shown: 0.80)
+        XCTAssertNil(p.preset)
+        XCTAssertEqual(p.shown, 0.80, accuracy: 1e-3)
+        XCTAssertGreaterThan(p.setting(.insect).threshold, p.setting(.bird).threshold)
+    }
+
     func testPetSoundsPoolOntoTheSpecies() {
         let t = LabelTable(labels: [
             Label(scientific: "Canis familiaris", common: "Domestic Dog", group: .mammal),

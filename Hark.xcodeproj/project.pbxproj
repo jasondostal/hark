@@ -47,6 +47,7 @@
 		A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46339CF0455911EAAB8F7134 /* Clips.swift */; };
 		AB32C2C6166A8FFE2216F0B8 /* birdnet3_map.bin in Resources */ = {isa = PBXBuildFile; fileRef = 917CB5391788776CF17AF178 /* birdnet3_map.bin */; };
 		AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = CF97FC47703776066607E58A /* Perch.mlpackage */; };
+		B0C74ADA8A77EA7769B62059 /* FileAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDDAAD87DE38DE646CB6DD5 /* FileAnalysis.swift */; };
 		B8209E716EA13B18517C48CD /* OFL-SairaStencilOne.txt in Resources */ = {isa = PBXBuildFile; fileRef = BD63D45D2FF339617FD4D1C1 /* OFL-SairaStencilOne.txt */; };
 		BBA3711A72B549BB16A49B5C /* Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860137325B2388EC7A479ED4 /* Export.swift */; };
 		BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */; };
@@ -136,6 +137,7 @@
 		BD63D45D2FF339617FD4D1C1 /* OFL-SairaStencilOne.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-SairaStencilOne.txt"; sourceTree = "<group>"; };
 		BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
+		CBDDAAD87DE38DE646CB6DD5 /* FileAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAnalysis.swift; sourceTree = "<group>"; };
 		CC4F54B59A1E7A42D623ADCE /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
 		CDC790819963BB1135B9521D /* SairaStencilOne-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SairaStencilOne-Regular.ttf"; sourceTree = "<group>"; };
 		CF97FC47703776066607E58A /* Perch.mlpackage */ = {isa = PBXFileReference; path = Perch.mlpackage; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				A8032DCD59B9F6ABEDA20FFE /* Detection.swift */,
 				AE0498D7314B66F10B17D29F /* EBird.swift */,
 				860137325B2388EC7A479ED4 /* Export.swift */,
+				CBDDAAD87DE38DE646CB6DD5 /* FileAnalysis.swift */,
 				3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */,
 				D3DDD14312784E530E18C727 /* HarkApp.swift */,
 				38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */,
@@ -434,6 +437,7 @@
 				2F9246CAF67946A0BD075D4E /* Detection.swift in Sources */,
 				89746C0FF6EE22DD28A144A3 /* EBird.swift in Sources */,
 				BBA3711A72B549BB16A49B5C /* Export.swift in Sources */,
+				B0C74ADA8A77EA7769B62059 /* FileAnalysis.swift in Sources */,
 				7B9FC2DE89DCD3065E316DD8 /* Geo.mlpackage in Sources */,
 				9AFC21C1024C286FC09D608F /* GeoModel.swift in Sources */,
 				83A45AEDC002B0E5D3847FC2 /* HarkApp.swift in Sources */,
@@ -482,14 +486,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COREML_CODEGEN_LANGUAGE = None;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;
 				INFOPLIST_FILE = Hark/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
@@ -560,7 +564,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_ENTITLEMENTS = HarkWidgets/HarkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;
 				INFOPLIST_FILE = HarkWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -568,7 +572,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -584,14 +588,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COREML_CODEGEN_LANGUAGE = None;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;
 				INFOPLIST_FILE = Hark/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HARK_APP";
@@ -669,7 +673,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CODE_SIGN_ENTITLEMENTS = HarkWidgets/HarkWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8N87FTKWXL;
 				INFOPLIST_FILE = HarkWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -677,7 +681,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.ducktyping.hark.widgets;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

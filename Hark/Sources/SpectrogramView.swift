@@ -3,21 +3,61 @@ import HarkCore
 import Accelerate
 import CoreGraphics
 
-/// Spectrogram math shared by the live view and touch-to-select: a 1024-point FFT every 10 ms (hop 320 at 32 kHz),
-/// 128 mel bands (150 Hz to 15 kHz), log power over a per-band noise floor. Steady background (road rumble,
-/// wind, furnace) fades to dark, and so does the natural low-frequency tilt. Each floor follows quiet quickly
-/// and loud slowly (about 3 s), so a call doesn't raise its own floor. Not thread-safe; one per stream.
-final class SpectrogramDSP {
-    static let bins = 128, n = 1024, hop = 320
-    static let columnsPerSecond = 100
-    private static let log2n: vDSP_Length = 10
-    private static let sr: Float = 32_000
-    private static let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: n, isHalfWindow: false)
-    private static let mel = melBank()
+/// How the spectrogram is computed (Settings > Spectrogram). The models never see any of this.
+struct SpectrogramConfig: Equatable, Sendable {
+    /// FFT length: 512 (sharper in time, for fast trills), 1024, or 2048 (sharper in pitch, for close harmonics).
+    var fft = 1024
+    /// Top of the frequency axis in Hz (the audio is 32 kHz, so 16 kHz is the ceiling).
+    var topHz: Float = 15_000
+    /// Each band fades its own steady background (hum, wind, the low-end tilt). Off: one floor for all bands,
+    /// so steady sounds and the true shape of the noise stay visible.
+    var fadeBackground = true
+    static let bottomHz: Float = 150
+}
 
-    private let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+/// Spectrogram math shared by the live view and touch-to-select: an FFT (1024-point unless changed) every 10 ms
+/// (hop 320 at 32 kHz), 128 mel bands (150 Hz to 15 kHz unless changed), log power over a per-band noise floor.
+/// Steady background (road rumble, wind, furnace) fades to dark, and so does the natural low-frequency tilt. Each
+/// floor follows quiet quickly and loud slowly (about 3 s), so a call doesn't raise its own floor. Not thread-safe;
+/// one per stream.
+final class SpectrogramDSP {
+    static let bins = 128, hop = 320
+    static let columnsPerSecond = 100
+    private static let sr: Float = 32_000
+
+    /// Window + mel filter bank for one config, built once and shared.
+    private final class Tables: @unchecked Sendable {
+        let window: [Float], mel: [Float]
+        init(_ c: SpectrogramConfig) {
+            window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: c.fft, isHalfWindow: false)
+            mel = SpectrogramDSP.melBank(n: c.fft, topHz: c.topHz)
+        }
+    }
+    private static let tableLock = NSLock()
+    private static var tables: [String: Tables] = [:]
+    private static func tables(for c: SpectrogramConfig) -> Tables {
+        let key = "\(c.fft)-\(c.topHz)"
+        tableLock.lock(); defer { tableLock.unlock() }
+        if let t = tables[key] { return t }
+        if tables.count > 6 { tables.removeAll() }
+        let t = Tables(c); tables[key] = t; return t
+    }
+
+    let config: SpectrogramConfig
+    /// Samples one column needs.
+    var n: Int { config.fft }
+    private let log2n: vDSP_Length
+    private let table: Tables
+    private let setup: FFTSetup
     private var floorDB = [Float](repeating: -100, count: bins)
     private var warm = 0
+
+    init(_ config: SpectrogramConfig = SpectrogramStyle.shared.config) {
+        self.config = config
+        log2n = vDSP_Length(config.fft.trailingZeroBitCount)
+        table = Self.tables(for: config)
+        setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2))!
+    }
 
     deinit { vDSP_destroy_fftsetup(setup) }
 
@@ -28,7 +68,7 @@ final class SpectrogramDSP {
         var db = [Float](repeating: 0, count: Self.bins)
         // Digital silence (a feed's lead-in, a gap in a saved clip) would drag the noise floor down so far that the
         // real audio after it saturates: draw it as background and leave the floor alone.
-        guard Self.bandsDB(frame, setup: setup, into: &db) else { for b in 0..<Self.bins { out[b] = 0 }; return }
+        guard bandsDB(frame, into: &db) else { for b in 0..<Self.bins { out[b] = 0 }; return }
         map(db, into: out)
     }
 
@@ -38,19 +78,25 @@ final class SpectrogramDSP {
         for b in 0..<Self.bins {
             if warm < 30 { floorDB[b] = warm == 0 ? db[b] : min(floorDB[b], db[b]) + 0.3 }
             else { floorDB[b] += (db[b] - floorDB[b]) * (db[b] < floorDB[b] ? 0.03 : 0.003) }
-            out[b] = UInt8(min(max((db[b] - floorDB[b] - 4) / span, 0), 1) * 255)
         }
         warm += 1
+        if config.fadeBackground {
+            for b in 0..<Self.bins { out[b] = UInt8(min(max((db[b] - floorDB[b] - 4) / span, 0), 1) * 255) }
+        } else {
+            // One floor for every band: the quietest quarter of the band floors, so exposure still follows the room.
+            let common = floorDB.sorted()[Self.bins / 4]
+            for b in 0..<Self.bins { out[b] = UInt8(min(max((db[b] - common - 4) / span, 0), 1) * 255) }
+        }
     }
 
     /// Mel band powers in dB for n samples at `frame`; false for digital silence.
-    private static func bandsDB(_ frame: UnsafePointer<Float>, setup: FFTSetup, into dbOut: inout [Float]) -> Bool {
-        let n = Self.n, half = n / 2
+    private func bandsDB(_ frame: UnsafePointer<Float>, into dbOut: inout [Float]) -> Bool {
+        let n = self.n, half = n / 2, log2n = self.log2n
         var peak: Float = 0
         vDSP_maxmgv(frame, 1, &peak, vDSP_Length(n))
         if peak < 1e-7 { return false }
         var windowed = [Float](repeating: 0, count: n)
-        vDSP_vmul(frame, 1, Self.window, 1, &windowed, 1, vDSP_Length(n))
+        vDSP_vmul(frame, 1, table.window, 1, &windowed, 1, vDSP_Length(n))
         var re = [Float](repeating: 0, count: half), im = [Float](repeating: 0, count: half)
         var power = [Float](repeating: 0, count: half)
         re.withUnsafeMutableBufferPointer { rp in
@@ -59,27 +105,28 @@ final class SpectrogramDSP {
                 windowed.withUnsafeBytes { fb in
                     vDSP_ctoz(fb.bindMemory(to: DSPComplex.self).baseAddress!, 2, &split, 1, vDSP_Length(half))
                 }
-                vDSP_fft_zrip(setup, &split, 1, Self.log2n, FFTDirection(FFT_FORWARD))
+                vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
                 ip[0] = 0                                   // imag[0] holds Nyquist; drop it
                 vDSP_zvmags(&split, 1, &power, 1, vDSP_Length(half))
             }
         }
         var bands = [Float](repeating: 0, count: Self.bins)
-        vDSP_mmul(Self.mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
+        vDSP_mmul(table.mel, 1, power, 1, &bands, 1, vDSP_Length(Self.bins), 1, vDSP_Length(half))
         for b in 0..<Self.bins { dbOut[b] = 10 * log10f(bands[b] + 1e-12) }
         return true
     }
 
     /// Whole-clip spectrogram (selections, saved clips): column-major levels, 128 per column.
     static func levels(of samples: [Float]) -> (data: [UInt8], columns: Int) {
+        let dsp = SpectrogramDSP()
+        let n = dsp.n
         guard samples.count >= n else { return ([], 0) }
         let cols = (samples.count - n) / hop + 1
         var data = [UInt8](repeating: 0, count: cols * bins)
-        let dsp = SpectrogramDSP()
         var dbs = [[Float]?](repeating: nil, count: cols)
         samples.withUnsafeBufferPointer { s in
             var db = [Float](repeating: 0, count: bins)
-            for c in 0..<cols where bandsDB(s.baseAddress! + c * hop, setup: dsp.setup, into: &db) { dbs[c] = db }
+            for c in 0..<cols where dsp.bandsDB(s.baseAddress! + c * hop, into: &db) { dbs[c] = db }
         }
         // Start each band's floor at its quietest fifth over the whole clip, so the start isn't drawn bright while
         // the floor is still finding the background (or seeded too low by a fade-in); then it follows as live.
@@ -144,11 +191,11 @@ final class SpectrogramDSP {
 
     /// Triangular mel filters, area-normalized so flat noise looks flat. Bands narrower than one FFT bin
     /// fall back to their nearest bin instead of going black.
-    private static func melBank() -> [Float] {
+    fileprivate static func melBank(n: Int, topHz: Float) -> [Float] {
         let half = n / 2, binHz = sr / Float(n)
         func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
         func hz(_ m: Float) -> Float { 700 * (powf(10, m / 2595) - 1) }
-        let lo = mel(150), hi = mel(15_000)
+        let lo = mel(SpectrogramConfig.bottomHz), hi = mel(topHz)
         let pts = (0..<(bins + 2)).map { hz(lo + (hi - lo) * Float($0) / Float(bins + 1)) }
         var m = [Float](repeating: 0, count: bins * half)
         for b in 0..<bins {
@@ -167,14 +214,14 @@ final class SpectrogramDSP {
     /// Center frequency of a mel band.
     static func bandHz(_ b: Int) -> Float {
         func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
-        let lo = mel(150), hi = mel(15_000), m = lo + (hi - lo) * Float(b + 1) / Float(bins + 1)
+        let lo = mel(SpectrogramConfig.bottomHz), hi = mel(SpectrogramStyle.shared.config.topHz), m = lo + (hi - lo) * Float(b + 1) / Float(bins + 1)
         return 700 * (powf(10, m / 2595) - 1)
     }
 
     /// Height fraction (0 = bottom) of a frequency on the display's mel axis.
-    static func yFraction(hz: Float) -> CGFloat {
+    static func yFraction(hz: Float, topHz: Float = SpectrogramStyle.shared.config.topHz) -> CGFloat {
         func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
-        return CGFloat((mel(hz) - mel(150)) / (mel(15_000) - mel(150)))
+        return CGFloat((mel(hz) - mel(SpectrogramConfig.bottomHz)) / (mel(topHz) - mel(SpectrogramConfig.bottomHz)))
     }
 }
 
@@ -185,10 +232,9 @@ final class LiveSpectrogram: @unchecked Sendable {
     private static let bins = SpectrogramDSP.bins
     private static let capacity = maxSeconds * SpectrogramDSP.columnsPerSecond + 128
     private static let lag = 20.0             // columns (200 ms)
-    private static let maxImageWidth = 600    // wider spans pool neighboring columns (max) down to this
 
     private let lock = NSLock()
-    private let dsp = SpectrogramDSP()
+    private var dsp = SpectrogramDSP()
     private var tail: [Float] = []
     private var ring = [UInt8](repeating: 0, count: capacity * bins)
     private var produced = 0
@@ -201,18 +247,23 @@ final class LiveSpectrogram: @unchecked Sendable {
 
     func reset() {
         lock.lock(); defer { lock.unlock() }
-        tail = []; produced = 0; playhead = 0; lastDraw = 0; dsp.reset()
+        tail = []; produced = 0; playhead = 0; lastDraw = 0; dsp = SpectrogramDSP()
         for i in ring.indices { ring[i] = 0 }
     }
 
     /// Audio thread: 32 kHz mono samples in, spectrogram columns out.
     func append(_ s: [Float]) {
         lock.lock(); defer { lock.unlock() }
+        // Settings changed (FFT size, top frequency, background fade): new columns use them; what's already on
+        // screen scrolls off as it was drawn.
+        let want = SpectrogramStyle.shared.config
+        if want != dsp.config { dsp = SpectrogramDSP(want) }
+        let n = dsp.n
         tail += s
         var off = 0
         tail.withUnsafeBufferPointer { t in
             ring.withUnsafeMutableBufferPointer { r in
-                while t.count - off >= SpectrogramDSP.n {
+                while t.count - off >= n {
                     dsp.column(t.baseAddress! + off, into: r.baseAddress! + (produced % Self.capacity) * Self.bins)
                     produced += 1
                     off += SpectrogramDSP.hop
@@ -269,7 +320,8 @@ final class LiveSpectrogram: @unchecked Sendable {
 
         let visible = seconds * SpectrogramDSP.columnsPerSecond
         let pixel = SpectrogramStyle.shared.pixel
-        let k = pixel ? SpectrogramDSP.pixelBlock.columns : max(1, Int((Double(visible) / Double(Self.maxImageWidth)).rounded(.up)))
+        // wider spans pool neighboring columns (max) down to the quality setting's image width
+        let k = pixel ? SpectrogramDSP.pixelBlock.columns : max(1, Int((Double(visible) / Double(SpectrogramStyle.shared.quality.imageWidth)).rounded(.up)))
         let q = pixel ? SpectrogramDSP.pixelBlock.bands : 1
         let n = visible / k
         let pos = max(playhead, 0) / Double(k)
@@ -309,16 +361,19 @@ struct SpectrogramView: View {
     var frequencyLabels = true
     /// Critters pinned on the calls they were identified from; they scroll with the audio.
     var markers: [Listener.Marker] = []
-    /// Collect the critters that scroll off the left edge in a stack there (landscape full screen).
+    /// Collect the critters that scroll off the left edge in a stack there (full screen).
     var dock = false
+    var quality: SpectrogramQuality = .standard
+    /// Top of the frequency axis (so the labels move when the setting does).
+    var topHz: Float = 15_000
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !running)) { tl in
+        TimelineView(.animation(minimumInterval: 1.0 / quality.framesPerSecond, paused: !running)) { tl in
             GeometryReader { g in
                 ZStack(alignment: .topLeading) {
                     palette.background
                     if let f = source.frame(now: tl.date.timeIntervalSinceReferenceDate) {
                         let colW = g.size.width / CGFloat(f.groups)
-                        Image(decorative: f.image, scale: 1).resizable().interpolation(palette.isPixel ? .none : .medium)
+                        Image(decorative: f.image, scale: 1).resizable().interpolation(palette.isPixel ? .none : quality.interpolation)
                             .frame(width: g.size.width + colW, height: g.size.height)
                             .offset(x: -f.fraction * colW)
                         critters(f, g.size)
@@ -330,7 +385,7 @@ struct SpectrogramView: View {
                 .clipped()
             }
         }
-        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel) } }
+        .overlay(alignment: .leading) { if frequencyLabels { FrequencyAxis(color: palette.labelColor, pixel: palette.isPixel, topHz: topHz) } }
     }
 }
 
@@ -402,13 +457,15 @@ struct CritterMarker: View {
 struct FrequencyAxis: View {
     var color: Color = .white.opacity(0.7)
     var pixel = false
+    var topHz: Float = SpectrogramStyle.shared.config.topHz
     var body: some View {
         GeometryReader { g in
-            ForEach([1, 2, 4, 8], id: \.self) { k in
-                let y = g.size.height * (1 - SpectrogramDSP.yFraction(hz: Float(k * 1000)))
+            // a low ceiling spreads the bottom out, so it gets a 500 Hz tick; ticks too near the top are dropped
+            ForEach((topHz <= 6000 ? [500, 1000, 2000, 4000] : [1000, 2000, 4000, 8000]).filter { Float($0) <= topHz * 0.93 }, id: \.self) { hz in
+                let y = g.size.height * (1 - SpectrogramDSP.yFraction(hz: Float(hz), topHz: topHz))
                 HStack(spacing: 3) {
                     Rectangle().fill(color.opacity(0.6)).frame(width: 6, height: 1)
-                    Text("\(k)k").font(pixel ? .pixel(8) : .system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(color)
+                    Text(hz < 1000 ? "\(hz)" : "\(hz / 1000)k").font(pixel ? .pixel(8) : .system(size: 9, weight: .medium).monospacedDigit()).foregroundStyle(color)
                 }
                 .position(x: 16, y: y)
             }

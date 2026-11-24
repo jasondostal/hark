@@ -24,6 +24,12 @@ struct HarkApp: App {
                 await listener.loadModel()
                 // Testing aid: start listening right away (simulator / devicectl launches).
                 if ProcessInfo.processInfo.arguments.contains("-autolisten") { await listener.start() }
+                let args = ProcessInfo.processInfo.arguments   // testing aid: -analyzefile a.wav,b.wav (add -files to watch)
+                if let i = args.firstIndex(of: "-analyzefile"), i + 1 < args.count {
+                    try? await Task.sleep(for: .seconds(1))    // ListenView hands over the model context on appear
+                    FileAnalysis.shared.add(args[i + 1].split(separator: ",").map { URL(fileURLWithPath: String($0)) })
+                    FileAnalysis.shared.start(listener)
+                }
                 if ProcessInfo.processInfo.arguments.contains("-select") {   // screenshot aid: freeze, select 1.5 s, identify
                     try? await Task.sleep(for: .seconds(9)); listener.freezeForSelection()
                     let s = listener.selection; s.select(max(s.viewEnd - 112_000, 0), max(s.viewEnd - 64_000, 0)); await s.analyze(listener)   // 1.5 s
