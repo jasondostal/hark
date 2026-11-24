@@ -183,7 +183,7 @@ struct SessionPage: View {
                 Button("Delete this session", role: .destructive) { confirmDelete = true }
             }
         }.themedRows() }.themedList()
-        .toolbar { ToolbarItem(placement: .primaryAction) { LogExportMenu(detections: session.detections) } }
+        .toolbar { ToolbarItem(placement: .primaryAction) { LogExportMenu(detections: session.detections, raven: (session.start, session.name ?? session.start.formatted(.iso8601.year().month().day()))) } }
         .confirmationDialog("Delete this session and its \(session.detections.count) detections?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { delete() }
         } message: { Text("Their recordings go too. This can't be undone.") }

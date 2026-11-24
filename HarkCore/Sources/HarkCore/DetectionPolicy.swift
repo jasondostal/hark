@@ -168,6 +168,8 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
         public var unusual: [(index: Int, confidence: Float)] = []
         /// Both models: hits both models backed (the rest were one model being sure).
         public var agreed: Set<Int> = []
+        /// The voices & music guard tripped on this window: only 'sure' animal IDs were let through.
+        public var guarded = false
     }
 
     /// `scores` are on Hark's (Perch) scale, one per label. With `second` (BirdNET+ on the same scale, Both mode), a
@@ -178,6 +180,7 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
                        muted: Set<Int> = [], topK: Int = 12, humanSound: Float = 0) -> Triage {
         var t = Triage()
         let gated = humanGuard.gate.map { humanSound >= $0 } ?? false
+        t.guarded = gated
         var candidates = Scoring.topK(scores, topK)
         if let second { candidates = Array(Set(candidates).union(Scoring.topK(second, topK))).sorted() }
         for i in candidates where i < labels.count {

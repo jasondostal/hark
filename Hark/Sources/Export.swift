@@ -139,11 +139,42 @@ extension UIFont {
 }
 
 /// Log toolbar: share what's shown (the current filter) as a PDF report or a spreadsheet.
+/// A Raven selection table (Cornell's Raven Pro / Raven Lite, and what BirdNET-Analyzer writes): one row per
+/// detection, times in seconds from the start of the session, which for an analyzed recording is the file itself.
+/// Hark knows when, not what pitch, so every box spans the whole frequency range.
+struct RavenExport: Transferable {
+    let rows: [ExportRow]
+    let start: Date
+    let name: String
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .tabSeparatedText) { e in SentTransferredFile(try e.write()) }
+    }
+    func write() throws -> URL {
+        var out = "Selection\tView\tChannel\tBegin Time (s)\tEnd Time (s)\tLow Freq (Hz)\tHigh Freq (Hz)\tCommon Name\tScientific Name\tConfidence\n"
+        for (i, r) in rows.sorted(by: { $0.firstHeard < $1.firstHeard }).enumerated() {
+            // a detection is first logged at the end of the 5 s it was heard in
+            let begin = max(r.firstHeard.timeIntervalSince(start) - 5, 0), end = max(r.lastHeard.timeIntervalSince(start), begin + 1)
+            out += "\(i + 1)\tSpectrogram 1\t1\t\(String(format: "%.1f", begin))\t\(String(format: "%.1f", end))\t150\t15000\t\(r.common)\t\(r.scientific)\t\(String(format: "%.2f", Double(r.percent) / 100))\n"
+        }
+        let safe = name.replacingOccurrences(of: "/", with: "-")
+        let url = try exportFolder().appending(path: "\(safe).Hark.selections.txt")
+        try out.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+}
+
 struct LogExportMenu: View {
     let detections: [Detection]
+    /// A single session: also offer a Raven selection table timed from its start.
+    var raven: (start: Date, name: String)?
     var body: some View {
         let rows = detections.map(ExportRow.init)
         Menu {
+            if let raven {
+                ShareLink(item: RavenExport(rows: rows, start: raven.start, name: raven.name), preview: SharePreview("Raven selection table", image: Image(systemName: "rectangle.split.3x1"))) {
+                    Label("Raven selection table", systemImage: "rectangle.split.3x1")
+                }
+            }
             ShareLink(item: PDFExport(rows: rows), preview: SharePreview("Hark field report", image: Image(systemName: "doc.richtext"))) {
                 Label("Field report (PDF)", systemImage: "doc.richtext")
             }

@@ -100,6 +100,8 @@ final class Listener {
     let live = LiveSpectrogram()
     private(set) var levelDB: Float = -120
     private(set) var lastInferenceMs: Double = 0
+    /// The voices & music guard tripped on the last check (shown on the Listen screen so you can see it work).
+    private(set) var guardActive = false
 
     // Settings (persisted)
     var policy: DetectionPolicy = Listener.loadPolicy() {
@@ -511,7 +513,7 @@ final class Listener {
         WidgetBridge.refresh(modelContext, listening: false, now: true)
         UIApplication.shared.isIdleTimerDisabled = false
         if state == .listening { state = .ready }
-        hearingNow = []; maybes = []
+        hearingNow = []; maybes = []; guardActive = false
     }
 
     /// Extend the session's end time, and add a route point when we've moved more than 25 m.
@@ -702,6 +704,7 @@ final class Listener {
         guard let triage = await identify(w) else { return }
         lastInferenceMs = Date().timeIntervalSince(t0) * 1000
         agreed.formUnion(triage.agreed)
+        guardActive = triage.guarded
         let result = WindowResult(time: .now, hits: triage.hits)
         if ProcessInfo.processInfo.arguments.contains("-autolisten") {
             NSLog("HARK-WINDOW %.0f ms: %@", lastInferenceMs, result.hits.map { "\(labels[$0.index].common) \(Int($0.confidence * 100))%" }.joined(separator: ", "))
