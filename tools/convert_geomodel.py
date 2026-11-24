@@ -1,6 +1,6 @@
 """BirdNET+ Geomodel V3.0.4 (Apache 2.0, github.com/birdnet-team/geomodel) -> Core ML, plus the label map.
 
-  ~/working/perch-spike/.venv/bin/python convert_geomodel.py      # needs torch + coremltools
+  tools/models/perch/.venv/bin/python convert_geomodel.py      # needs torch + coremltools
 
 Writes ../Models/Geo.mlpackage (input "input" [1,3] = lat, lon, week 1-48; output "logits" [1,14082], sigmoid
 = probability the species occurs there that week) and ../Hark/Resources/geo_map.bin: one little-endian u16 per

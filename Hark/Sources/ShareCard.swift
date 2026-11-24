@@ -54,7 +54,7 @@ struct ShareCardModel {
         }.value
     }
 
-    /// "Plover, WI": the nearest town, not the spot.
+    /// "Madison, WI": the nearest town, not the spot.
     static func town(_ c: CLLocationCoordinate2D) async -> String? {
         let p = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: c.latitude, longitude: c.longitude)).first
         guard let p else { return nil }

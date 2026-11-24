@@ -2,7 +2,7 @@
 3 s halves (max), both mapped to Hark's labels on Hark's scale. Saves per-window scores (>= 0.03) to live_windows.json
 for tune.py.
 
-  ~/working/perch-spike/.venv/bin/python live_sim.py ../data/yard/manifest.json ../data/inat_wi/manifest.json
+  tools/models/perch/.venv/bin/python live_sim.py ../data/yard/manifest.json ../data/inat_wi/manifest.json
 """
 import json, os, sys, struct
 import numpy as np, soundfile as sf, coremltools as ct, onnxruntime as ort

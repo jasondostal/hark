@@ -3,8 +3,10 @@ import CoreML
 @testable import HarkCore
 
 /// The app's Core ML path must pick the same species as Google's TF Perch on real backyard audio.
-/// Golden windows + reference top-1/top-5 come from ~/working/perch-spike (golden.npz, TF perch_v2_cpu).
-/// Model: $HARK_MODEL or ../Models/Perch.mlpackage (git-ignored; copy from perch-spike/models).
+/// Golden windows + reference top-1/top-5 are not in the repo: make them from your own audio with
+/// tools/models/perch (ref.py runs Google's TF Perch, make_fixtures.py writes Fixtures/golden_windows.f32 + golden.json).
+/// Model: $HARK_MODEL or ../Models/Perch.mlpackage (git-ignored; build it with tools/models/perch/build.sh).
+/// Without the fixtures or the model, these tests skip.
 final class GoldenParityTests: XCTestCase {
     struct Ref: Decodable { let species: String; let top1: Int; let top5: [Int]; let top1_logit: Float }
 
@@ -16,6 +18,9 @@ final class GoldenParityTests: XCTestCase {
 
     func fixtures() throws -> (windows: [[Float]], refs: [Ref], labels: LabelTable) {
         let dir = Bundle.module.url(forResource: "Fixtures", withExtension: nil)!
+        guard FileManager.default.fileExists(atPath: dir.appendingPathComponent("golden_windows.f32").path) else {
+            throw XCTSkip("no golden windows: see tools/models/perch/README.md")
+        }
         let refs = try JSONDecoder().decode([Ref].self, from: Data(contentsOf: dir.appendingPathComponent("golden.json")))
         let raw = try Data(contentsOf: dir.appendingPathComponent("golden_windows.f32"))
         let all = raw.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
@@ -52,7 +57,8 @@ final class GoldenParityTests: XCTestCase {
     func testGPUMatchesTF() throws { try run(.cpuAndGPU, name: "GPU") }
 
     func testLabelsCoverLocalMultiTaxa() throws {
-        let labels = try fixtures().labels
+        let dir = Bundle.module.url(forResource: "Fixtures", withExtension: nil)!
+        let labels = try LabelTable(contentsOf: dir.appendingPathComponent("labels.json"))
         XCTAssertEqual(labels.count, 15_335)                 // 14,795 Perch + 540 BirdNET+-only (tools/make_birdnet3_map.py)
         let want: [String: (String, TaxonGroup)] = [
             "Bubo virginianus": ("Great Horned Owl", .bird), "Canis latrans": ("Coyote", .mammal),

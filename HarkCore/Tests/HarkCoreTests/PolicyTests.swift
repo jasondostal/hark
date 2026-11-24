@@ -173,12 +173,12 @@ final class PolicyTests: XCTestCase {
     }
 
     func testRangeMapFile() throws {
-        // 2 cells: Plover's cell has species 0 and 4; a cell in England has 1.
+        // 2 cells: Madison's cell has species 0 and 4; a cell in England has 1.
         let map = try RangeMap(data: Self.file(cols: 256, rows: 128, species: 5, cells: [
-            (RangeMapTestCell.plover, [0, 4]), (RangeMapTestCell.london, [1]),
+            (RangeMapTestCell.madison, [0, 4]), (RangeMapTestCell.london, [1]),
         ]))
-        XCTAssertEqual(map.cell(latitude: 44.45, longitude: -89.55), RangeMapTestCell.plover)
-        let here = map.local(latitude: 44.45, longitude: -89.55)
+        XCTAssertEqual(map.cell(latitude: 43.07, longitude: -89.40), RangeMapTestCell.madison)
+        let here = map.local(latitude: 43.07, longitude: -89.40)
         XCTAssertEqual(here.status(0), .inRange)
         XCTAssertEqual(here.status(1), .outOfRange)
         XCTAssertEqual(here.status(2), .unknown)
@@ -187,7 +187,7 @@ final class PolicyTests: XCTestCase {
     }
 
     enum RangeMapTestCell {
-        static let plover = 95 * 256 + 64      // 44.45 N, 89.55 W
+        static let madison = 94 * 256 + 64     // 43.07 N, 89.40 W
         static let london = 100 * 256 + 127    // 51.5 N, 0.1 W
     }
 

@@ -15,7 +15,7 @@ targets:
       - path: Hark/Sources
       - path: Hark/Resources
       - path: Hark/Shared
-      # Perch 2.0, fp16-safe Core ML build from ~/working/perch-spike (git-ignored, 196 MB). Xcode compiles it to Perch.mlmodelc.
+      # Perch 2.0, fp16-safe Core ML build from tools/models/perch (git-ignored, 196 MB). Xcode compiles it to Perch.mlmodelc.
       - path: Models/Perch.mlpackage
       # BirdNET+ Geomodel V3.0.4 (Apache 2.0), from tools/convert_geomodel.py (git-ignored, 15 MB).
       - path: Models/Geo.mlpackage

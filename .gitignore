@@ -1,4 +1,4 @@
-Models/
+/Models/
 DerivedData/
 DerivedData-sim/
 .build/
@@ -9,3 +9,17 @@ xcuserdata/
 tools/.venv/
 DerivedData-dev/
 __pycache__/
+build/
+# Parity audio and fixtures: your own recordings, never committed (tools/models/perch/make_fixtures.py)
+HarkCore/Tests/HarkCoreTests/Fixtures/golden_windows.f32
+HarkCore/Tests/HarkCoreTests/Fixtures/golden.json
+Hark/Resources/selftest.f32
+Hark/Resources/selftest.json
+Hark/Resources/birdnet3_selftest.json
+# Perch conversion workspace
+tools/models/perch/.venv/
+tools/models/perch/audio/
+tools/models/perch/model_cpu/
+tools/models/perch/onnx/
+tools/models/perch/models/
+tools/models/perch/golden.npz

@@ -3,6 +3,8 @@ import HarkCore
 
 /// `-selftest` launch argument: run Perch on bundled golden windows (TF reference top-1), print agreement + timing.
 /// For on-device verification over `devicectl ... --console` without touching the UI.
+/// The windows (selftest.f32/.json) are not in the repo: make them from your own audio with tools/models/perch
+/// (make_fixtures.py). Without them the self-test logs that and exits.
 enum SelfTest {
     struct Ref: Decodable { let species: String; let top1: Int }
 
@@ -11,8 +13,13 @@ enum SelfTest {
         Task.detached(priority: .userInitiated) {
             do {
                 let b = Bundle.main
-                let refs = try JSONDecoder().decode([Ref].self, from: Data(contentsOf: b.url(forResource: "selftest", withExtension: "json")!))
-                let raw = try Data(contentsOf: b.url(forResource: "selftest", withExtension: "f32")!)
+                guard let refURL = b.url(forResource: "selftest", withExtension: "json"),
+                      let rawURL = b.url(forResource: "selftest", withExtension: "f32") else {
+                    NSLog("HARK-SELFTEST skipped: no selftest.f32/.json bundled (see tools/models/perch/README.md)")
+                    return
+                }
+                let refs = try JSONDecoder().decode([Ref].self, from: Data(contentsOf: refURL))
+                let raw = try Data(contentsOf: rawURL)
                 let all = raw.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
                 let n = PerchClassifier.windowSamples
                 for (unitName, units) in [("ANE", MLComputeUnitsBox.ane), ("GPU", .gpu), ("CPU", .cpu)] {

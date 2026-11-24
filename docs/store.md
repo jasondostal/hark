@@ -129,6 +129,6 @@ Not applicable. Third-party components and their licenses are listed in Settings
 
 Uploaded 2026-11-21, `tools/shots/store/` in order: live listening with "Both models", a paused selection with results,
 the log timeline, a session with route and chart, Settings. Made on the iPhone 18 Pro Max simulator (1320 × 2868),
-status bar overridden to 9:41, location Horicon Marsh, with `-demolog ~/working/perch-spike/audio_yard` (Debug-only
+status bar overridden to 9:41, location Horicon Marsh, with `-demolog <a folder of recordings>` (Debug-only
 made-up log) and `-feedfile` yard recordings. The Owling shot was dropped: the owl/peeper recordings render almost
 empty in red.

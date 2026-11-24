@@ -3,7 +3,7 @@ live app (2 s quiet, the clip, 3 s quiet; a 5 s window every second) into pet_wi
 compares logging Domestic Dog / Domestic Cat with and without moving the "Dog"/"Bark"/"Meow"... scores onto the species
 (Fusion.soundSynonyms), with false IDs on the other ESC-50 animals and live_windows.json.
 
-  ~/working/perch-spike/.venv/bin/python pets.py
+  tools/models/perch/.venv/bin/python pets.py
 """
 import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))

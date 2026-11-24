@@ -1,6 +1,6 @@
 """Perch 2.0 vs BirdNET+ V3.0 (and the two in tandem) on labeled recordings.
 
-  ~/working/perch-spike/.venv/bin/python eval.py manifest.json [manifest2.json ...]
+  tools/models/perch/.venv/bin/python eval.py manifest.json [manifest2.json ...]
 
 Each clip is scored the way Hark scores a selection: overlapping windows (Perch 5 s, BirdNET+ 3 s, half-window hop),
 best score per species across windows. Then per clip:

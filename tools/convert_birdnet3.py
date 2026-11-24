@@ -3,7 +3,7 @@
 1. Export Core ML with BirdNET's own converter (github.com/birdnet-team/model-converter, cloned to
    tools/data/model-converter, checkpoint via `git lfs pull`), Core ML only and without TensorFlow:
      cd tools/data/model-converter && .venv/bin/python run_coreml.py -f coreml -p fp16 -o export
-2. ~/working/perch-spike/.venv/bin/python convert_birdnet3.py
+2. ../tools/models/perch/.venv/bin/python convert_birdnet3.py  (the venv from tools/models/perch/README.md)
    Copies the export to ../Models/BirdNET3.mlpackage (input "input" [1, 96000] = 3 s of 32 kHz mono; outputs
    "predictions" [1, 11725] sigmoid, "embeddings"), checks it against the FP32 ONNX model on the Perch self-test
    windows, and writes ../Hark/Resources/birdnet3_labels.json ([{s, c, g, b}], output order) and
@@ -23,7 +23,11 @@ shutil.copytree(os.path.join(EXPORT, "coreml", "model_fp16.mlpackage"), dst)
 ml = ct.models.MLModel(dst, compute_units=ct.ComputeUnit.CPU_ONLY)
 onnx = ort.InferenceSession(os.path.join(D, "model_fp32.onnx"), providers=["CPUExecutionProvider"])
 
-raw = np.fromfile(os.path.join(HERE, "..", "Hark", "Resources", "selftest.f32"), dtype=np.float32)
+# Parity windows: Hark/Resources/selftest.f32 from tools/models/perch/make_fixtures.py (your own audio).
+# Without it, a few seconds of noise still checks Core ML against ONNX (no self-test refs written).
+st = os.path.join(HERE, "..", "Hark", "Resources", "selftest.f32")
+have_st = os.path.exists(st)
+raw = np.fromfile(st, dtype=np.float32) if have_st else np.random.default_rng(0).normal(0, 0.05, 3 * 160_000).astype(np.float32)
 wins = raw.reshape(-1, 160_000)[:, :N]
 diffs, agree, top1 = [], 0, []
 for w in wins:
@@ -39,5 +43,6 @@ GROUP = {"Aves": "bird", "Amphibia": "amphibian", "Insecta": "insect", "Mammalia
 labels = [{"s": r["scientific_name"], "c": r.get("common_name_en") or r["common_name"], "g": GROUP.get(r["taxon_group"], "sound"),
            **({"b": r["ebird_code"]} if r.get("ebird_code") else {})} for r in rows]
 json.dump(labels, open(os.path.join(HERE, "..", "Hark", "Resources", "birdnet3_labels.json"), "w"), separators=(",", ":"))
-json.dump([{"top1": t} for t in top1], open(os.path.join(HERE, "..", "Hark", "Resources", "birdnet3_selftest.json"), "w"))
+if have_st:
+    json.dump([{"top1": t} for t in top1], open(os.path.join(HERE, "..", "Hark", "Resources", "birdnet3_selftest.json"), "w"))
 print("saved", dst, "and", len(labels), "labels")

@@ -1,7 +1,7 @@
 import CoreML
 import Foundation
 
-/// Perch 2.0 (Core ML, fp16-safe frontend; see ~/working/perch-spike). Input: 5 s of 32 kHz mono, 160,000 floats.
+/// Perch 2.0 (Core ML, fp16-safe frontend; see tools/models/perch). Input: 5 s of 32 kHz mono, 160,000 floats.
 public final class PerchClassifier: @unchecked Sendable {
     public static let sampleRate = 32_000
     public static let windowSamples = 160_000
