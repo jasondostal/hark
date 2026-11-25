@@ -45,11 +45,19 @@ extension AppTheme {
 }
 
 /// What's calling now, then maybes, then the last few species of the session, top to bottom.
+/// Each caption does what a list row does: tap for its actions, flick it away for "Not it", long-press for the rest.
 struct CaptionFeed: View {
     @Environment(Listener.self) private var listener
     @Environment(\.openDetection) private var open
+    @Environment(\.theme) private var theme
     /// Landscape: smaller type and a shorter trail, since the phone is only so tall.
     var compact = false
+    /// Show the whole session (the "and 5 more" line).
+    var more: (() -> Void)?
+    /// The caption whose actions are showing.
+    @State private var expanded: Int?
+    @State private var collapse: Task<Void, Never>?
+    @State private var sharing: Detection?
 
     fileprivate enum Kind { case now, maybe, unusual, trail }
     fileprivate struct Item: Identifiable {
@@ -57,48 +65,69 @@ struct CaptionFeed: View {
         let label: HarkCore.Label
         let kind: Kind
         let confidence: Float
-        var occurrence: DetectionTracker.Occurrence?
+        var detection: Detection?
+        var maybe: Maybe?
         var rank = 0
         var agreed = false
         var reason = ""
         /// The first time this species has ever been logged.
-        var isNew = false
+        var isNew: Bool { detection?.isFirst == true }
         var key: String { "\(id)-\(kind)-\(rank)" }
     }
 
-    private var items: [Item] {
+    /// The captions, and how many of the session's species they leave out.
+    private var feed: (items: [Item], more: Int) {
         var out: [Item] = [], seen = Set<Int>()
         let listening = listener.state == .listening
         // Newest caller on top; a bird that keeps singing holds its place (its first-heard time doesn't change).
         let now = listening ? listener.hearingNow.sorted { $0.firstHeard > $1.firstHeard } : []
         for o in now.prefix(compact ? 3 : 4) where seen.insert(o.index).inserted {
             guard let l = listener.label(o.index) else { continue }
-            out.append(Item(id: o.index, label: l, kind: .now, confidence: o.bestConfidence, occurrence: o, agreed: listener.agreed.contains(o.index),
-                            isNew: listener.detection(for: o)?.isFirst == true))
+            out.append(Item(id: o.index, label: l, kind: .now, confidence: o.bestConfidence, detection: listener.detection(for: o),
+                            agreed: listener.agreed.contains(o.index)))
         }
         for m in (listening ? listener.maybes : []).prefix(2) where seen.insert(m.index).inserted {
             guard let l = listener.label(m.index) else { continue }
-            out.append(Item(id: m.index, label: l, kind: m.unusual ? .unusual : .maybe, confidence: m.best,
+            out.append(Item(id: m.index, label: l, kind: m.unusual ? .unusual : .maybe, confidence: m.best, maybe: m,
                             reason: m.unusual ? listener.unusualReason(m.index) : ""))
         }
         var rank = 0
         for o in listener.session.sorted(by: { $0.lastHeard > $1.lastHeard }) where rank < (compact ? 3 : 4) && seen.insert(o.index).inserted {
             guard let l = listener.label(o.index) else { continue }
-            out.append(Item(id: o.index, label: l, kind: .trail, confidence: o.bestConfidence, occurrence: o, rank: rank,
-                            isNew: listener.detection(for: o)?.isFirst == true))
+            out.append(Item(id: o.index, label: l, kind: .trail, confidence: o.bestConfidence, detection: listener.detection(for: o), rank: rank))
             rank += 1
         }
-        return out
+        return (out, Set(listener.session.map(\.index)).subtracting(seen).count)
     }
 
     var body: some View {
-        let items = items, palette = listener.palette
+        let feed = feed, items = feed.items, palette = listener.palette
         VStack(alignment: .leading, spacing: compact ? 7 : 10) {
             ForEach(items) { item in
-                CaptionRow(item: item, compact: compact, palette: palette)
+                CaptionRow(item: item, compact: compact, palette: palette, expanded: expanded == item.id,
+                           act: { $0(); show(nil) }, notIt: { notIt(item.id) }, open: item.detection.map { d in { open?(d) } })
                     .contentShape(Rectangle())
-                    .onTapGesture { if let o = item.occurrence, let d = listener.detection(for: o) { open?(d) } }
+                    .onTapGesture { show(expanded == item.id ? nil : item.id) }
+                    .modifier(Flick { notIt(item.id) })
+                    .contextMenu {
+                        SpeciesMenu(index: item.id, detection: item.detection, maybe: item.maybe) { sharing = $0 }
+                    } preview: {
+                        CaptionRow(item: item, compact: true, palette: palette, preview: true)
+                            .environment(\.theme, theme)
+                            .padding(.horizontal, 18).padding(.vertical, 14).background(palette.background)
+                    }
                     .transition(.caption)
+            }
+            if feed.more > 0, let more {
+                Button(action: more) {
+                    HStack(spacing: 4) { Text("and \(feed.more) more"); Image(systemName: "chevron.right").imageScale(.small) }
+                        .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                        .padding(.leading, (compact ? 30 : 36) + 21).padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).foregroundStyle(palette.ink.opacity(0.55))
+                .shadow(color: palette.background.opacity(0.9), radius: 5)
+                .accessibilityLabel("\(feed.more) more species this session")
             }
         }
         .background(alignment: .topLeading) {
@@ -111,24 +140,95 @@ struct CaptionFeed: View {
             }
         }
         .animation(.spring(duration: 0.6, bounce: 0.16), value: items.map(\.key))
+        .animation(.snappy(duration: 0.25), value: expanded)
+        .sheet(item: $sharing) { d in ShareCardSheet(detection: d).themeRoot() }
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Heard")
+        #if DEBUG
+        .task {      // screenshot aid: -expandcaption opens the first caption's actions and leaves them open
+            guard ProcessInfo.processInfo.arguments.contains("-expandcaption") else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if expanded == nil, let first = self.feed.items.first { collapse?.cancel(); expanded = first.id }
+            }
+        }
+        #endif
+    }
+
+    /// Open one caption's actions (or none); they put themselves away after a few seconds.
+    private func show(_ id: Int?) {
+        collapse?.cancel()
+        expanded = id
+        guard id != nil else { return }
+        collapse = Task { try? await Task.sleep(for: .seconds(6)); if !Task.isCancelled { expanded = nil } }
+    }
+
+    private func notIt(_ index: Int) {
+        show(nil)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation { listener.notIt(index) }
+    }
+}
+
+/// Flick a caption off to the left to say "Not it", the way you'd flick a notification away.
+private struct Flick: ViewModifier {
+    let action: () -> Void
+    @State private var dx: CGFloat = 0
+    func body(content: Content) -> some View {
+        content
+            .offset(x: dx).opacity(1 - Double(min(-dx / 200, 0.75)))
+            .gesture(DragGesture(minimumDistance: 14)
+                .onChanged { v in if abs(v.translation.width) > abs(v.translation.height) { dx = min(v.translation.width, 0) } }
+                .onEnded { v in
+                    if dx < -90 || (dx < -30 && v.predictedEndTranslation.width < -220) {
+                        withAnimation(.easeIn(duration: 0.16)) { dx = -340 } completion: { action(); dx = 0 }
+                    } else {
+                        withAnimation(.spring(duration: 0.3, bounce: 0.3)) { dx = 0 }
+                    }
+                })
+    }
+}
+
+/// The small buttons that open under a caption.
+private struct StageChip: ButtonStyle {
+    let palette: SpectrogramPalette
+    var tint: Color?
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold)).labelStyle(.titleAndIcon).lineLimit(1).fixedSize()
+            .foregroundStyle(tint ?? palette.ink)
+            .padding(.horizontal, 11).frame(height: 32)
+            .background { Capsule().fill(.ultraThinMaterial).environment(\.colorScheme, palette.scheme) }
+            .overlay { Capsule().strokeBorder((tint ?? palette.ink).opacity(0.28), lineWidth: 1) }
+            .scaleEffect(configuration.isPressed ? 0.93 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+            .contentShape(Rectangle().inset(by: -4))
     }
 }
 
 private struct CaptionRow: View {
+    @Environment(Listener.self) private var listener
     let item: CaptionFeed.Item
     let compact: Bool
     let palette: SpectrogramPalette
+    /// Its actions are showing.
+    var expanded = false
+    /// Run an action, then put the actions away.
+    var act: (() -> Void) -> Void = { $0() }
+    var notIt: () -> Void = {}
+    var open: (() -> Void)?
+    /// Drawn in a long-press preview: full strength whatever its place in the feed.
+    var preview = false
     @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .title2) private var scale = 1.0
 
     private var opacity: Double {
+        if preview || expanded { return 1 }
         switch item.kind {
-        case .now, .unusual: 1
-        case .maybe: 0.7
-        case .trail: [0.74, 0.56, 0.4, 0.26][min(item.rank, 3)]
+        case .now, .unusual: return 1
+        case .maybe: return 0.7
+        case .trail: return [0.74, 0.56, 0.4, 0.26][min(item.rank, 3)]
         }
     }
 
@@ -138,11 +238,12 @@ private struct CaptionRow: View {
         let disc: CGFloat = now ? (compact ? 30 : 36) : trail ? 20 : 26
         let column: CGFloat = (compact ? 30 : 36) + 10      // discs of every size center on one line
         let name = NameBook.shared.primary(item.label.common, item.label.scientific, species: item.label.group.isSpecies)
-        HStack(alignment: .center, spacing: 11) {
+        let saw = item.detection?.confirmed == true
+        HStack(alignment: .top, spacing: 11) {
             StageDisc(group: item.label.group, size: disc, palette: palette,
                       ring: now ? Fusion.display(item.confidence) : nil,
                       mark: item.kind == .maybe ? "questionmark.circle.fill" : item.kind == .unusual ? "exclamationmark.circle.fill" : nil)
-                .frame(width: column)
+                .frame(width: column, height: max(disc, size * 1.2) + (trail ? 0 : 12 * scale))     // level with the name and its small line
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(item.kind == .maybe ? "\(name.text)?" : name.text)
@@ -152,21 +253,47 @@ private struct CaptionRow: View {
                     if trail && item.isNew {
                         Image(systemName: "sparkles").font(.system(size: 10 * scale)).foregroundStyle(.celebrate).accessibilityLabel("New for you")
                     }
+                    if trail && saw {
+                        Image(systemName: "eye.fill").font(.system(size: 10 * scale)).foregroundStyle(palette.accent).accessibilityLabel("You saw it")
+                    }
                 }
-                if !trail { detail }
+                if !trail { detail(saw: saw) }
+                if expanded && !preview { actions(saw: saw).padding(.top, 6).transition(.opacity.combined(with: .offset(y: -6))) }
             }
         }
         .foregroundStyle(palette.ink)
         .opacity(opacity)
-        .shadow(color: palette.background.opacity(0.9), radius: 7)
-        .shadow(color: palette.background.opacity(0.7), radius: 1.5)
-        .accessibilityElement(children: .ignore)
+        .shadow(color: palette.background.opacity(preview ? 0 : 0.9), radius: 7)
+        .shadow(color: palette.background.opacity(preview ? 0 : 0.7), radius: 1.5)
+        .accessibilityElement(children: expanded ? .contain : .ignore)
         .accessibilityLabel("\(name.text), \(item.confidence.shownPercent) percent, \(now ? "calling now" : trail ? "heard earlier" : "maybe")")
-        .accessibilityAddTraits(item.occurrence == nil ? [] : .isButton)
+        .accessibilityHint("Shows its actions")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// What a list row offers, as chips: I saw it, Not it, and the way to its page; a maybe gets Log it.
+    @ViewBuilder private func actions(saw: Bool) -> some View {
+        HStack(spacing: 7) {
+            if let m = item.maybe {
+                Button { act { listener.logMaybe(m, confirmed: false) } } label: { Label("Log it", systemImage: "plus") }
+                    .buttonStyle(StageChip(palette: palette))
+                Button { act { listener.logMaybe(m, confirmed: true) } } label: { Label("Saw it", systemImage: "eye") }
+                    .buttonStyle(StageChip(palette: palette, tint: palette.accent))
+            } else if let d = item.detection {
+                Button { act { d.confirmed.toggle() } } label: { Label(saw ? "Saw it" : "I saw it", systemImage: saw ? "checkmark" : "eye") }
+                    .buttonStyle(StageChip(palette: palette, tint: palette.accent))
+            }
+            Button(action: notIt) { Label("Not it", systemImage: "xmark") }
+                .buttonStyle(StageChip(palette: palette))
+            if let open {
+                Button { act(open) } label: { Image(systemName: "chevron.right") }
+                    .buttonStyle(StageChip(palette: palette)).accessibilityLabel("Open its page")
+            }
+        }
     }
 
     /// The small line under a name: how sure, and the other name.
-    @ViewBuilder private var detail: some View {
+    @ViewBuilder private func detail(saw: Bool) -> some View {
         let small = Font.system(size: (compact ? 11 : 12) * scale, weight: .semibold).monospacedDigit()
         HStack(spacing: 5) {
             switch item.kind {
@@ -176,6 +303,9 @@ private struct CaptionRow: View {
                         .accessibilityLabel("Both models agree")
                 }
                 Text("\(item.confidence.shownPercent)%").font(small)
+                if saw {
+                    Image(systemName: "eye.fill").font(.system(size: 11 * scale)).foregroundStyle(palette.accent).accessibilityLabel("You saw it")
+                }
                 if item.isNew {      // the moment itself: a first for your list
                     HStack(spacing: 3) { Image(systemName: "sparkles"); Text("New for you") }
                         .font(small).foregroundStyle(.celebrate).fixedSize()

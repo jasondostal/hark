@@ -18,9 +18,10 @@ struct ListenView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.theme) private var theme
     private var landscape: Bool { verticalSize == .compact }
-    /// Landscape full screen: the list column hides so the spectrogram spans the phone. It comes back while a
-    /// selection is open, since that's where the results are.
-    @AppStorage("landscapeFull") private var fullScreen = false
+    /// Landscape opens full screen, the spectrogram spanning the phone with captions over it; the button brings the
+    /// list in as a column beside it. The column also comes back while a selection is open, since that's where
+    /// the results are.
+    @AppStorage("landscapeFull") private var fullScreen = true
     private var showColumn: Bool { !fullScreen || selection.isFrozen }
     /// Portrait full screen: by the expand button, or because Settings > Spectrogram > Height is all the way up.
     /// The list comes back while a selection is open, as in landscape.
@@ -188,7 +189,7 @@ struct ListenView: View {
         .overlay {
             if fullNow {      // full screen: what's calling, as captions in the corner
                 Color.clear.overlay(alignment: .topLeading) {
-                    CaptionFeed(compact: landscape)
+                    CaptionFeed(compact: landscape) { logSession = listener.sessionID; showLog = true }
                         .environment(\.openDetection) { opened = $0 }
                         .padding(.top, topInset + 12).padding(.leading, listener.frequencyLabels ? 46 : 16).padding(.trailing, 16)
                 }
@@ -196,6 +197,7 @@ struct ListenView: View {
                 .transition(.opacity)
             }
         }
+        .overlay(alignment: .bottom) { if fullNow { UndoToast().padding(.bottom, 14) } }      // "Not it" from a caption
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
     }
 
@@ -953,27 +955,38 @@ private struct MuteSwipe: ViewModifier {
                 Button(role: .destructive) { withAnimation { listener.notIt(index) } } label: { Label("Not it", systemImage: "xmark") }
                 Button { listener.mute(index) } label: { Label("Never show", systemImage: "speaker.slash") }.tint(.gray)
             }
-            .contextMenu {
-                if let m = maybe {
-                    Button { listener.logMaybe(m, confirmed: false) } label: { Label("Log it", systemImage: "plus") }
-                    Button { listener.logMaybe(m, confirmed: true) } label: { Label("I saw it", systemImage: "eye") }
-                }
-                if let d = detection {
-                    Button { open?(d) } label: { Label("Open", systemImage: "doc.text.magnifyingglass") }
-                    Button { d.confirmed.toggle() } label: {
-                        Label(d.confirmed ? "I didn't see it" : "I saw it", systemImage: d.confirmed ? "eye.slash" : "eye")
-                    }
-                    Button { sharing = d } label: { Label("Share…", systemImage: "square.and.arrow.up") }
-                }
-                if let url = listener.lookupURL(index) {
-                    Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
-                }
-                Divider()
-                Button(role: .destructive) { withAnimation { listener.notIt(index) } } label: {
-                    Label("Not it (just this time)", systemImage: "xmark")
-                }
-                Button(role: .destructive) { listener.mute(index) } label: { Label("Never show this species", systemImage: "speaker.slash") }
+            .contextMenu { SpeciesMenu(index: index, detection: detection, maybe: maybe) { sharing = $0 } }
+    }
+}
+
+/// Everything you can do with a species, for a long-press on a row or a caption.
+struct SpeciesMenu: View {
+    @Environment(Listener.self) private var listener
+    @Environment(\.openDetection) private var open
+    let index: Int
+    var detection: Detection?
+    var maybe: Maybe?
+    var share: (Detection) -> Void
+    var body: some View {
+        if let m = maybe {
+            Button { listener.logMaybe(m, confirmed: false) } label: { Label("Log it", systemImage: "plus") }
+            Button { listener.logMaybe(m, confirmed: true) } label: { Label("I saw it", systemImage: "eye") }
+        }
+        if let d = detection {
+            Button { open?(d) } label: { Label("Open", systemImage: "doc.text.magnifyingglass") }
+            Button { d.confirmed.toggle() } label: {
+                Label(d.confirmed ? "I didn't see it" : "I saw it", systemImage: d.confirmed ? "eye.slash" : "eye")
             }
+            Button { share(d) } label: { Label("Share…", systemImage: "square.and.arrow.up") }
+        }
+        if let url = listener.lookupURL(index) {
+            Link(destination: url) { Label("Look it up on iNaturalist", systemImage: "safari") }
+        }
+        Divider()
+        Button(role: .destructive) { withAnimation { listener.notIt(index) } } label: {
+            Label("Not it (just this time)", systemImage: "xmark")
+        }
+        Button(role: .destructive) { listener.mute(index) } label: { Label("Never show this species", systemImage: "speaker.slash") }
     }
 }
 

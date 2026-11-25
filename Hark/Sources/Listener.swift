@@ -202,7 +202,7 @@ final class Listener {
         tracker.confirmWindows = c.windows; tracker.confirmSpan = c.span
     }
     private var loop: Task<Void, Never>?
-    private var sessionID = UUID()
+    private(set) var sessionID = UUID()
     private var logged: [UUID: Detection] = [:]   // occurrence id -> its log row
     private var recentMaybes: [Int: Maybe] = [:]
     private var manualIndices: Set<Int> = []
