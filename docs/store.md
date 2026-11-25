@@ -127,11 +127,20 @@ Not applicable. Third-party components and their licenses are listed in Settings
 
 ## Screenshots (6.9", 1320 × 2868)
 
-Uploaded 2026-11-21, `tools/shots/store/` in order: live listening with "Both models", a paused selection with results,
-the log timeline, a session with route and chart, Settings. Made on the iPhone 18 Pro Max simulator (1320 × 2868),
-status bar overridden to 9:41, location Horicon Marsh, with `-demolog <a folder of recordings>` (Debug-only
-made-up log) and `-feedfile` yard recordings. The Owling shot was dropped: the owl/peeper recordings render almost
-empty in red.
+1.0 (live): five light-mode shots uploaded 2026-11-21 (in git history under `tools/shots/store/`).
+
+1.1 (made 2026-11-25, not uploaded yet): `tools/shots/store/`, in order: full screen with captions, the Listen screen,
+a paused selection with results, the Journal timeline, a session with route and chart, the Journal map, the Field
+Notebook look (the light one), Settings with the looks. Upload them with `tools/asc/shots.py tools/shots/store/*.png`
+once the 1.1 version exists in App Store Connect.
+
+How they're made: the iPhone 18 Pro Max simulator, `simctl status_bar override --time 9:41` (full bars, charged),
+`simctl location set 43.4561,-88.6342` (Horicon Marsh), microphone and location granted with `simctl privacy`, and the
+Debug build's launch arguments: `-notips -autolisten -feedfile <recordings>` for the live shots (your own recordings,
+kept outside the repo; goose, chickadee, robin, crow, cardinal, blue jay in that order, frame taken at about 1:41-1:43
+when the jay calls), `-select` for the selection, `-logtab -demolog <folder of recordings>` for the made-up Journal
+(`-opensession 2` for the session, `-logmode Map` for the map), `-settings`, and `-theme notebook -palette paper` for
+the light one. Timing a live shot is guesswork, so take a burst and pick.
 
 ## 1.1 (build 4): draft, not submitted
 
@@ -157,7 +166,7 @@ TestFlight: 1.1 (4) uploaded 2026-11-25 from ead0e7a, internal group "Me" only (
 automatic distribution off, so each build is added to it by hand; with it on, TestFlight also offered the 1.0 builds.
 The next upload needs CURRENT_PROJECT_VERSION 5.
 
-Not yet done before submitting: run on the phone (gain, modes, a real file from Files), new screenshots (the 1.0 ones
-show the old light screens and say "Log"), and the description's "Your log stays on your phone" could become "journal".
+Not yet done before submitting: run on the phone (gain, modes, a real file from Files), upload the 1.1 screenshots,
+and the description's "Your log stays on your phone" could become "journal".
 The default look (stored as "classic", shown as "Hark") no longer follows the phone's light/dark setting: it follows the
 spectrogram's palette, so people updating in light mode get the dark look until they pick Paper or Field Notebook.

@@ -102,6 +102,7 @@ struct LogView: View {
                     mode = .sessions; path.append(s)
                 }
                 let args = ProcessInfo.processInfo.arguments   // screenshot aids
+                if let i = args.firstIndex(of: "-logmode"), i + 1 < args.count, let m = Mode(rawValue: args[i + 1]) { mode = m }   // -logmode Species
                 if let i = args.firstIndex(of: "-opensession") {   // optional index: -opensession 2 = third most recent
                     let n = i + 1 < args.count ? Int(args[i + 1]) ?? 0 : 0
                     Task {   // after -demolog has seeded

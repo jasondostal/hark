@@ -5,7 +5,12 @@ import SwiftData
 @main
 struct HarkApp: App {
     @State private var listener = Listener.shared
-    init() { SelfTest.runIfRequested(); HarkTips.configure() }
+    init() {
+        SelfTest.runIfRequested(); HarkTips.configure()
+        // Navigation titles take the look's face from the first bar on (themeRoot keeps it current after that).
+        let palette = SpectrogramPalette(rawValue: UserDefaults.standard.string(forKey: "palette") ?? "") ?? .aurora
+        AppTheme.stored.applyAppearance(ink: AppTheme.stored.surface(palette).ink)
+    }
     var body: some Scene {
         WindowGroup {
             ListenView()

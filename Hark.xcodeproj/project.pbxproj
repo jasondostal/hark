@@ -42,6 +42,7 @@
 		9AFC21C1024C286FC09D608F /* GeoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EC85293D0A1FFDA2362CCC6 /* GeoModel.swift */; };
 		9C3F6698C79657CBA3A83182 /* WrongIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */; };
 		9E24A23B3ED36F75EDFB0BE3 /* Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AAC1FC7177CAC93C91360C /* Listener.swift */; };
+		A0CC90CEF6F6ADB2D21FD672 /* WhatsNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = C122BC5783F1BFF600A3437C /* WhatsNew.swift */; };
 		A6313E1DE737C6F61D734FB3 /* HarkCore in Frameworks */ = {isa = PBXBuildFile; productRef = 29E0FD64F9CAFC833AF4EB14 /* HarkCore */; };
 		A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58B6C9AE043448A282C4B970 /* Theme.swift */; };
 		A9DB9D8CB9F93B6F5049A4F1 /* Clips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46339CF0455911EAAB8F7134 /* Clips.swift */; };
@@ -137,6 +138,7 @@
 		BC3DFA57E6E21264A9EFE5D7 /* HarkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarkWidgets.entitlements; sourceTree = "<group>"; };
 		BD63D45D2FF339617FD4D1C1 /* OFL-SairaStencilOne.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-SairaStencilOne.txt"; sourceTree = "<group>"; };
 		BFF8C8EC06D2ACA4635041B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C122BC5783F1BFF600A3437C /* WhatsNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNew.swift; sourceTree = "<group>"; };
 		C9DF49BC5773FE7D392E921C /* ranges.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ranges.bin; sourceTree = "<group>"; };
 		CBDDAAD87DE38DE646CB6DD5 /* FileAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileAnalysis.swift; sourceTree = "<group>"; };
 		CC4F54B59A1E7A42D623ADCE /* AcknowledgementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementsView.swift; sourceTree = "<group>"; };
@@ -257,6 +259,7 @@
 				D941B45C78432B52FF73B873 /* Style.swift */,
 				58B6C9AE043448A282C4B970 /* Theme.swift */,
 				E57057B4556BAF1B8EB58C1F /* UndoToast.swift */,
+				C122BC5783F1BFF600A3437C /* WhatsNew.swift */,
 				32AA97CD2D911B2D23B30884 /* WidgetBridge.swift */,
 				5F524E1D03EB3AE4BBFADD60 /* WrongIDs.swift */,
 			);
@@ -465,6 +468,7 @@
 				5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */,
 				A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */,
 				FCF102032CD90175EE4BCAA6 /* UndoToast.swift in Sources */,
+				A0CC90CEF6F6ADB2D21FD672 /* WhatsNew.swift in Sources */,
 				FFC7860ACFD8D1BABCD311A0 /* WidgetBridge.swift in Sources */,
 				C6A39BCE761A23F4CBFF233F /* WidgetSnapshot.swift in Sources */,
 				9C3F6698C79657CBA3A83182 /* WrongIDs.swift in Sources */,

@@ -38,6 +38,8 @@ struct ListenView: View {
     @State private var logSession: UUID?
     /// A detection tapped in the list: its page, right here.
     @State private var opened: Detection?
+    /// "What's new", once, for someone updating.
+    @State private var showNews = false
 
     var body: some View {
         @Bindable var listener = listener
@@ -51,10 +53,11 @@ struct ListenView: View {
             FileAnalysisView().themeRoot()
         }
         .sheet(item: $opened) { DetectionSheet(detection: $0).themeRoot() }
+        .sheet(isPresented: $showNews) { WhatsNewView().themeRoot() }
         .onChange(of: listener.state) { _, s in
             if s == .listening { listener.selection.unfreeze() }
         }
-        .onChange(of: FileAnalysis.shared.arrivals) { _, _ in showSettings = false; showLog = false; opened = nil; filesChosen = true; showFiles = true }
+        .onChange(of: FileAnalysis.shared.arrivals) { _, _ in showSettings = false; showLog = false; showNews = false; opened = nil; filesChosen = true; showFiles = true }
         .onChange(of: selection.isFrozen) { _, frozen in
             if !frozen { HearTip.hasSelection = false }
         }
@@ -65,6 +68,7 @@ struct ListenView: View {
         .onAppear {
             listener.modelContext = ctx
             WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
+            if !showSettings && !showLog && !showFiles && WhatsNew.isDue() { showNews = true }
             #if DEBUG
             Task {
                 await DemoData.seedIfRequested(ctx)      // screenshot aid: -demolog <dir>

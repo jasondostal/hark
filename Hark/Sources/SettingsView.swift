@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var inputs: [AVAudioSessionPortDescription] = []
     @State private var confirmReset = false
+    @State private var showNews = false
     @State private var showLocation = ProcessInfo.processInfo.arguments.contains("-settingslocation")   // screenshot aid
     /// Screenshot aid: -settingspage Inference | Spectrogram | Audio
     @State private var showPage: String? = { let a = ProcessInfo.processInfo.arguments; return a.firstIndex(of: "-settingspage").flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } }()
@@ -488,6 +489,8 @@ struct SettingsView: View {
                 LabeledContent("Speed", value: String(format: "%.0f ms per window", listener.lastInferenceMs))
             }
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+            Button("What's new in \(WhatsNew.version)") { showNews = true }
+                .sheet(isPresented: $showNews) { WhatsNewView().themeRoot() }
             NavigationLink("Acknowledgements") { AcknowledgementsView() }
             Button("Reset all settings", role: .destructive) { confirmReset = true }
                 .confirmationDialog("Put every setting back the way Hark came?", isPresented: $confirmReset, titleVisibility: .visible) {
