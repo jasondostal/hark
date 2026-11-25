@@ -157,7 +157,11 @@ struct ListenView: View {
             }
         }
         .frame(height: height)
-        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { SpectrogramStyle.shared.set(panelHeight: $0) }
+        .onGeometryChange(for: CGSize.self, of: { $0.size }) { size in
+            SpectrogramStyle.shared.set(panelHeight: size.height)
+            // Taller than wide (full screen upright): zoom in on time by the same amount, so calls keep their shape.
+            listener.tallScale = size.height > size.width && !selection.isFrozen ? Double(size.width / size.height) : 1
+        }
         .overlay(alignment: .top) {
             if selection.isFrozen && selection.canPan {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
@@ -230,13 +234,14 @@ struct ListenView: View {
             if landscape || !heightIsFull {
                 let full = landscape ? fullScreen : portraitFull
                 Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
-                    Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    // On its side the button brings the list in and out beside the spectrogram; upright it's full screen.
+                    Image(systemName: landscape ? "sidebar.right" : full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         .font(.subheadline.weight(.semibold))
                         .padding(.vertical, 4)
                 }
                 .buttonStyle(.bordered)
                 .tint(overlayTint)
-                .accessibilityLabel(full ? "Show the list" : "Full screen spectrogram")
+                .accessibilityLabel(full ? "Show the list" : landscape ? "Hide the list" : "Full screen spectrogram")
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -324,7 +329,7 @@ struct ListenView: View {
                     Text("Hear something?").font(.title3.bold())
                     Tip(symbol: "mic.fill", text: "Tap the **green button**. Birds, frogs, insects and mammals show up here as Hark hears them.")
                     Tip(symbol: "hand.draw", text: "Missed it? **Touch the spectrogram** to pause it, then drag across the call. It reaches back a full minute.")
-                    Tip(symbol: "square.grid.2x2", text: "The row above the button picks what it does: a timed **point count**, a walked **survey**, or audio **recordings**.")
+                    Tip(symbol: "chevron.up.chevron.down", text: "**Live** above the button is the mode. Tap it for a timed **point count**, a walked **survey**, or audio **recordings**.")
                 }
                 .padding(.vertical, 6)
             }
@@ -415,7 +420,7 @@ struct ListenView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 6) {
-            ModeStrip(choice: choiceBinding, locked: listener.state == .listening)
+            ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil)
             HStack(alignment: .center) {
                 BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
                 Spacer()
@@ -429,7 +434,7 @@ struct ListenView: View {
         .background(.appBar)
     }
 
-    /// What the big button does, as one choice (the camera's row of modes): the listening mode, Manual folded in
+    /// What the big button does, as one choice (the mode button above it): the listening mode, Manual folded in
     /// as its own entry, and Recordings, which isn't listening at all.
     @State private var filesChosen = false
     private var choice: ModeChoice {
@@ -484,13 +489,13 @@ struct ListenView: View {
         VStack {
             BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
             Spacer(minLength: 0)
-            ModeStrip(choice: choiceBinding, locked: listener.state == .listening, vertical: true)
+            ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil, narrow: true)
             ListenButton(choice: choice) { showFiles = true }
             Spacer(minLength: 0)
             BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
         }
         .padding(.vertical, 8)
-        .frame(width: 96)
+        .frame(width: 104)      // room for the longest mode name ("Point count") with a margin
         .frame(maxHeight: .infinity)
         .background(.appBar)
     }
@@ -535,6 +540,16 @@ enum ModeChoice: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self { case .live: "mic.fill"; case .manual: "hand.draw.fill"; case .point: "timer"; case .survey: "figure.walk"; case .files: "folder.fill" }
     }
+    /// One line, in the list of modes.
+    var brief: String {
+        switch self {
+        case .live: "Identify everything it hears"
+        case .manual: "Identify only the calls you pick"
+        case .point: "One spot, a set time, a tally"
+        case .survey: "A walk, with a map of what you heard"
+        case .files: "Identify audio files"
+        }
+    }
     var hint: String {
         switch self {
         case .live: "Identifies everything it hears, for as long as you like."
@@ -546,45 +561,56 @@ enum ModeChoice: String, CaseIterable, Identifiable {
     }
 }
 
-/// The row of modes above the big button, like the camera's. Tap one; the button's icon changes to match.
-/// While listening it shows the mode that's running and can't be changed.
-struct ModeStrip: View {
+/// The mode, as one small button above the big one: it names what a press will do, and a tap lists the modes.
+/// While listening it names the mode that's running and how long it has been, and can't be changed.
+struct ModeButton: View {
     @Binding var choice: ModeChoice
-    var locked = false
-    var vertical = false
+    /// Listening since (nil when idle).
+    var running: Date?
+    /// The landscape rail: narrower, and the running time goes under the name.
+    var narrow = false
     @Environment(\.theme) private var theme
-    var body: some View {
-        // Narrow phones get the same row a size or two smaller rather than a clipped one.
-        ViewThatFits(in: .horizontal) {
-            row(size: vertical ? 11 : 13, pad: vertical ? 6 : 9)
-            row(size: 12, pad: 6)
-            row(size: 11, pad: 4)
-        }
-        .dynamicTypeSize(...DynamicTypeSize.large)       // a fixed row, like the system tab bar
-        .disabled(locked)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Mode")
-    }
+    private var font: Font { theme.isPixel ? .pixel(narrow ? 8 : 10) : (narrow ? Font.caption : Font.subheadline).weight(.semibold) }
 
-    private func row(size: CGFloat, pad: CGFloat) -> some View {
-        let layout = vertical ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 2))
-        return layout {
-            ForEach(ModeChoice.allCases) { c in
-                let on = c == choice
-                Button { withAnimation(.snappy) { choice = c } } label: {
-                    Text(c.title)
-                        .font(theme.isPixel ? .pixel(max(size - 4, 7)) : .system(size: size, weight: on ? .bold : .medium))
-                        .lineLimit(1).fixedSize()
-                        .padding(.horizontal, pad).padding(.vertical, vertical ? 3 : 5)
-                        .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                        .background { if on { Capsule().fill(.tint.opacity(0.14)) } }
-                        .contentShape(Rectangle())
+    var body: some View {
+        Group {
+            if let running {
+                let stack = narrow ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 6))
+                stack {
+                    Text(choice.title)
+                    if choice != .point {      // a point count shows its time left on the spectrogram
+                        Text(timerInterval: running...Date.distantFuture, countsDown: false).monospacedDigit()
+                            .accessibilityLabel("Listening time")
+                    }
                 }
-                .buttonStyle(.plain)
-                .opacity(locked && !on ? 0.3 : 1)
-                .accessibilityAddTraits(on ? .isSelected : [])
+                .font(font).foregroundStyle(.secondary).lineLimit(1)
+                .padding(.horizontal, narrow ? 6 : 14).padding(.vertical, narrow ? 2 : 6)
+                .accessibilityElement(children: .combine)
+            } else {
+                Menu {
+                    Picker("Mode", selection: $choice) {
+                        ForEach(ModeChoice.allCases) { c in
+                            Label { Text(c.title); Text(c.brief) } icon: { Image(systemName: c.symbol) }.tag(c)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(choice.title).lineLimit(1).fixedSize()
+                        Image(systemName: "chevron.up.chevron.down").imageScale(.small).fontWeight(.bold).opacity(0.7)
+                    }
+                    .font(font).foregroundStyle(.tint)
+                    .padding(.horizontal, narrow ? 8 : 14).padding(.vertical, 6)
+                    .background(.tint.opacity(0.14), in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .menuOrder(.fixed)
+                .accessibilityLabel("Mode")
+                .accessibilityValue(choice.title)
+                .accessibilityHint("Picks what the big button does")
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)       // a fixed bar, like the system tab bar
+        .frame(minHeight: narrow ? 34 : 32)               // idle and listening take the same room
     }
 }
 
@@ -702,14 +728,46 @@ struct MaybeRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let label: HarkCore.Label
     let maybe: Maybe
+    @Environment(\.compactRows) private var compact
     var body: some View {
-        HStack(spacing: 12) {
-            TaxonIcon(group: label.group, faint: !maybe.unusual)
-                .overlay(alignment: .bottomTrailing) {
-                    Image(systemName: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
-                        .font(.caption).foregroundStyle(.white, maybe.unusual ? Color.orange : Color.gray)
-                        .offset(x: 3, y: 3)
+        if compact { compactBody } else { fullBody }
+    }
+
+    private func icon(size: CGFloat) -> some View {
+        TaxonIcon(group: label.group, size: size, faint: !maybe.unusual)
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
+                    .font(.caption).foregroundStyle(.white, maybe.unusual ? Color.orange : Color.gray)
+                    .offset(x: 3, y: 3)
+            }
+    }
+
+    /// Landscape column: the name keeps the top line to itself and the two buttons share the one under it.
+    private var compactBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                icon(size: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(maybe.unusual ? label.displayName : "\(label.displayName)?").font(.subheadline).lineLimit(2).minimumScaleFactor(0.85)
+                        .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    if maybe.unusual { Text(listener.unusualReason(maybe.index)).font(.caption2).foregroundStyle(.orange).lineLimit(2) }
                 }
+                Spacer(minLength: 4)
+                Text("\(maybe.best.shownPercent)%").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                Button { listener.logMaybe(maybe, confirmed: false) } label: { Text("Log it").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered)
+                Button { listener.logMaybe(maybe, confirmed: true) } label: { Label("Saw it", systemImage: "eye").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered).tint(GoodStyle())
+            }
+            .font(.caption.weight(.medium)).controlSize(.small)
+        }
+    }
+
+    private var fullBody: some View {
+        HStack(spacing: 12) {
+            icon(size: 34)
             VStack(alignment: .leading) {
                 Text(maybe.unusual ? label.displayName : "\(label.displayName)?")
                     .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))

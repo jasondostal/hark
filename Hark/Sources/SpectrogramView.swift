@@ -16,12 +16,15 @@ struct SpectrogramConfig: Equatable, Sendable {
 }
 
 /// Spectrogram math shared by the live view and touch-to-select: an FFT (1024-point unless changed) every 10 ms
-/// (hop 320 at 32 kHz), 128 mel bands (150 Hz to 15 kHz unless changed), log power over a per-band noise floor.
+/// (hop 320 at 32 kHz), 256 mel bands (150 Hz to 15 kHz unless changed), log power over a per-band noise floor.
 /// Steady background (road rumble, wind, furnace) fades to dark, and so does the natural low-frequency tilt. Each
 /// floor follows quiet quickly and loud slowly (about 3 s), so a call doesn't raise its own floor. Not thread-safe;
 /// one per stream.
 final class SpectrogramDSP {
-    static let bins = 128, hop = 320
+    /// 256 bands, so a spectrogram as tall as the screen still has detail to show (128 smeared when stretched).
+    static let bins = 256, hop = 320
+    /// The lowest bands, where rumble lives: skipped when looking for a call's loudest spot.
+    static let rumbleBands = bins * 3 / 32
     static let columnsPerSecond = 100
     private static let sr: Float = 32_000
 
@@ -63,7 +66,7 @@ final class SpectrogramDSP {
 
     func reset() { floorDB = [Float](repeating: -100, count: Self.bins); warm = 0 }
 
-    /// One column of 128 display levels (0...255, low band first) from n samples starting at `frame`.
+    /// One column of display levels, one per band (0...255, low band first) from n samples starting at `frame`.
     func column(_ frame: UnsafePointer<Float>, into out: UnsafeMutablePointer<UInt8>) {
         var db = [Float](repeating: 0, count: Self.bins)
         // Digital silence (a feed's lead-in, a gap in a saved clip) would drag the noise floor down so far that the
@@ -116,7 +119,7 @@ final class SpectrogramDSP {
         return true
     }
 
-    /// Whole-clip spectrogram (selections, saved clips): column-major levels, 128 per column.
+    /// Whole-clip spectrogram (selections, saved clips): column-major levels, `bins` per column.
     static func levels(of samples: [Float]) -> (data: [UInt8], columns: Int) {
         let dsp = SpectrogramDSP()
         let n = dsp.n
@@ -189,8 +192,9 @@ final class SpectrogramDSP {
         }
     }
 
-    /// Triangular mel filters, area-normalized so flat noise looks flat. Bands narrower than one FFT bin
-    /// fall back to their nearest bin instead of going black.
+    /// Triangular mel filters, area-normalized so flat noise looks flat. Bands narrower than two FFT bins (the
+    /// low end) read the spectrum at their center, between the two nearest bins, so they shade smoothly into each
+    /// other; that is exactly what a triangle two bins wide does, so there's no seam where the two rules meet.
     fileprivate static func melBank(n: Int, topHz: Float) -> [Float] {
         let half = n / 2, binHz = sr / Float(n)
         func mel(_ f: Float) -> Float { 2595 * log10f(1 + f / 700) }
@@ -200,6 +204,11 @@ final class SpectrogramDSP {
         var m = [Float](repeating: 0, count: bins * half)
         for b in 0..<bins {
             let l = pts[b], c = pts[b + 1], r = pts[b + 2]
+            if r - l < 2 * binHz {
+                let x = c / binHz, k0 = min(Int(x), half - 2), t = min(max(x - Float(k0), 0), 1)
+                m[b * half + k0] = (1 - t) / binHz; m[b * half + k0 + 1] = t / binHz
+                continue
+            }
             var sum: Float = 0
             for k in 0..<half {
                 let f = Float(k) * binHz
@@ -296,7 +305,7 @@ final class LiveSpectrogram: @unchecked Sendable {
         var best = (c: start, b: 0, v: -1)
         for c in start..<end {
             let base = (c % Self.capacity) * Self.bins
-            for b in 12..<(Self.bins - 1) where !avoiding.contains(where: { abs($0 - b) < 14 }) {
+            for b in SpectrogramDSP.rumbleBands..<(Self.bins - 1) where !avoiding.contains(where: { abs($0 - b) < Self.bins / 9 }) {
                 let v = Int(ring[base + b - 1]) + 2 * Int(ring[base + b]) + Int(ring[base + b + 1])
                 if v > best.v { best = (c, b, v) }
             }

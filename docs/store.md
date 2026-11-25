@@ -143,7 +143,7 @@ Hark 1.1 is for people who want more control.
 • Modes: Live as before, plus Point count (stand still for a set time and get a tally) and Survey (walk a route; no time limit, finer track).
 • Analyze recordings: pick one audio file or many, and Hark listens to them the way it listens live. Each becomes a session in your Log.
 • Sessions: name them, add notes, see the tally, share or delete a single session.
-• Spectrogram: set its height up to full screen in portrait, FFT size, top frequency, background fade, and drawing quality.
+• Spectrogram: twice the frequency detail; set its height up to full screen in portrait (it zooms in rather than stretching), FFT size, top frequency, background fade, and drawing quality.
 • Audio: microphone gain, and a high-pass filter you set in Hz.
 • Detection tuning: one confidence slider, how often Hark checks, and a setting for the voices-and-music guard.
 • Fixes: a siren no longer counts as a salamander.

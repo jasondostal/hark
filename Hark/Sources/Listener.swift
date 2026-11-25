@@ -211,7 +211,7 @@ final class Listener {
     var modelContext: ModelContext?
     let selection = Selection()
     private var pendingStart = false
-    private var startedAt = Date()
+    private(set) var startedAt = Date()
     private var sessionSpecies: Set<Int> = []
     private let liveActivity = LiveActivityController()
     private var sessionRecord: ListeningSession?
@@ -241,10 +241,13 @@ final class Listener {
         didSet { UserDefaults.standard.set(spectrogramSeconds, forKey: "spectrogramSeconds"); live.setSeconds(shownSeconds) }
     }
     /// Spectrogram width over its portrait width: landscape shows proportionally more time at the same detail.
-    var widthScale = 1.0 { didSet { if shownSeconds != Self.seconds(spectrogramSeconds, oldValue) { live.setSeconds(shownSeconds) } } }
-    var shownSeconds: Int { Self.seconds(spectrogramSeconds, widthScale) }
-    private static func seconds(_ s: Int, _ scale: Double) -> Int {
-        min(max(Int((Double(s) * max(scale, 1)).rounded()), s), LiveSpectrogram.maxSeconds)
+    var widthScale = 1.0 { didSet { if widthScale != oldValue { live.setSeconds(shownSeconds) } } }
+    /// Panel width over its height once it's taller than it is wide (1 otherwise). A tall panel shows that much
+    /// less time, so full screen upright is the same picture bigger rather than the same picture stretched.
+    var tallScale = 1.0 { didSet { if tallScale != oldValue { live.setSeconds(shownSeconds) } } }
+    var shownSeconds: Int {
+        let wide = min(max(Double(spectrogramSeconds) * max(widthScale, 1), Double(spectrogramSeconds)), Double(LiveSpectrogram.maxSeconds))
+        return max(Int((wide * min(max(tallScale, 0.4), 1)).rounded()), 2)
     }
     var frequencyLabels: Bool = UserDefaults.standard.object(forKey: "frequencyLabels") as? Bool ?? true {
         didSet { UserDefaults.standard.set(frequencyLabels, forKey: "frequencyLabels") }

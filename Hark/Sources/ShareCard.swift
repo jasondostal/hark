@@ -32,7 +32,7 @@ struct ShareCardModel {
         group = d.taxon; when = d.firstHeard; percent = d.confidence.shownPercent; confirmed = d.confirmed
     }
 
-    /// The clip's spectrogram and its loudest spot (bands 12+, as the live pins do).
+    /// The clip's spectrogram and its loudest spot (above the rumble bands, as the live pins do).
     static func spectrogram(file: String) async -> (CGImage, CGPoint)? {
         await Task.detached(priority: .userInitiated) { () -> (CGImage, CGPoint)? in
             guard let s = ClipStore.load(file) else { return nil }
@@ -45,7 +45,7 @@ struct ShareCardModel {
             var best = (score: -1, c: first, b: 0)
             for c in first...last {
                 let base = c * h
-                for b in 13..<(h - 1) where SpectrogramDSP.bandHz(b) < 11_000 {
+                for b in (SpectrogramDSP.rumbleBands + 1)..<(h - 1) where SpectrogramDSP.bandHz(b) < 11_000 {
                     let v = Int(lv.data[base + b - 1]) + 2 * Int(lv.data[base + b]) + Int(lv.data[base + b + 1])
                     if v > best.score { best = (v, c, b) }
                 }

@@ -91,11 +91,11 @@ final class SpectrogramStyle: @unchecked Sendable {
     private var _lut = SpectrogramPalette.aurora.lut
     private var _span: Float = 36
     private var _pixel = false
-    private var _pixelBands = 4
-    /// Mel bands per 8-bit block row: 4 (32 rows) for the short portrait panel, 2 (64 rows) for tall landscape,
-    /// so blocks stay about square.
+    private var _pixelBands = SpectrogramDSP.bins / 32
+    /// Mel bands per 8-bit block row: 32 rows for the short portrait panel, 64 for tall panels, so blocks stay
+    /// about square.
     var pixelBands: Int { lock.lock(); defer { lock.unlock() }; return _pixelBands }
-    func set(panelHeight h: CGFloat) { lock.lock(); _pixelBands = h > 330 ? 2 : 4; lock.unlock() }
+    func set(panelHeight h: CGFloat) { lock.lock(); _pixelBands = SpectrogramDSP.bins / (h > 330 ? 64 : 32); lock.unlock() }
     /// 8-bit look: images are built in blocks (see SpectrogramDSP.pixelBlock).
     var pixel: Bool { lock.lock(); defer { lock.unlock() }; return _pixel }
     var lut: [UInt32] { lock.lock(); defer { lock.unlock() }; return _lut }

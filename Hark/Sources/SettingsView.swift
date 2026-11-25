@@ -334,7 +334,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.navigationLink)
             VStack(alignment: .leading, spacing: 8) {
-                SettingLabel("Time shown", help: "How many seconds of sound fit across the spectrogram when the phone is upright (on its side it shows proportionally more).\n\n5 s spreads each call out so you can see its shape. 30 s shows the pattern of who is calling when, and everything scrolls slowly. Touching the spectrogram always reaches back a full minute, whatever this is set to.",
+                SettingLabel("Time shown", help: "How many seconds of sound fit across the spectrogram when the phone is upright. On its side it shows proportionally more, and full screen upright shows proportionally less, so calls keep the same shape at every size.\n\n5 s spreads each call out so you can see its shape. 30 s shows the pattern of who is calling when, and everything scrolls slowly. Touching the spectrogram always reaches back a full minute, whatever this is set to.",
                              standard: "10 s", changed: listener.spectrogramSeconds != 10) { listener.spectrogramSeconds = 10 }
                 Picker("Time shown", selection: $listener.spectrogramSeconds) {
                     Text("5 s").tag(5); Text("10 s").tag(10); Text("15 s").tag(15); Text("30 s").tag(30)
@@ -350,7 +350,7 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading) {
                 SettingLabel("Height", value: listener.spectrogramHeight >= 0.97 ? "Full screen" : "\(Int((listener.spectrogramHeight * 100).rounded()))%",
-                             help: "How much of the screen the spectrogram takes when the phone is upright, as a share of the space above the buttons.\n\nAll the way right is full screen: no list, with what's being heard shown over the spectrogram. The arrows button on the spectrogram switches to full screen and back any time without changing this.",
+                             help: "How much of the screen the spectrogram takes when the phone is upright, as a share of the space above the buttons.\n\nAll the way right is full screen: no list, with what's being heard shown over the spectrogram. The arrows button on the spectrogram switches to full screen and back any time without changing this.\n\nOnce it's taller than the screen is wide it zooms in rather than stretching: it shows less time, so calls keep their shape.",
                              standard: "32%", changed: abs(listener.spectrogramHeight - Listener.standardHeight) > 0.01) { listener.spectrogramHeight = Listener.standardHeight }
                 Slider(value: $listener.spectrogramHeight, in: 0.2...1, step: 0.04)
                     .accessibilityValue(listener.spectrogramHeight >= 0.97 ? "Full screen" : "\(Int((listener.spectrogramHeight * 100).rounded())) percent")
@@ -451,7 +451,7 @@ struct SettingsView: View {
                              standard: "1 hour", changed: listener.stopAfterMinutes != 60) { listener.stopAfterMinutes = 60 }
             }
         } footer: {
-            Text("Pick what the big button does (Live, Manual, Point count, Survey, Recordings) in the row above it on the Listen screen.")
+            Text("Pick what the big button does (Live, Manual, Point count, Survey, Recordings) with the mode button above it on the Listen screen.")
         }
     }
 
