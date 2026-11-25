@@ -154,6 +154,8 @@ the light one. Timing a live shot is guesswork, so take a burst and pick.
 SUBMITTED 2026-11-25 ~12:15 CST on Jason's go (anything found later gets patched in a point release):
 build 5 attached, version 1.1 WAITING_FOR_REVIEW (review submission 2f0c50a9-07df-4d91-a935-112a8c38d8d4), releases
 automatically on approval. Eight new screenshots uploaded the same day.
+APPROVED and on the App Store 2026-11-25 16:09 CST (released 22:09 UTC), about four hours after submitting. The store
+shows 1.1, eight screenshots, Reference / Education.
 `tools/asc/update.py` makes the version and pushes What's New (below), the description and the review notes; it leaves
 app-level fields (categories, age rating) alone. Then `shots.py`, attach the build, `submit.py 5`.
 
