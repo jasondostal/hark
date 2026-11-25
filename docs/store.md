@@ -151,4 +151,8 @@ Hark 1.1 is for people who want more control.
 ```
 
 Ships with it: I-1 (siren), I-2 (OFL texts), I-3 (no selftest audio in the bundle).
+TestFlight: 1.1 (4) uploaded 2026-11-25 from ead0e7a, internal group "Me" only (no beta review). The group was made with
+automatic distribution off, so each build is added to it by hand; with it on, TestFlight also offered the 1.0 builds.
+The next upload needs CURRENT_PROJECT_VERSION 5.
+
 Not yet done before submitting: run on the phone (gain, modes, a real file from Files), new screenshots if we want them.
