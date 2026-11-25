@@ -7,6 +7,25 @@ final class AudioCapture {
     private let engine = AVAudioEngine()
     private var converter: AVAudioConverter?
     private let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 32_000, channels: 1, interleaved: false)!
+    /// iOS has told us something else took the audio (a call, Siri, an alarm) and hasn't yet said it's over.
+    /// While this is true Hark must not grab the microphone back: doing so cuts the other thing off mid-sentence
+    /// (it faded Siri out three words into the weather).
+    private(set) var interrupted = false
+    private(set) var interruptedSince = Date.distantPast
+    /// Main thread: the interruption is over, the microphone is ours to take again.
+    var onInterruptionEnded: (() -> Void)?
+    /// Something else is still making sound (Siri answering, a call app): not the moment to take the mic.
+    var othersPlaying: Bool { AVAudioSession.sharedInstance().isOtherAudioPlaying }
+
+    init() {
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] n in
+            guard let self, let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+            if type == .began { self.interrupted = true; self.interruptedSince = Date(); NSLog("HARK mic: interrupted") }
+            else { self.interrupted = false; NSLog("HARK mic: interruption over"); self.onInterruptionEnded?() }
+        }
+    }
+
     /// Called on the audio thread with converted samples and the chunk's RMS in dBFS.
     var onSamples: (([Float], Float) -> Void)?
     /// When audio last arrived (any thread), so the listener can tell the microphone has been taken away.

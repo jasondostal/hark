@@ -109,9 +109,14 @@ final class Listener {
         let dead = now.timeIntervalSince(audio.lastSampleAt) > 3            // nothing arriving at all
         let silent = dead || now.timeIntervalSince(audio.lastSoundAt) > 3   // or only digital silence
         if silent != micStalled { micStalled = silent; if silent { hearingNow = []; maybes = [] } }
+        guard silent else { return }
+        // Never talk over whatever took the mic. While iOS says the interruption is still on (Siri is answering, a
+        // call is up) Hark waits to be told it's over (audio.onInterruptionEnded). iOS doesn't always say so, so
+        // after a minute Hark checks by itself, and only if nothing else is making sound.
+        if audio.interrupted && (now.timeIntervalSince(audio.interruptedSince) < 60 || audio.othersPlaying) { return }
         // Dead: try every 5 s. Fed zeros: the engine is running and usually comes back by itself, so only nudge it
         // once a minute (restarting makes iPhone Mirroring put up its "microphone not available" notice each time).
-        guard silent, now.timeIntervalSince(lastMicRetry) >= (dead ? 5 : 60) else { return }
+        guard !audio.othersPlaying, now.timeIntervalSince(lastMicRetry) >= (dead ? 5 : 60) else { return }
         lastMicRetry = now
         do { try audio.start(); NSLog("HARK mic: restarted") } catch { NSLog("HARK mic: still busy (%@)", error.localizedDescription) }
     }
@@ -323,6 +328,10 @@ final class Listener {
         audio.setHighPass(rumbleFilter)
         audio.setGain(dB: gainDB)
         audio.preferredInputUID = inputUID
+        audio.onInterruptionEnded = { [weak self] in
+            // a beat for the other side to let go, then take the mic back on the next upkeep tick
+            Task { @MainActor in try? await Task.sleep(for: .seconds(1)); self?.lastMicRetry = .distantPast }
+        }
         SpectrogramStyle.shared.set(quality: quality)
         SpectrogramStyle.shared.set(config: SpectrogramConfig(fft: fftSize, topHz: Float(topKHz * 1000), fadeBackground: fadeBackground))
         applyConfirm()
