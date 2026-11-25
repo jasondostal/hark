@@ -151,7 +151,9 @@ the light one. Timing a live shot is guesswork, so take a burst and pick.
 
 ## 1.1 (build 5)
 
-SUBMITTED 2026-11-25 on Jason's go ("if we have any other bugs we discover screw it we'll patch 'em").
+SUBMITTED 2026-11-25 ~12:15 CST on Jason's go ("if we have any other bugs we discover screw it we'll patch 'em"):
+build 5 attached, version 1.1 WAITING_FOR_REVIEW (review submission 2f0c50a9-07df-4d91-a935-112a8c38d8d4), releases
+automatically on approval. Eight new screenshots uploaded the same day.
 `tools/asc/update.py` makes the version and pushes What's New (below), the description and the review notes; it leaves
 app-level fields (categories, age rating) alone. Then `shots.py`, attach the build, `submit.py 5`.
 
