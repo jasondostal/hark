@@ -44,10 +44,11 @@ struct ListenView: View {
             FileAnalysisView().themeRoot()
         }
         .onChange(of: listener.state) { _, s in
-            if s == .listening { listener.selection.unfreeze(); SelectTip.listening = true }
+            if s == .listening { listener.selection.unfreeze() }
         }
+        .onChange(of: FileAnalysis.shared.arrivals) { _, _ in showSettings = false; showLog = false; filesChosen = true; showFiles = true }
         .onChange(of: selection.isFrozen) { _, frozen in
-            if frozen { SelectTip().invalidate(reason: .actionPerformed) } else { HearTip.hasSelection = false }
+            if !frozen { HearTip.hasSelection = false }
         }
         .onChange(of: selection.range) { _, r in
             guard !r.isEmpty else { return }
@@ -148,7 +149,6 @@ struct ListenView: View {
         }
         .frame(height: height)
         .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { SpectrogramStyle.shared.set(panelHeight: $0) }
-        .popoverTip(SelectTip(), arrowEdge: .top)
         .overlay(alignment: .top) {
             if selection.isFrozen && selection.canPan {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
@@ -199,51 +199,7 @@ struct ListenView: View {
     private var liveControls: some View {
         @Bindable var listener = listener
         let listening = listener.state == .listening
-        let shownMode = listening ? listener.activeMode : listener.mode
         return HStack(spacing: 10) {
-            // What Listen does: live, a timed point count, a walked survey; or analyze recordings instead.
-            Menu {
-                Picker("Mode", selection: $listener.mode) {
-                    ForEach(Listener.Mode.allCases) { m in Label(m.title, systemImage: m.symbol).tag(m) }
-                }
-                .disabled(listening)
-                Divider()
-                Button { showFiles = true } label: { Label("Analyze recordings…", systemImage: "waveform.badge.magnifyingglass") }
-            } label: {
-                Label(shownMode.title, systemImage: shownMode.symbol)
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
-                    .padding(.horizontal, 6).padding(.vertical, 4)
-            }
-            .buttonStyle(.bordered)
-            .tint(overlayTint)
-            .accessibilityLabel("Mode: \(shownMode.title)")
-            if shownMode == .live {
-                Menu {
-                    Picker("Identify", selection: $listener.idMode) {
-                        Label("Auto: identify as it hears", systemImage: "sparkles").tag(Listener.IDMode.auto)
-                        Label("Manual: only what you select", systemImage: "hand.draw").tag(Listener.IDMode.manual)
-                    }
-                } label: {
-                    Label(listener.idMode == .auto ? "Auto" : "Manual", systemImage: listener.idMode == .auto ? "sparkles" : "hand.draw")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 4)
-                }
-                .buttonStyle(.bordered)
-                .tint(overlayTint)
-                .popoverTip(ModeTip(), arrowEdge: .bottom)
-                .accessibilityLabel("Identify mode: \(listener.idMode == .auto ? "automatic" : "manual")")
-            }
-            if landscape || !heightIsFull {
-                let full = landscape ? fullScreen : portraitFull
-                Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
-                    Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.vertical, 4)
-                }
-                .buttonStyle(.bordered)
-                .tint(overlayTint)
-                .accessibilityLabel(full ? "Show the list" : "Full screen spectrogram")
-            }
             Spacer(minLength: 0)
             if listening, let end = listener.endsAt {
                 // Point count: time left
@@ -261,6 +217,17 @@ struct ListenView: View {
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
                 LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil && !listener.showSpeed ? 70 : 40)
                     .accessibilityLabel("Microphone level")
+            }
+            if landscape || !heightIsFull {
+                let full = landscape ? fullScreen : portraitFull
+                Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
+                    Image(systemName: full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .tint(overlayTint)
+                .accessibilityLabel(full ? "Show the list" : "Full screen spectrogram")
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -319,13 +286,13 @@ struct ListenView: View {
         }
         if selection.isFrozen { SelectionSection(selection: selection) }
         let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty
-        if !active && listener.state == .ready && !selection.isFrozen {
+        if !active && listener.state == .ready && !selection.isFrozen && choice == .live {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Hear something?").font(.title3.bold())
-                    Tip(symbol: "mic.fill", text: "Tap **Listen**. Birds, frogs, insects and mammals show up here as Hark hears them.")
+                    Tip(symbol: "mic.fill", text: "Tap the **green button**. Birds, frogs, insects and mammals show up here as Hark hears them.")
                     Tip(symbol: "hand.draw", text: "Missed it? **Touch the spectrogram** to pause it, then drag across the call. It reaches back a full minute.")
-                    Tip(symbol: "button.horizontal.top.press", text: "Put **Start Listening** on your Action Button. See Settings.")
+                    Tip(symbol: "square.grid.2x2", text: "The row above the button picks what it does: a timed **point count**, a walked **survey**, or audio **recordings**.")
                 }
                 .padding(.vertical, 6)
             }
@@ -337,15 +304,15 @@ struct ListenView: View {
                 }
             } header: { Text("Point count done").themedHeader() }
         }
-        if listener.state == .ready && listener.mode != .live && !selection.isFrozen {
+        if listener.state == .ready && choice != .live && !selection.isFrozen {
             Section {
-                Label(listener.mode.blurb, systemImage: listener.mode.symbol).font(.callout).foregroundStyle(.secondary)
-                if listener.mode == .point {
+                Label(choice.hint, systemImage: choice.symbol).font(.callout).foregroundStyle(.secondary)
+                if choice == .point {
                     Picker("Count for", selection: Binding(get: { listener.pointMinutes }, set: { listener.pointMinutes = $0 })) {
                         ForEach([3, 5, 10, 15, 20, 30], id: \.self) { Text("\($0) min").tag($0) }
                     }
                 }
-            } header: { Text(listener.mode.title).themedHeader() }
+            } header: { Text(choice.title).themedHeader() }
         }
         if active && !listener.autoID && listener.state == .listening && !selection.isFrozen {
             Section {
@@ -393,15 +360,42 @@ struct ListenView: View {
     // MARK: Bottom bar
 
     private var bottomBar: some View {
-        HStack(alignment: .center) {
-            BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
-            Spacer()
-            ListenButton()
-            Spacer()
-            BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
+        VStack(spacing: 6) {
+            ModeStrip(choice: choiceBinding, locked: listener.state == .listening)
+            HStack(alignment: .center) {
+                BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
+                Spacer()
+                ListenButton(choice: choice) { showFiles = true }
+                Spacer()
+                BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
+            }
+            .padding(.horizontal, 30)
         }
-        .padding(.horizontal, 30).padding(.top, 10).padding(.bottom, 2)
+        .padding(.top, 8).padding(.bottom, 2)
         .background(.appBar)
+    }
+
+    /// What the big button does, as one choice (the camera's row of modes): the listening mode, Manual folded in
+    /// as its own entry, and Recordings, which isn't listening at all.
+    @State private var filesChosen = false
+    private var choice: ModeChoice {
+        if listener.state == .listening {
+            return listener.activeMode == .point ? .point : listener.activeMode == .survey ? .survey : listener.idMode == .manual ? .manual : .live
+        }
+        if filesChosen { return .files }
+        return listener.mode == .point ? .point : listener.mode == .survey ? .survey : listener.idMode == .manual ? .manual : .live
+    }
+    private var choiceBinding: Binding<ModeChoice> {
+        Binding(get: { choice }, set: { c in
+            filesChosen = c == .files
+            switch c {
+            case .live: listener.mode = .live; listener.idMode = .auto
+            case .manual: listener.mode = .live; listener.idMode = .manual
+            case .point: listener.mode = .point
+            case .survey: listener.mode = .survey
+            case .files: break
+            }
+        })
     }
 
     /// Full screen: what's calling right now, as small tags over the old (left) end of the spectrogram.
@@ -435,13 +429,14 @@ struct ListenView: View {
     private var sideRail: some View {
         VStack {
             BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
-            Spacer()
-            ListenButton()
-            Spacer()
+            Spacer(minLength: 0)
+            ModeStrip(choice: choiceBinding, locked: listener.state == .listening, vertical: true)
+            ListenButton(choice: choice) { showFiles = true }
+            Spacer(minLength: 0)
             BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
         }
         .padding(.vertical, 8)
-        .frame(width: 84)
+        .frame(width: 96)
         .frame(maxHeight: .infinity)
         .background(.appBar)
     }
@@ -475,13 +470,71 @@ private struct Tip: View {
 }
 
 /// The shutter-style Listen / Stop button.
+/// What the big button does. Listening modes, plus Recordings (analyze files instead of the microphone).
+enum ModeChoice: String, CaseIterable, Identifiable {
+    case live, manual, point, survey, files
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .live: "Live"; case .manual: "Manual"; case .point: "Point count"; case .survey: "Survey"; case .files: "Recordings" }
+    }
+    /// On the big button, so it says what a press will do.
+    var symbol: String {
+        switch self { case .live: "mic.fill"; case .manual: "hand.draw.fill"; case .point: "timer"; case .survey: "figure.walk"; case .files: "folder.fill" }
+    }
+    var hint: String {
+        switch self {
+        case .live: "Identifies everything it hears, for as long as you like."
+        case .manual: "Listens without identifying. Touch the spectrogram and drag across a call to identify just that."
+        case .point: "Stay in one spot for a set time; Hark tallies every species heard there."
+        case .survey: "Walk a route; Hark maps it and what you heard along the way. Runs until you stop it."
+        case .files: "Identify what's in audio files: a recorder's card, a voice memo, a video."
+        }
+    }
+}
+
+/// The row of modes above the big button, like the camera's. Tap one; the button's icon changes to match.
+/// While listening it shows the mode that's running and can't be changed.
+struct ModeStrip: View {
+    @Binding var choice: ModeChoice
+    var locked = false
+    var vertical = false
+    @Environment(\.theme) private var theme
+    var body: some View {
+        let layout = vertical ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 2))
+        layout {
+            ForEach(ModeChoice.allCases) { c in
+                let on = c == choice
+                Button { withAnimation(.snappy) { choice = c } } label: {
+                    Text(c.title)
+                        .font(theme.isPixel ? .pixel(vertical ? 8 : 9) : .system(size: vertical ? 11 : 13, weight: on ? .bold : .medium))
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, vertical ? 6 : 9).padding(.vertical, vertical ? 3 : 5)
+                        .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                        .background { if on { Capsule().fill(.tint.opacity(0.14)) } }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .opacity(locked && !on ? 0.3 : 1)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .dynamicTypeSize(...DynamicTypeSize.large)       // a fixed row, like the system tab bar
+        .disabled(locked)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Mode")
+    }
+}
+
 struct ListenButton: View {
     @Environment(Listener.self) private var listener
     @Environment(\.theme) private var theme
+    var choice: ModeChoice = .live
+    /// Recordings: the button opens the file analysis instead of the microphone.
+    var files: () -> Void = {}
     var body: some View {
         let listening = listener.state == .listening
         let style = ListenStyle(theme: theme, listening: listening)
-        Button { Task { await listener.toggle() } } label: {
+        Button { if choice == .files && !listening { files() } else { Task { await listener.toggle() } } } label: {
             ZStack {
                 if theme.isPixel {   // a chunky square key with a hard drop shadow
                     Rectangle().fill(style.shadow).frame(width: 62, height: 62).offset(x: 5, y: 5)
@@ -495,8 +548,9 @@ struct ListenButton: View {
                 if listener.state == .loading {
                     ProgressView().tint(style.glyph)
                 } else {
-                    Image(systemName: listening ? "stop.fill" : "mic.fill")
+                    Image(systemName: listening ? "stop.fill" : choice.symbol)
                         .font(.system(size: listening ? 24 : 27, weight: .semibold)).foregroundStyle(style.glyph)
+                        .contentTransition(.symbolEffect(.replace))
                 }
             }
             .frame(width: 80, height: 80)
@@ -504,7 +558,7 @@ struct ListenButton: View {
         }
         .buttonStyle(.plain)
         .disabled(listener.state == .loading)
-        .accessibilityLabel(listening ? "Stop listening" : "Start listening")
+        .accessibilityLabel(listening ? "Stop listening" : choice == .files ? "Analyze recordings" : "Start listening, \(choice.title)")
         .sensoryFeedback(.impact(weight: .medium), trigger: listening)
     }
 }

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(Listener.self) private var listener
     @Environment(\.dismiss) private var dismiss
     @State private var inputs: [AVAudioSessionPortDescription] = []
+    @State private var confirmReset = false
     @State private var showLocation = ProcessInfo.processInfo.arguments.contains("-settingslocation")   // screenshot aid
     /// Screenshot aid: -settingspage Inference | Spectrogram | Audio
     @State private var showPage: String? = { let a = ProcessInfo.processInfo.arguments; return a.firstIndex(of: "-settingspage").flatMap { $0 + 1 < a.count ? a[$0 + 1] : nil } }()
@@ -381,6 +382,10 @@ struct SettingsView: View {
             }
             LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
             NavigationLink("Acknowledgements") { AcknowledgementsView() }
+            Button("Reset all settings", role: .destructive) { confirmReset = true }
+                .confirmationDialog("Put every setting back the way Hark came?", isPresented: $confirmReset, titleVisibility: .visible) {
+                    Button("Reset settings", role: .destructive) { listener.resetSettings() }
+                } message: { Text("Your log, names, never-show list, eBird key and look stay as they are.") }
         } header: { Text("About") } footer: {
             Text("Everything runs on this iPhone. Audio never leaves it.")
         }

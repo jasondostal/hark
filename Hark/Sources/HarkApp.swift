@@ -12,7 +12,8 @@ struct HarkApp: App {
             .environment(listener)
             .themeRoot()
             .onOpenURL { url in
-                if url.host == "listen" { Task { await listener.requestStart() } }
+                if url.isFileURL { FileAnalysis.shared.receive(url) }      // "Open in Hark" from Files, AirDrop, a share sheet
+                else if url.host == "listen" { Task { await listener.requestStart() } }
             }
             .task {
                 #if DEBUG

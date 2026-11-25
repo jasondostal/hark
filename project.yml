@@ -53,6 +53,13 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        # "Open in Hark" / the share sheet for audio files: they go to Analyze recordings.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.audio]
+        LSSupportsOpeningDocumentsInPlace: false
         UIBackgroundModes:
           - audio
           - location

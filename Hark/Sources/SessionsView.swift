@@ -90,7 +90,6 @@ struct SessionPage: View {
     let session: SessionSummary
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmDelete = false
 
     /// The tally: each species once, with when it was first heard (time into the session) and how often.
     private struct Tally: Identifiable { let id: String; let first: Detection; let count: Int; let best: Double; let offset: TimeInterval }
@@ -120,8 +119,9 @@ struct SessionPage: View {
             Section {
                 if let r = session.record {
                     @Bindable var r = r
-                    TextField(session.name ?? "Name this session", text: $r.title)
-                        .font(.headline)
+                    LabeledContent("Name") {
+                        TextField(session.name ?? "Add a name", text: $r.title).multilineTextAlignment(.trailing)
+                    }
                     LabeledContent("Kind", value: kindTitle)
                 } else if let n = session.name { Text(n).font(.headline) }
                 LabeledContent("Length", value: SessionsList.duration(session.duration))
@@ -180,13 +180,10 @@ struct SessionPage: View {
                 ForEach(session.detections.reversed()) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
             Section {
-                Button("Delete this session", role: .destructive) { confirmDelete = true }
+                Button("Delete this session", role: .destructive) { delete() }
             }
         }.themedRows() }.themedList()
         .toolbar { ToolbarItem(placement: .primaryAction) { LogExportMenu(detections: session.detections, raven: (session.start, session.name ?? session.start.formatted(.iso8601.year().month().day()))) } }
-        .confirmationDialog("Delete this session and its \(session.detections.count) detections?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) { delete() }
-        } message: { Text("Their recordings go too. This can't be undone.") }
         .onDisappear { try? ctx.save() }      // name and notes
         .navigationTitle(session.start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
         .navigationBarTitleDisplayMode(.inline)
@@ -206,10 +203,28 @@ struct SessionPage: View {
     }
 
     private func delete() {
-        let (_, commit) = removeDetections(session.detections, in: ctx)
-        commit()
-        if let r = session.record { ctx.delete(r) }
+        // Like deleting one detection: gone now, with Undo for a few seconds (the clips are kept until then).
+        let ctx = ctx
+        let (snaps, commit) = removeDetections(session.detections, in: ctx)
+        var remake: (() -> ListeningSession)?
+        if let r = session.record {
+            let (id, started, ended, lat, lon) = (r.id, r.started, r.ended, r.trackLat, r.trackLon)
+            let (kind, planned, title, note, la, lo) = (r.kind, r.plannedSeconds, r.title, r.note, r.latitude, r.longitude)
+            remake = {
+                let n = ListeningSession(id: id, started: started)
+                n.ended = ended; n.trackLat = lat; n.trackLon = lon; n.kind = kind; n.plannedSeconds = planned
+                n.title = title; n.note = note; n.latitude = la; n.longitude = lo
+                return n
+            }
+            ctx.delete(r)
+        }
         try? ctx.save()
+        UndoCenter.shared.offer("Deleted session (\(snaps.count) detections)", undo: {
+            snaps.forEach { _ = $0.restore(in: ctx) }
+            if let remake { ctx.insert(remake()) }
+            try? ctx.save()
+            WidgetBridge.refresh(ctx, listening: Listener.shared.state == .listening)
+        }, commit: commit)
         dismiss()
     }
 

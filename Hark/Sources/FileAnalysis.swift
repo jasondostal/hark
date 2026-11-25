@@ -96,6 +96,10 @@ final class FileAnalysis {
         jobs += urls.filter { !have.contains($0) }.map { Job(url: $0) }
     }
 
+    /// A file handed to Hark from outside ("Open in Hark"): queue it and bring up the analysis screen.
+    private(set) var arrivals = 0
+    func receive(_ url: URL) { add([url]); arrivals += 1 }
+
     func clearFinished() { jobs.removeAll { if case .waiting = $0.state { false } else if case .running = $0.state { false } else { true } } }
 
     func cancel() { task?.cancel() }

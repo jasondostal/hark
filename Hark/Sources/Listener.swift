@@ -286,6 +286,16 @@ final class Listener {
         didSet { UserDefaults.standard.set(showSpeed, forKey: "showSpeed") }
     }
 
+    /// Settings > Reset: everything Hark shipped with. Leaves what's yours alone (the log, names, never-show list,
+    /// eBird key, look).
+    func resetSettings() {
+        policy = DetectionPolicy(); showMaybes = false; confirmSeconds = 2; scoreInterval = 1; model = .both
+        gainDB = 0; rumbleFilter = 0; inputUID = nil
+        contrast = 0.6; spectrogramSeconds = 10; frequencyLabels = true; critters = true
+        fftSize = 1024; topKHz = 15; fadeBackground = true; quality = .standard; spectrogramHeight = Self.standardHeight
+        idMode = .auto; mode = .live; pointMinutes = 5; keepScreenOn = true; stopAfterMinutes = 60; showSpeed = false
+    }
+
     // Modes (persisted)
     var mode: Mode = Mode(rawValue: UserDefaults.standard.string(forKey: "listenMode") ?? "") ?? .live {
         didSet { UserDefaults.standard.set(mode.rawValue, forKey: "listenMode") }
