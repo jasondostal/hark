@@ -158,12 +158,11 @@ final class PolicyTests: XCTestCase {
         // 1.0 wrote only groups + rangeMode
         var old = DetectionPolicy(); old.apply(.strict); old.rangeMode = .hide
         var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(old)) as! [String: Any]
-        json["humanGuard"] = nil; json["guardBodySounds"] = nil
+        json["humanGuard"] = nil
         let p = try JSONDecoder().decode(DetectionPolicy.self, from: JSONSerialization.data(withJSONObject: json))
         XCTAssertEqual(p.preset, .strict)
         XCTAssertEqual(p.rangeMode, .hide)
         XCTAssertEqual(p.humanGuard, .standard)
-        XCTAssertFalse(p.guardBodySounds)
     }
 
     func testOneSliderMatchesThePresets() {

@@ -170,9 +170,8 @@ struct SettingsView: View {
                 ForEach(HumanGuard.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            Toggle("Count breathing and coughs too", isOn: $listener.policy.guardBodySounds).disabled(listener.policy.humanGuard == .off)
         } header: { Text("People sounds") } footer: {
-            Text("When a stretch of sound is mostly talking, singing or music, Hark only accepts an animal ID it is very sure of, so a song on the radio doesn't become a bird. Standard is how Hark has always worked. Light waits for more of it before stepping in; Strong steps in sooner; Off trusts every ID. The switch adds breathing, coughs, sneezes and whispers to what trips the guard: useful with the phone near your face, but it can cost you a quiet bird while you catch your breath. Needs Perch (it's the model that hears people).")
+            Text("When a stretch of sound is mostly talking, singing or music, Hark only accepts an animal ID it is very sure of, so a song on the radio doesn't become a bird. Standard is how Hark has always worked. Light waits for more of it before stepping in; Strong steps in sooner; Off trusts every ID. Needs Perch (it's the model that hears people).\n\nHark doesn't hide what it hears: your own cough, breathing or footsteps show up under Hearing now like any other non-animal sound (never logged). Don't want to see one? Swipe left on it and choose Never show. Don't want any of them? Turn off Non-animal sounds under Listen for.")
         }
     }
 

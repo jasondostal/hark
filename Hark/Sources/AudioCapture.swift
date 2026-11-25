@@ -9,6 +9,9 @@ final class AudioCapture {
     private let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 32_000, channels: 1, interleaved: false)!
     /// Called on the audio thread with converted samples and the chunk's RMS in dBFS.
     var onSamples: (([Float], Float) -> Void)?
+    /// When audio last arrived (any thread), so the listener can tell the microphone has been taken away.
+    private var _lastSampleAt = Date()
+    var lastSampleAt: Date { filterLock.lock(); defer { filterLock.unlock() }; return _lastSampleAt }
 
     // Rumble filter: 2nd-order Butterworth high-pass on the 32 kHz stream (feeds both Perch and the spectrogram).
     private let filterLock = NSLock()
@@ -86,6 +89,7 @@ final class AudioCapture {
         }
         engine.prepare()
         try engine.start()
+        filterLock.lock(); _lastSampleAt = Date(); filterLock.unlock()     // give the restarted mic a moment before calling it silent again
     }
 
     /// Testing aid (`-feedfile a.wav,b.wav`): stream files in real time through the same convert path as the mic.
@@ -130,6 +134,7 @@ final class AudioCapture {
         guard err == nil, let ch = out.floatChannelData?[0], out.frameLength > 0 else { return }
         let n = Int(out.frameLength)
         var samples = Array(UnsafeBufferPointer(start: ch, count: n))
+        filterLock.lock(); _lastSampleAt = Date(); filterLock.unlock()
         highPass(&samples)
         amplify(&samples)
         var rms: Float = 0

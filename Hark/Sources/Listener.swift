@@ -100,6 +100,18 @@ final class Listener {
     let live = LiveSpectrogram()
     private(set) var levelDB: Float = -120
     private(set) var lastInferenceMs: Double = 0
+    /// The microphone has gone quiet under us (a phone call, Siri, an alarm, an unplugged mic). Hark keeps trying
+    /// to take it back, so a session left running picks up again by itself.
+    private(set) var micStalled = false
+    private var lastMicRetry = Date.distantPast
+    private func watchMicrophone(_ now: Date) {
+        guard !ProcessInfo.processInfo.arguments.contains("-feedfile") else { return }
+        let silent = now.timeIntervalSince(audio.lastSampleAt) > 3
+        if silent != micStalled { micStalled = silent; if silent { hearingNow = []; maybes = [] } }
+        guard silent, now.timeIntervalSince(lastMicRetry) >= 5 else { return }
+        lastMicRetry = now
+        do { try audio.start(); NSLog("HARK mic: restarted") } catch { NSLog("HARK mic: still busy (%@)", error.localizedDescription) }
+    }
     /// The voices & music guard tripped on the last check (shown on the Listen screen so you can see it work).
     private(set) var guardActive = false
 
@@ -122,7 +134,6 @@ final class Listener {
         didSet { UserDefaults.standard.set(showMaybes, forKey: "showMaybes"); if !showMaybes { maybes.removeAll { !$0.unusual } } }
     }
     private var humanSoundIndices: [Int] = []
-    private var bodySoundIndices: [Int] = []
     private var synonymIndices: [(species: Int, sounds: [Int])]?
     /// Muted species, by scientific name (stable if the label table changes).
     private(set) var mutedNames: [String] = UserDefaults.standard.stringArray(forKey: "muted") ?? [] {
@@ -410,10 +421,6 @@ final class Listener {
             Fusion.poolSynonyms(&p, synonymIndices ?? [])
             if humanSoundIndices.isEmpty { humanSoundIndices = Fusion.humanSoundClasses.compactMap { labels.index(ofScientific: $0) } }
             human = humanSoundIndices.reduce(0) { $0 + p[$1] }
-            if policy.guardBodySounds {
-                if bodySoundIndices.isEmpty { bodySoundIndices = Fusion.bodySoundClasses.compactMap { labels.index(ofScientific: $0) } }
-                human += bodySoundIndices.reduce(0) { $0 + p[$1] }
-            }
             perch = p
         }
         var bn: [Float]?
@@ -483,6 +490,7 @@ final class Listener {
                 }
                 if now.timeIntervalSince(lastUpkeep) >= 1 {
                     lastUpkeep = now
+                    self.watchMicrophone(now)
                     self.updateSessionRecord()
                     self.updateContext()          // also in Manual mode, so selections get season context
                 }
@@ -513,7 +521,7 @@ final class Listener {
         WidgetBridge.refresh(modelContext, listening: false, now: true)
         UIApplication.shared.isIdleTimerDisabled = false
         if state == .listening { state = .ready }
-        hearingNow = []; maybes = []; guardActive = false
+        hearingNow = []; maybes = []; guardActive = false; micStalled = false
     }
 
     /// Extend the session's end time, and add a route point when we've moved more than 25 m.
@@ -696,7 +704,7 @@ final class Listener {
 
     /// Score the newest 5 s. Runs about once a second, so each sound is seen in ~5 overlapping windows.
     private func scoreLatest() async {
-        guard canListen, let labels, state == .listening, autoID else { return }
+        guard canListen, let labels, state == .listening, autoID, !micStalled else { return }
         guard store.count >= 32_000 * 2 else { return }   // wait for 2 s of audio
         guard Date() >= quietUntil else { return }         // playing a clip: the mic hears the speaker
         let w = store.latest(PerchClassifier.windowSamples)

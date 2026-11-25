@@ -107,13 +107,11 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
     public var rangeMode: RangeMode
     /// Voices & music guard (1.0 shipped with .standard, fixed).
     public var humanGuard: HumanGuard
-    /// Count breathing, coughs and sneezes toward the guard too (Fusion.bodySoundClasses).
-    public var guardBodySounds: Bool
 
     public init(groups: [ListenGroup: GroupSetting] = [:], rangeMode: RangeMode = .flag,
-                humanGuard: HumanGuard = .standard, guardBodySounds: Bool = false) {
+                humanGuard: HumanGuard = .standard) {
         self.groups = groups; self.rangeMode = rangeMode
-        self.humanGuard = humanGuard; self.guardBodySounds = guardBodySounds
+        self.humanGuard = humanGuard
     }
 
     /// Settings saved by 1.0 have no guard keys: they keep what 1.0 did.
@@ -122,7 +120,6 @@ public struct DetectionPolicy: Codable, Equatable, Sendable {
         groups = try c.decodeIfPresent([ListenGroup: GroupSetting].self, forKey: .groups) ?? [:]
         rangeMode = try c.decodeIfPresent(RangeMode.self, forKey: .rangeMode) ?? .flag
         humanGuard = try c.decodeIfPresent(HumanGuard.self, forKey: .humanGuard) ?? .standard
-        guardBodySounds = try c.decodeIfPresent(Bool.self, forKey: .guardBodySounds) ?? false
     }
 
     public func setting(_ g: ListenGroup) -> GroupSetting { groups[g] ?? g.defaultSetting }

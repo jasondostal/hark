@@ -352,6 +352,10 @@ struct ListenView: View {
         }
         if active && listener.autoID {
             Section {
+                if listener.micStalled {
+                    Label("Something else has the microphone. Hark picks up again as soon as it's free.", systemImage: "mic.slash")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 if listener.guardActive {
                     Label("Hearing people or music: only IDs Hark is very sure of count right now", systemImage: "person.wave.2")
                         .font(.caption).foregroundStyle(.orange)
