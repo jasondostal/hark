@@ -41,10 +41,7 @@ struct ListenView: View {
         .sheet(isPresented: $showSettings) { SettingsView().themeRoot() }
         .sheet(isPresented: $showLog, onDismiss: { logSession = nil }) { LogView(openSession: logSession).themeRoot() }
         .sheet(isPresented: $showFiles) {
-            FileAnalysisView(open: { id in
-                showFiles = false; logSession = id
-                Task { try? await Task.sleep(for: .milliseconds(500)); showLog = true }
-            }).themeRoot()
+            FileAnalysisView().themeRoot()
         }
         .onChange(of: listener.state) { _, s in
             if s == .listening { listener.selection.unfreeze(); SelectTip.listening = true }

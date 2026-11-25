@@ -420,8 +420,27 @@ final class Listener {
 
     /// Score audio with the chosen model(s) and triage it. Perch scores are padded to the full label table
     /// (BirdNET+-only species score 0 for Perch, and vice versa).
-    /// `local: false` (a recording from who knows where or when) skips the location + season check.
-    func identify(_ samples: [Float], topK: Int = 12, local: Bool = true) async -> DetectionPolicy.Triage? {
+    /// What to check IDs against. Live: here and now, as kept current while listening. A recording: nothing
+    /// (nobody said where it was made), or the place and date the person gave for it.
+    enum Check { case live, nothing, place(LocalContext) }
+
+    /// What Hark expects at any place and date (GBIF range + the geomodel's week there), for a recording made
+    /// somewhere else or some other time. No eBird and no patch: those are about here and now.
+    func expectations(latitude: Double, longitude: Double, date: Date) async -> LocalContext? {
+        guard let labels else { return nil }
+        let range = ranges?.local(latitude: latitude, longitude: longitude)
+        var g: LocalContext.Geo?
+        if let geo {
+            let week = GeoWeek.of(date)
+            g = await Task.detached(priority: .userInitiated) { geo.expectations(latitude: latitude, longitude: longitude, week: week) }.value
+        }
+        guard range != nil || g != nil else { return nil }
+        return LocalContext(count: labels.count, range: range, geo: g)
+    }
+    /// Where the phone is, as best Hark knows (for "Here").
+    var whereabouts: CLLocationCoordinate2D? { (location.last ?? location.lastKnown)?.coordinate }
+
+    func identify(_ samples: [Float], topK: Int = 12, check: Check = .live) async -> DetectionPolicy.Triage? {
         guard let labels else { return nil }
         let n = labels.count
         var perch: [Float]?
@@ -442,10 +461,14 @@ final class Listener {
         }
         var bn: [Float]?
         if model != .perch, let birdnet { bn = try? await birdnet.scores(samples, labelCount: n) }
-        if local { updateContext() }
-        var policy = policy
-        if !local { policy.rangeMode = .off }
-        let hidden = local ? hidden : muted       // "Not it" belongs to the live session, not to a recording
+        var policy = policy, context = context, hidden = hidden
+        switch check {
+        case .live: updateContext(); context = self.context
+        case .nothing: policy.rangeMode = .off; hidden = muted       // "Not it" belongs to the live session, not to a recording
+        case .place(let c):
+            context = c; hidden = muted
+            if policy.rangeMode == .off { policy.rangeMode = .flag }  // they gave a place: they want it checked
+        }
         switch (perch, bn) {
         case let (p?, b?): return policy.triage(scores: p, second: b, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
         case let (p?, nil): return policy.triage(scores: p, labels: labels, context: context, muted: hidden, topK: topK, humanSound: human)
@@ -849,9 +872,9 @@ final class Listener {
     func detection(for o: DetectionTracker.Occurrence) -> Detection? { logged[o.id] }
 
     /// A species found in an imported recording (FileAnalysis). No place, no fanfare; it still counts as a first.
-    func logFileDetection(_ o: DetectionTracker.Occurrence, session: UUID) -> Detection? {
+    func logFileDetection(_ o: DetectionTracker.Occurrence, session: UUID, at place: CLLocationCoordinate2D?) -> Detection? {
         guard let ctx = modelContext, let l = label(o.index), l.group.isSpecies else { return nil }
-        let d = Detection(label: l, confidence: Double(o.bestConfidence), at: o.firstHeard, latitude: nil, longitude: nil,
+        let d = Detection(label: l, confidence: Double(o.bestConfidence), at: o.firstHeard, latitude: place?.latitude, longitude: place?.longitude,
                           sessionID: session, source: "file")
         let s = d.scientific
         d.isFirst = ((try? ctx.fetchCount(FetchDescriptor<Detection>(predicate: #Predicate { $0.scientific == s }))) ?? 1) == 0
