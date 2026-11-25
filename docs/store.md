@@ -33,6 +33,7 @@ There's no server behind Hark. Two full-size AI models, Google DeepMind's Perch 
 
 LIVE
 • A scrolling spectrogram and a list of what's calling right now, updated every second
+• Full screen: the spectrogram fills the phone, with names over it as they call
 • New species are logged as they're heard, with a clip of the call
 • "New for you" when a species is a first
 
@@ -41,6 +42,11 @@ Google DeepMind's Perch 2.0 and the BirdNET team's BirdNET+ 3.0 listen together.
 
 MISSED IT? TOUCH THE SPECTROGRAM
 It pauses on the last minute of sound. Drag across a call and Hark identifies exactly that stretch, or tap to grab five seconds. Play it back, see its pitch and length, then log it. Prefer to choose every ID yourself? Manual mode only identifies what you pick out.
+
+POINT COUNTS, SURVEYS, RECORDINGS
+• Point count: one spot, a set time, a tally of every species
+• Survey: walk a route and Hark maps what you heard along it
+• Recordings: pick audio files and Hark identifies what's in them
 
 MORE THAN BIRDS
 About fifteen thousand birds, frogs, toads, crickets, katydids, cicadas and mammals worldwide, plus everyday sounds like traffic, dogs and voices, so they don't get mistaken for wildlife. Switch any group off.
@@ -51,9 +57,9 @@ A Spring Peeper in November or a European bird in Wisconsin is flagged as unusua
 WALK MODE
 Start listening, lock the phone and go. Hark keeps logging, shows on the Lock Screen and in the Dynamic Island, and buzzes when something new turns up. It stops on its own after the time you set.
 
-YOUR LOG
+YOUR JOURNAL
 • A timeline of everything heard, with time, place, confidence and the clip
-• Sessions, with your route on a map and when each species called
+• Sessions, with your route on a map and when each species called; name them and add notes
 • A species list with your life list growing over time, time-of-day and seasonal charts
 • Mark the ones you saw; search and filter by group
 • Wrong ID? Swipe "Not it" and Hark drops it and ignores it for the rest of the walk (with Undo)
@@ -63,10 +69,10 @@ ONE PRESS
 Start listening from the Action Button, Control Center, a widget or Siri.
 
 MAKE IT YOURS
-Sensitive, Balanced or Strict, or fine-tune each group. Nine spectrogram color schemes, including an 8-bit one and an all-red one that saves your night vision on an owl prowl. Choose how many seconds the spectrogram shows, its contrast, your microphone and a rumble filter for wind and road noise.
+Sensitive, Balanced or Strict, or fine-tune each group. Six looks and nine spectrogram color schemes, including a cream field notebook, an 8-bit one and an all-red one that saves your night vision on an owl prowl. Choose how many seconds the spectrogram shows, its height and contrast, your microphone and its gain, and a high-pass filter for wind and road noise.
 
 PRIVATE
-Audio is identified on the phone and never uploaded. No account, no analytics, no tracking. Your log stays on your phone.
+Audio is identified on the phone and never uploaded. No account, no analytics, no tracking. Your journal stays on your phone.
 
 Sound ID can be wrong, especially with distant, quiet or overlapping calls. Treat an ID as a suggestion, and confirm anything important by sight or with an expert.
 
@@ -108,6 +114,7 @@ Hark identifies wildlife by sound: birds, frogs, insects and mammals. It is for 
 - Play birdsong from another device near the iPhone. Test recordings are at https://ducktyping.dev/hark/#test-sounds (a Canada Goose, Blue Jay or Barred Owl works well). Within a few seconds the species appears under "Hearing now" and is logged under "This session". The same page has rain, wind and coughing, which should not be logged.
 - Touch the spectrogram at the top: it pauses on the last minute of sound. Drag across a call to identify just that stretch; results appear at the top of the list with "Log it" and "I saw it" buttons. "Back to live" returns to the live view.
 - The Journal button (bottom left) opens everything Hark has logged (Timeline, Sessions, Species, Map). Settings (bottom right) has the model choice, sensitivity, spectrogram colors and the optional eBird key.
+- New in 1.1: the small button above the microphone button picks a mode (Live, Manual, Point count, Survey, Recordings). Recordings opens the system file picker and identifies audio files the user chooses, on the device; nothing is uploaded. The arrows on the spectrogram, or turning the phone on its side, show it full screen with the names of what is calling over it.
 No credentials or sample files are needed.
 
 3. BACKGROUND AUDIO (UIBackgroundModes: audio)
@@ -142,31 +149,38 @@ when the jay calls), `-select` for the selection, `-logtab -demolog <folder of r
 (`-opensession 2` for the session, `-logmode Map` for the map), `-settings`, and `-theme notebook -palette paper` for
 the light one. Timing a live shot is guesswork, so take a burst and pick.
 
-## 1.1 (build 4): draft, not submitted
+## 1.1 (build 5)
 
-What's New (draft):
+SUBMITTED 2026-11-25 on Jason's go ("if we have any other bugs we discover screw it we'll patch 'em").
+`tools/asc/update.py` makes the version and pushes What's New (below), the description and the review notes; it leaves
+app-level fields (categories, age rating) alone. Then `shots.py`, attach the build, `submit.py 5`.
 
-```
-Hark 1.1 is for people who want more control.
+## What's New
 
+Hark 1.1 is a new look and more ways to listen.
+
+• A new look: the whole app is drawn in the colors of the spectrogram you pick, with names in a field-guide serif. Prefer it light? Pick the Field Notebook look or the Paper spectrogram.
+• Full screen, redone: the spectrogram fills the phone, what's calling appears as names over it, and earlier species fade below. Tap a name for its buttons, or flick it away if it's wrong. Works upright and on its side.
 • Modes: Live as before, plus Point count (stand still for a set time and get a tally) and Survey (walk a route; no time limit, finer track).
 • Analyze recordings: pick one audio file or many, and Hark listens to them the way it listens live. Each becomes a session in your Journal.
-• Sessions: name them, add notes, see the tally, share or delete a single session.
-• A new look: the whole app is drawn in the colors of the spectrogram you pick, with names in a field-guide serif. Prefer it light? Pick the Paper spectrogram or the Field Notebook look.
-• The Log is now the Journal.
-• Full screen, redone: the spectrogram fills the phone, what's calling appears as captions over it, and earlier species fade below. Works upright and on its side.
-• Spectrogram: twice the frequency detail; set its height up to full screen in portrait (it zooms in rather than stretching), FFT size, top frequency, background fade, and drawing quality.
+• The Log is now the Journal. Sessions can have names and notes, and you can share or delete a single one.
+• Spectrogram: twice the frequency detail; set its height up to full screen (it zooms in rather than stretching), FFT size, top frequency, background fade and drawing quality.
 • Audio: microphone gain, and a high-pass filter you set in Hz.
 • Detection tuning: one confidence slider, how often Hark checks, and a setting for the voices-and-music guard.
 • Fixes: a siren no longer counts as a salamander.
-```
+
+## 1.1 notes
 
 Ships with it: I-1 (siren), I-2 (OFL texts), I-3 (no selftest audio in the bundle).
 TestFlight: 1.1 (4) uploaded 2026-11-25 from ead0e7a, internal group "Me" only (no beta review). The group was made with
 automatic distribution off, so each build is added to it by hand; with it on, TestFlight also offered the 1.0 builds.
-The next upload needs CURRENT_PROJECT_VERSION 5.
+1.1 (5) uploaded 2026-11-25 from 7ed03b2 and added to the same group.
 
-Not yet done before submitting: run on the phone (gain, modes, a real file from Files), upload the 1.1 screenshots,
-and the description's "Your log stays on your phone" could become "journal".
+Never run on a phone before submitting: everything after build 4 (the app-wide look, the Journal rename, the caption
+hint, the What's New card). Battery and heat in full screen were not measured either. Jason's call.
+
 The default look (stored as "classic", shown as "Hark") no longer follows the phone's light/dark setting: it follows the
 spectrogram's palette, so people updating in light mode get the dark look until they pick Paper or Field Notebook.
+
+Categories: App Store Connect has Sports / Utilities; the section above says Reference / Education, and listing.py
+sets Sports / Utilities. Left as it is; Jason to say which is meant.
