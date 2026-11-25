@@ -132,10 +132,6 @@ final class Selection {
         return SpectrogramDSP.bandHz(b)
     }
 
-    var caption: String {
-        guard let clip, !range.isEmpty else { return "" }
-        return "\(String(format: "%.1f", Double(range.count) / Double(Self.sr))) s · \(clip.time(atSample: range.lowerBound).formatted(date: .omitted, time: .standard))"
-    }
 }
 
 /// The frozen spectrogram: what was on screen, with the selection lit and the rest dimmed.
@@ -251,7 +247,7 @@ struct SelectionSection: View {
                 }
                 if l.group.isSpecies {
                     if selection.logged.contains(i) {
-                        Label("Logged", systemImage: "checkmark").font(.caption).foregroundStyle(.good)
+                        HStack(spacing: 4) { Image(systemName: "checkmark"); Text("Logged") }.font(.caption).foregroundStyle(.good)
                     } else {
                         HStack {
                             Button("Log") { selection.log(i, p, confirmed: false, listener) }.buttonStyle(.bordered)

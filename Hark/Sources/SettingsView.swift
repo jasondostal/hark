@@ -18,11 +18,15 @@ struct SettingsView: View {
             Form { Group {
                 Section {
                     ThemePicker()
+                } header: { Text("Look") } footer: {
+                    Text("\(AppTheme.stored.title): \(AppTheme.stored.blurb) Each look brings its own spectrogram colors; change those under Spectrogram.")
+                }
+                Section {
                     Picker("Names", selection: Binding(get: { NameBook.shared.style }, set: { NameBook.shared.style = $0 })) {
                         ForEach(NameBook.Style.allCases) { Text($0.title).tag($0) }
                     }
-                } header: { Text("Look") } footer: {
-                    Text("\(AppTheme.stored.title): \(AppTheme.stored.blurb) Each look brings its own spectrogram colors; change those under Spectrogram. Names: which name leads. Give a species your own name on its page in the Log.")
+                } footer: {
+                    Text("Which name leads. Give a species your own name on its page in the Log.")
                 }
                 detection
                 Section {
@@ -32,8 +36,8 @@ struct SettingsView: View {
                     NavigationLink { page("Location & season") { location; ebirdSection } } label: {
                         row("Location & season", "location", locationSummary)
                     }
-                    NavigationLink { page("Inference") { inference; humanGuard } } label: {
-                        row("Inference", "cpu", inferenceSummary)
+                    NavigationLink { page("Detection tuning") { inference; humanGuard } } label: {
+                        row("Detection tuning", "dial.medium", inferenceSummary)
                     }
                     NavigationLink { page("Spectrogram") { spectrogram; spectrogramTuning } } label: {
                         row("Spectrogram", "waveform", "\(listener.palette.title) · \(listener.spectrogramSeconds) s")
@@ -58,7 +62,7 @@ struct SettingsView: View {
             .navigationDestination(isPresented: $showLocation) { page("Location & season") { location; ebirdSection } }
             .navigationDestination(item: $showPage) { p in
                 switch p {
-                case "Inference": page(p) { inference; humanGuard }
+                case "Inference": page("Detection tuning") { inference; humanGuard }
                 case "Spectrogram": page(p) { spectrogram; spectrogramTuning }
                 default: page("Audio") { audio }
                 }
@@ -127,7 +131,7 @@ struct SettingsView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                SettingLabel("How picky", help: "How confident Hark must be before it logs an ID.\n\nSensitive (70%): catches faint and distant calls, with more wrong guesses.\n\nBalanced (85%): confident IDs. A good default.\n\nStrict (92%): only the surest. Misses some real calls, rarely wrong.\n\nCustom means you've moved the sliders under Inference or Listen for; picking a preset puts them back.",
+                SettingLabel("How picky", help: "How confident Hark must be before it logs an ID.\n\nSensitive (70%): catches faint and distant calls, with more wrong guesses.\n\nBalanced (85%): confident IDs. A good default.\n\nStrict (92%): only the surest. Misses some real calls, rarely wrong.\n\nCustom means you've moved the sliders under Detection tuning or Listen for; picking a preset puts them back.",
                              standard: "Balanced", changed: listener.policy.preset != .balanced) { listener.policy.apply(.balanced) }
                 Picker("How picky", selection: presetBinding) {
                     ForEach(Preset.allCases, id: \.self) { Text($0.title).tag(Preset?.some($0)) }
@@ -204,7 +208,7 @@ struct SettingsView: View {
             } header: { Text("People sounds") } footer: {
                 Text("Hark doesn't hide what it hears: your own cough, breathing or footsteps show up under Hearing now like any other non-animal sound (never logged). Don't want to see one? Swipe left on it and choose Never show. Don't want any of them? Turn off Non-animal sounds under Listen for.")
             }
-            resetPage("Inference") {
+            resetPage("Detection tuning") {
                 listener.policy.apply(.balanced); listener.policy.humanGuard = .standard
                 listener.scoreInterval = 1; listener.confirmSeconds = 2; listener.showSpeed = false
             }

@@ -73,6 +73,12 @@ final class ClipPlayer: NSObject, AVAudioPlayerDelegate {
 
     func stop() { player?.stop(); player = nil; playingID = nil }
 
+    /// How far through the clip playback is, 0 to 1 (for a playhead). Read it each frame; it isn't observed.
+    var position: Double? {
+        guard let p = player, p.duration > 0 else { return nil }
+        return min(max(p.currentTime / p.duration, 0), 1)
+    }
+
     nonisolated func audioPlayerDidFinishPlaying(_ p: AVAudioPlayer, successfully: Bool) {
         Task { @MainActor in self.playingID = nil; self.player = nil }
     }

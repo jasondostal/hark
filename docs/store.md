@@ -145,7 +145,7 @@ Hark 1.1 is for people who want more control.
 • Sessions: name them, add notes, see the tally, share or delete a single session.
 • Spectrogram: set its height up to full screen in portrait, FFT size, top frequency, background fade, and drawing quality.
 • Audio: microphone gain, and a high-pass filter you set in Hz.
-• Inference: one confidence slider, how often Hark checks, and a setting for the voices-and-music guard.
+• Detection tuning: one confidence slider, how often Hark checks, and a setting for the voices-and-music guard.
 • Fixes: a siren no longer counts as a salamander.
 ```
 

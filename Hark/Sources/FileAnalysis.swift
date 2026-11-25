@@ -285,6 +285,7 @@ struct FileAnalysisView: View {
                 if case .success(let urls) = r { files.add(urls) }
             }
         }
+        .environment(\.openDetection) { path.append($0) }      // map pins
     }
 
     @ViewBuilder private func row(_ j: FileAnalysis.Job) -> some View {

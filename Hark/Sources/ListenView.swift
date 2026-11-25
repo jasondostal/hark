@@ -31,6 +31,8 @@ struct ListenView: View {
     @State private var showFiles = ProcessInfo.processInfo.arguments.contains("-files")   // screenshot aid
     /// A session to open the Log on (a finished point count, an analyzed file).
     @State private var logSession: UUID?
+    /// A detection tapped in the list: its page, right here.
+    @State private var opened: Detection?
 
     var body: some View {
         @Bindable var listener = listener
@@ -43,23 +45,29 @@ struct ListenView: View {
         .sheet(isPresented: $showFiles) {
             FileAnalysisView().themeRoot()
         }
+        .sheet(item: $opened) { DetectionSheet(detection: $0).themeRoot() }
         .onChange(of: listener.state) { _, s in
             if s == .listening { listener.selection.unfreeze() }
         }
-        .onChange(of: FileAnalysis.shared.arrivals) { _, _ in showSettings = false; showLog = false; filesChosen = true; showFiles = true }
+        .onChange(of: FileAnalysis.shared.arrivals) { _, _ in showSettings = false; showLog = false; opened = nil; filesChosen = true; showFiles = true }
         .onChange(of: selection.isFrozen) { _, frozen in
             if !frozen { HearTip.hasSelection = false }
         }
         .onChange(of: selection.range) { _, r in
             guard !r.isEmpty else { return }
             HearTip.hasSelection = true
-            Task { await ModeTip.selected.donate() }
         }
         .onAppear {
             listener.modelContext = ctx
             WidgetBridge.refresh(ctx, listening: listener.state == .listening, now: true)
             #if DEBUG
-            Task { await DemoData.seedIfRequested(ctx) }      // screenshot aid: -demolog <dir>
+            Task {
+                await DemoData.seedIfRequested(ctx)      // screenshot aid: -demolog <dir>
+                if ProcessInfo.processInfo.arguments.contains("-opendetection") {      // screenshot aid: a detection's page over Listen
+                    var f = FetchDescriptor<Detection>(sortBy: [SortDescriptor(\.firstHeard, order: .reverse)]); f.fetchLimit = 1
+                    opened = try? ctx.fetch(f).first
+                }
+            }
             #endif
         }
     }
@@ -107,6 +115,7 @@ struct ListenView: View {
 
     private var list: some View {
         List { Group { content }.themedRows() }
+            .environment(\.openDetection) { opened = $0 }
             .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
             .listStyle(.insetGrouped)
             .themedList()
@@ -244,10 +253,12 @@ struct ListenView: View {
             }
             .buttonStyle(.bordered)
             .tint(overlayTint)
-            Text(selection.range.isEmpty ? "Paused · drag across a call" : selection.caption)
-                .font(.caption.monospacedDigit()).foregroundStyle(listener.palette.labelColor)
-                .lineLimit(1).minimumScaleFactor(0.6)
-                .allowsHitTesting(false)
+            if selection.range.isEmpty {      // once there's a selection, its numbers are in the list below
+                Text("Paused · drag across a call")
+                    .font(.caption).foregroundStyle(listener.palette.labelColor)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                    .allowsHitTesting(false)
+            }
             Spacer(minLength: 0)
             if !selection.range.isEmpty {
                 let player = ClipPlayer.shared
@@ -278,11 +289,32 @@ struct ListenView: View {
         case .loading:
             Section { HStack(spacing: 10) { ProgressView(); Text("Setting up the models on this iPhone. Only after installing or updating; a few seconds.").font(.callout) } }
         case .failed(let msg):
-            Section { Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout) }
+            Section {
+                Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout)
+                if listener.micDenied, let url = URL(string: UIApplication.openSettingsURLString) {
+                    Button { UIApplication.shared.open(url) } label: { Label("Open Settings to turn it on", systemImage: "gear") }
+                }
+            } footer: {
+                if listener.micDenied { Text("In Settings, switch on Microphone, then come back and tap the button.") }
+            }
         default:
             if listener.perchPending {
                 Section { HStack(spacing: 10) { ProgressView(); Text("Perch is still setting up; listening with BirdNET+ until it joins.").font(.callout).foregroundStyle(.secondary) } }
             }
+        }
+        if FileAnalysis.shared.running {
+            let jobs = FileAnalysis.shared.jobs
+            let left = jobs.filter { if case .waiting = $0.state { true } else if case .running = $0.state { true } else { false } }.count
+            Section {
+                Button { showFiles = true } label: {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text(left == 1 ? "Analyzing a recording" : "Analyzing recordings, \(left) to go").foregroundStyle(.primary)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
+                }
+            } footer: { Text("Hark can't listen until it's done: the models do one thing at a time. Tap to watch it or stop it.") }
         }
         if selection.isFrozen { SelectionSection(selection: selection) }
         let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty
@@ -297,12 +329,19 @@ struct ListenView: View {
                 .padding(.vertical, 6)
             }
         }
-        if let done = listener.finishedCount, listener.state != .listening, !selection.isFrozen {
+        if let done = listener.finished, listener.state != .listening, !selection.isFrozen {
             Section {
                 Button { logSession = done.session; showLog = true } label: {
-                    Label("\(done.species) species. See the tally", systemImage: "checklist")
+                    HStack {
+                        Label("\(done.species) species. \(done.mode == .point ? "See the tally" : done.mode == .survey ? "See the route" : "See the session")",
+                              systemImage: done.mode == .point ? "checklist" : done.mode == .survey ? "map" : "list.bullet.rectangle.portrait")
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
                 }
-            } header: { Text("Point count done").themedHeader() }
+            } header: {
+                Text(done.mode == .point ? (done.complete ? "Point count done" : "Point count stopped") : done.mode == .survey ? "Survey done" : "Stopped listening").themedHeader()
+            }
         }
         if listener.state == .ready && choice != .live && !selection.isFrozen {
             Section {
@@ -320,7 +359,7 @@ struct ListenView: View {
                     .font(.callout).foregroundStyle(.secondary)
             } header: { Text("Manual mode").themedHeader() }
         }
-        if active && listener.autoID {
+        if active && listener.autoID && listener.state == .listening {
             Section {
                 if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
                     // one row either way, so nothing below it moves
@@ -328,7 +367,7 @@ struct ListenView: View {
                         Label("Something else has the microphone. Hark picks up again when it's free.", systemImage: "mic.slash")
                             .font(.callout).foregroundStyle(.orange)
                     } else {
-                        Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
+                        Text("Listening…").foregroundStyle(.secondary)
                     }
                 }
                 ForEach(listener.hearingNow) { o in
@@ -558,7 +597,8 @@ struct ListenButton: View {
     var body: some View {
         let listening = listener.state == .listening
         let style = ListenStyle(theme: theme, listening: listening)
-        Button { if choice == .files && !listening { files() } else { Task { await listener.toggle() } } } label: {
+        let analyzing = FileAnalysis.shared.running      // the models are busy: the button leads to what's keeping them
+        Button { if (choice == .files || analyzing) && !listening { files() } else { Task { await listener.toggle() } } } label: {
             ZStack {
                 if theme.isPixel {   // a chunky square key with a hard drop shadow
                     Rectangle().fill(style.shadow).frame(width: 62, height: 62).offset(x: 5, y: 5)
@@ -572,7 +612,7 @@ struct ListenButton: View {
                 if listener.state == .loading {
                     ProgressView().tint(style.glyph)
                 } else {
-                    Image(systemName: listening ? "stop.fill" : choice.symbol)
+                    Image(systemName: listening ? "stop.fill" : analyzing ? ModeChoice.files.symbol : choice.symbol)
                         .font(.system(size: listening ? 24 : 27, weight: .semibold)).foregroundStyle(style.glyph)
                         .contentTransition(.symbolEffect(.replace))
                 }
@@ -582,7 +622,7 @@ struct ListenButton: View {
         }
         .buttonStyle(.plain)
         .disabled(listener.state == .loading)
-        .accessibilityLabel(listening ? "Stop listening" : choice == .files ? "Analyze recordings" : "Start listening, \(choice.title)")
+        .accessibilityLabel(listening ? "Stop listening" : analyzing ? "Analyzing recordings. Show progress" : choice == .files ? "Analyze recordings" : "Start listening, \(choice.title)")
         .sensoryFeedback(.impact(weight: .medium), trigger: listening)
     }
 }
@@ -622,14 +662,14 @@ struct NowRow: View {
     /// Landscape column: name, a seal when both models agree, and the percentage.
     private var compactBody: some View {
         HStack(spacing: 10) {
-            TaxonIcon(group: label.group)
-            SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .headline).lineLimit(2).minimumScaleFactor(0.85)
+            TaxonIcon(group: label.group, size: 26)
+            SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .subheadline).fontWeight(.semibold).lineLimit(2).minimumScaleFactor(0.85)
             Spacer(minLength: 4)
             if agreed {
                 Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.good)
                     .accessibilityLabel("Perch and BirdNET+ agree")
             }
-            Text("\(confidence.shownPercent)%").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+            Text("\(confidence.shownPercent)%").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -640,9 +680,10 @@ struct NowRow: View {
             VStack(alignment: .leading) {
                 SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .headline)
                 SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies)
-                if agreed {
-                    Label("Both models", systemImage: "checkmark.seal.fill")
+                if agreed {      // not a Label: in a list row its icon would sit in the list's icon column
+                    HStack(spacing: 3) { Image(systemName: "checkmark.seal.fill"); Text("Both models") }
                         .font(.caption2.weight(.semibold)).foregroundStyle(.good)
+                        .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Perch and BirdNET+ agree")
                 }
                 if typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }   // big text: bar under the name
@@ -695,10 +736,13 @@ struct ManualRow: View {
         HStack(spacing: 12) {
             TaxonIcon(group: detection.taxon)
             VStack(alignment: .leading) {
-                HStack(spacing: 6) { SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies); if detection.isFirst { NewBadge() } }
+                SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies)
                 SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, row: true)
-                Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(detection.confidence.shownPercent)%")
-                    .font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 6) {      // the badge sits here so the name keeps the whole line
+                    if detection.isFirst { NewBadge() }
+                    Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(detection.confidence.shownPercent)%")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             ConfirmButton(detection: detection)
@@ -711,6 +755,7 @@ struct SessionRow: View {
     let occurrence: DetectionTracker.Occurrence
     let detection: Detection?
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.compactRows) private var compact
     private var subtitle: String {
         var s = "\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · \(occurrence.bestConfidence.shownPercent)%"
         let mins = Int(occurrence.lastHeard.timeIntervalSince(occurrence.firstHeard) / 60)
@@ -718,13 +763,15 @@ struct SessionRow: View {
         return s
     }
     var body: some View {
-        HStack(spacing: 12) {
-            TaxonIcon(group: label.group)
+        HStack(spacing: compact ? 10 : 12) {
+            TaxonIcon(group: label.group, size: compact ? 26 : 34)
             VStack(alignment: .leading) {
-                HStack(spacing: 6) { SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies); if detection?.isFirst == true { NewBadge() } }
+                SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: compact ? .subheadline : .body)
                 SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, row: true)
-                Text(subtitle)
-                    .font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 6) {      // the badge sits here so the name keeps the whole line
+                    if detection?.isFirst == true { NewBadge() }
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
                 if typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
             }
             Spacer(minLength: 0)
@@ -736,6 +783,26 @@ struct SessionRow: View {
 extension EnvironmentValues {
     /// Narrow landscape column: rows drop secondary detail and buttons go icon-only.
     @Entry var compactRows = false
+    /// Show a detection's page from wherever this is: pushed in the Log, a sheet over the Listen screen.
+    @Entry var openDetection: ((Detection) -> Void)?
+}
+
+/// A detection's page over the Listen screen, with the same ways onward as in the Log (its species, its session).
+struct DetectionSheet: View {
+    let detection: Detection
+    @Environment(\.dismiss) private var dismiss
+    @State private var path = NavigationPath()
+    var body: some View {
+        NavigationStack(path: $path) {
+            DetectionDetail(detection: detection)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+                .navigationDestination(for: Detection.self) { DetectionDetail(detection: $0) }
+                .navigationDestination(for: SessionSummary.self) { SessionPage(session: $0) }
+                .navigationDestination(for: SpeciesKey.self) { SpeciesPage(scientific: $0.scientific) }
+        }
+        .environment(\.openDetection) { path.append($0) }
+        .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
+    }
 }
 
 struct ConfirmButton: View {
@@ -799,8 +866,12 @@ private struct MuteSwipe: ViewModifier {
     var detection: Detection?
     var maybe: Maybe?
     @State private var sharing: Detection?
+    @Environment(\.openDetection) private var open
     func body(content: Content) -> some View {
         content
+            .contentShape(Rectangle())
+            .onTapGesture { if let detection { open?(detection) } }
+            .accessibilityAction(named: "Open") { if let detection { open?(detection) } }
             .sheet(item: $sharing) { d in ShareCardSheet(detection: d).themeRoot() }
             .swipeActions(edge: .trailing) {
                 // Full swipe = Not it (this time only); muting for good is the second, deliberate button.
@@ -813,6 +884,7 @@ private struct MuteSwipe: ViewModifier {
                     Button { listener.logMaybe(m, confirmed: true) } label: { Label("I saw it", systemImage: "eye") }
                 }
                 if let d = detection {
+                    Button { open?(d) } label: { Label("Open", systemImage: "doc.text.magnifyingglass") }
                     Button { d.confirmed.toggle() } label: {
                         Label(d.confirmed ? "I didn't see it" : "I saw it", systemImage: d.confirmed ? "eye.slash" : "eye")
                     }

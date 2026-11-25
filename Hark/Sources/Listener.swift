@@ -307,8 +307,11 @@ final class Listener {
     private(set) var activeMode: Mode = .live
     /// Point count: when it ends.
     private(set) var endsAt: Date?
-    /// The point count that just finished, for the "see the tally" row. Cleared by the next Listen.
-    private(set) var finishedCount: (session: UUID, species: Int)?
+    /// The session that just ended, for the "see it in the Log" row. Cleared by the next Listen.
+    /// `complete`: a point count that ran its full time.
+    private(set) var finished: (session: UUID, species: Int, mode: Mode, complete: Bool)?
+    /// Microphone access is switched off for Hark in iOS Settings (the failure row offers the way there).
+    private(set) var micDenied = false
     /// Point counts and surveys always identify as they go; Manual is a Live thing.
     var autoID: Bool { idMode == .auto || (state == .listening ? activeMode : mode) != .live }
     /// Preferred input port UID (nil = automatic). Applies next time listening starts.
@@ -495,13 +498,14 @@ final class Listener {
         ClipPlayer.shared.stop()
         let feeding = ProcessInfo.processInfo.arguments.contains("-feedfile")
         let allowed = feeding ? true : await AudioCapture.requestPermission()
+        micDenied = !allowed
         guard allowed else {
-            state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
+            state = .failed("Microphone access is off for Hark, so it can't listen."); return
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
         sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []; lastMicRetry = .now
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]; notHere = []
-        activeMode = mode; finishedCount = nil
+        activeMode = mode; finished = nil
         endsAt = mode == .point ? startedAt.addingTimeInterval(Double(pointMinutes) * 60) : nil
         store.reset(); live.reset(); selection.unfreeze()
         let store = self.store, live = self.live
@@ -554,14 +558,21 @@ final class Listener {
 
     /// Time's up: stop, buzz, and offer the tally.
     private func finishPointCount() {
-        let id = sessionID, n = sessionSpecies.count + Set(manual.map(\.scientific)).subtracting(sessionSpecies.compactMap { label($0)?.scientific }).count
-        liveActivity.finish(species: n)
-        stop()
-        finishedCount = (id, n)
+        liveActivity.finish(species: speciesThisSession)
+        stop(complete: true)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    func stop() {
+    /// Distinct species logged this session, by Hark or by hand.
+    private var speciesThisSession: Int {
+        sessionSpecies.count + Set(manual.map(\.scientific)).subtracting(sessionSpecies.compactMap { label($0)?.scientific }).count
+    }
+
+    func stop(complete: Bool = false) {
+        if state == .listening {      // something to go and look at: offer it on the Listen screen
+            let n = speciesThisSession
+            finished = n > 0 || activeMode == .point ? (sessionID, n, activeMode, complete) : nil
+        }
         loop?.cancel(); loop = nil
         ClipPlayer.shared.stop()
         audio.stop(); location.stop()

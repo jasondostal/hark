@@ -241,8 +241,7 @@ struct SessionPage: View {
             }
             ForEach(session.kind == "point" ? [] : session.detections.filter { $0.latitude != nil }) { d in
                 Annotation(d.displayName, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
-                    Image(symbol: d.taxon.symbol).font(.caption2).padding(4)
-                        .background(d.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)
+                    DetectionPin(detection: d, small: true)
                 }
             }
         }

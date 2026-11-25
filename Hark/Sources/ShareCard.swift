@@ -113,7 +113,6 @@ struct ShareCardView: View {
             if let town = model.town {
                 Label(town, systemImage: "location.fill").font(.subheadline).foregroundStyle(ink.opacity(0.75)).lineLimit(1)
             }
-            Spacer(minLength: 0)
             HStack(spacing: 6) {
                 Image(systemName: "ear.badge.waveform").font(.caption.weight(.semibold))
                 Text("Heard with Hark").font(theme.headerFont(.caption) ?? .caption.weight(.semibold))
@@ -145,7 +144,7 @@ struct ShareCardView: View {
                 }
             }
         }
-        .frame(height: model.map == nil ? 190 : 170)
+        .frame(minHeight: 150, maxHeight: .infinity)      // takes whatever height the lines below leave, so the card has no empty band
         .clipShape(RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 14))
     }
 
@@ -213,7 +212,7 @@ struct ShareCardSheet: View {
                          "Location stays off unless you pick it. Town adds the nearest town; Map adds a small map of the exact spot. What you see above is exactly what gets sent.")
                 }
             }.themedRows() }.themedList()
-            .navigationTitle("Share")
+            .navigationTitle("Card to share")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

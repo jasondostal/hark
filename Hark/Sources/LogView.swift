@@ -120,6 +120,7 @@ struct LogView: View {
             }
             .navigationDestination(for: SpeciesKey.self) { SpeciesPage(scientific: $0.scientific) }
         }
+        .environment(\.openDetection) { path.append($0) }      // map pins
         .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 64) }   // above the view switcher
     }
 }
@@ -202,12 +203,14 @@ struct LogRow: View {
                     if detection.confirmed {
                         Image(systemName: "checkmark.seal.fill").foregroundStyle(.good).font(.caption).accessibilityLabel("seen")
                     }
-                    if detection.isFirst { NewBadge() }
                 }
                 SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, row: true)
-                Text(subtitle).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                HStack(spacing: 6) {      // the badge sits here so the name keeps the whole line
+                    if detection.isFirst { NewBadge() }
+                    Text(subtitle).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
             if detection.clipFile != nil { ClipButton(file: detection.clipFile, symbol: "") }
         }
     }
@@ -354,7 +357,12 @@ struct SpeciesPage: View {
                 }
             }
             if let best, let file = best.clipFile {
-                Section("Best recording") { ClipSpectrogram(file: file); HStack { ClipButton(file: file, symbol: "waveform"); Text("\(best.confidence.shownPercent)% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.caption) } }
+                Section {
+                    ClipSpectrogram(file: file)
+                    NavigationLink(value: best) {
+                        Text("\(best.confidence.shownPercent)% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.callout)
+                    }
+                } header: { Text("Best recording") }
             }
             if detections.count >= 2 {
                 Section("Time of day") {
@@ -409,6 +417,18 @@ struct DetectionDetail: View {
     @Bindable var detection: Detection
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
+    /// Everything from the same session, for the way back to it.
+    @Query private var siblings: [Detection]
+    @Query private var records: [ListeningSession]
+
+    init(detection: Detection) {
+        _detection = Bindable(detection)
+        let sid = detection.sessionID
+        _siblings = Query(filter: #Predicate<Detection> { $0.sessionID == sid })
+        _records = Query(filter: #Predicate<ListeningSession> { $0.id == sid })
+    }
+
+    private var session: SessionSummary? { SessionSummary.build(siblings, records).first }
 
     var body: some View {
         List { Group {
@@ -420,13 +440,17 @@ struct DetectionDetail: View {
                         SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, font: .body)
                     }
                 }
-                NavigationLink(value: SpeciesKey(scientific: detection.scientific)) { Text("All \(detection.displayName) detections") }
+                NavigationLink(value: SpeciesKey(scientific: detection.scientific)) {
+                    Label("All \(detection.displayName) detections", systemImage: "square.stack")
+                }
+                if let s = session {
+                    NavigationLink(value: s) {
+                        Label((s.name.map { "\($0), " } ?? "Session, ") + s.start.formatted(date: .abbreviated, time: .shortened), systemImage: s.symbol)
+                    }
+                }
             }
             if let file = detection.clipFile {
-                Section("Recording") {
-                    ClipSpectrogram(file: file)
-                    HStack { ClipButton(file: file, symbol: "waveform"); Text("Play the clip").font(.callout) }
-                }
+                Section("Recording") { ClipSpectrogram(file: file) }
             }
             Section {
                 Toggle(isOn: $detection.confirmed) { Label("I saw it", systemImage: "eye") }
@@ -438,13 +462,13 @@ struct DetectionDetail: View {
                 LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram", "file": "Found in a recording"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {
-                Section("Where") { DetectionMap(detections: [detection]).frame(height: 180).listRowInsets(EdgeInsets()) }
+                Section("Where") { DetectionMap(detections: [detection], links: false).frame(height: 180).listRowInsets(EdgeInsets()) }
             }
             LearnMoreSection(scientific: detection.scientific, common: detection.common, group: detection.taxon)
             Section {
                 Button("Not it: wrong ID", role: .destructive) { Listener.shared.notIt(detection); dismiss() }
                 Button("Delete", role: .destructive) { deleteWithUndo(detection, in: ctx); dismiss() }
-            } footer: { Text("Not it removes this and tells Hark it was wrong this time. To stop seeing a species altogether, long-press it on the Listen screen.") }
+            } footer: { Text("Not it removes this and tells Hark it was wrong this time. To stop hearing about a species for good, open all its detections (at the top of this page) and choose Never show this species.") }
         }.themedRows() }.themedList()
         .toolbar { ToolbarItem(placement: .primaryAction) { DetectionShareButton(detection: detection) } }
         .navigationTitle(detection.displayName)
@@ -452,16 +476,39 @@ struct DetectionDetail: View {
     }
 }
 
-/// Spectrogram of a saved clip, computed on first display.
+/// Spectrogram of a saved clip, computed on first display. Tap it to play the clip; a line follows the sound.
 struct ClipSpectrogram: View {
     let file: String
     @State private var image: CGImage?
+    private var player: ClipPlayer { ClipPlayer.shared }
     var body: some View {
+        let playing = player.playingID == file
         ZStack {
             Color.black
             if let image { Image(decorative: image, scale: 1).resizable().interpolation(.medium) } else { ProgressView().tint(.white) }
+            if playing {
+                TimelineView(.animation) { _ in
+                    GeometryReader { g in
+                        Rectangle().fill(.white).frame(width: 2).shadow(color: .black, radius: 1)
+                            .offset(x: g.size.width * (player.position ?? 0) - 1)
+                    }
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            Image(systemName: playing ? "stop.fill" : "play.fill")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                .frame(width: 36, height: 36).background(.black.opacity(0.55), in: Circle())
+                .overlay { Circle().stroke(.white.opacity(0.35)) }
+                .padding(10)
         }
         .frame(height: 140)
+        .contentShape(Rectangle())
+        .onTapGesture { player.toggle(id: file, samples: nil, file: ClipStore.url(file)) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(playing ? "Stop the recording" : "Play the recording")
+        .accessibilityAddTraits(.isButton)
         .listRowInsets(EdgeInsets())
         .task(id: file) {
             let f = file
@@ -478,15 +525,34 @@ struct ClipSpectrogram: View {
 
 struct DetectionMap: View {
     let detections: [Detection]
+    /// Pins open their detection (off on the detection's own page).
+    var links = true
     var body: some View {
         Map {
             ForEach(detections.filter { $0.latitude != nil }) { d in
                 Annotation(d.displayName, coordinate: CLLocationCoordinate2D(latitude: d.latitude!, longitude: d.longitude!)) {
-                    Image(symbol: d.taxon.symbol).font(.caption).padding(5)
-                        .background(d.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)
+                    DetectionPin(detection: d, links: links)
                 }
             }
         }
+    }
+}
+
+/// A detection on a map. Tap it for its page.
+struct DetectionPin: View {
+    let detection: Detection
+    var links = true
+    var small = false
+    @Environment(\.openDetection) private var open
+    var body: some View {
+        let dot = Image(symbol: detection.taxon.symbol).font(small ? .caption2 : .caption).padding(small ? 4 : 5)
+            .background(detection.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.tint), in: Circle()).foregroundStyle(.white)
+        if links, let open {
+            Button { open(detection) } label: { dot.frame(minWidth: 36, minHeight: 36).contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(detection.displayName)
+                .accessibilityHint("Opens this detection")
+        } else { dot }
     }
 }
 
