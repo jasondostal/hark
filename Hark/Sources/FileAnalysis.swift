@@ -176,9 +176,9 @@ struct FileAnalysisView: View {
             List { Group {
                 Section {
                     Button { picking = true } label: { Label(files.jobs.isEmpty ? "Choose recordings…" : "Add more…", systemImage: "folder.badge.plus") }
-                    Toggle("Recorded around here, this season", isOn: $files.local).disabled(files.running)
+                    Toggle("Drop species that don't belong here now", isOn: $files.local).disabled(files.running)
                 } footer: {
-                    Text("Pick one file or many (WAV, FLAC, MP3, M4A, or the sound from a video). Hark listens to each from start to finish with your current model and pickiness, and saves what it finds as a session in the Log, dated when the file was made. Leave the switch off for recordings from somewhere else or another time of year: on, IDs that don't fit here and now are dropped, as they are when you listen live.")
+                    Text("Pick one file or many (WAV, FLAC, MP3, M4A, or the sound from a video). Hark listens to each from start to finish with your current model and pickiness, and saves what it finds as a session in the Log, dated when the file was made.\n\nThe switch: when you listen live, Hark checks each ID against where you are and the time of year, and holds back species that don't fit. A file doesn't say where or when it was recorded, so that check is off for files and every confident ID is logged. Turn it on only for recordings you made near here, recently: then species that don't belong at your current location this week are left out.")
                 }
                 if !files.jobs.isEmpty {
                     Section {
