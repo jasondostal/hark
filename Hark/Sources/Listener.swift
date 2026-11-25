@@ -106,9 +106,12 @@ final class Listener {
     private var lastMicRetry = Date.distantPast
     private func watchMicrophone(_ now: Date) {
         guard !ProcessInfo.processInfo.arguments.contains("-feedfile") else { return }
-        let silent = now.timeIntervalSince(audio.lastSampleAt) > 3
+        let dead = now.timeIntervalSince(audio.lastSampleAt) > 3            // nothing arriving at all
+        let silent = dead || now.timeIntervalSince(audio.lastSoundAt) > 3   // or only digital silence
         if silent != micStalled { micStalled = silent; if silent { hearingNow = []; maybes = [] } }
-        guard silent, now.timeIntervalSince(lastMicRetry) >= 5 else { return }
+        // Dead: try every 5 s. Fed zeros: the engine is running and usually comes back by itself, so only nudge it
+        // once a minute (restarting makes iPhone Mirroring put up its "microphone not available" notice each time).
+        guard silent, now.timeIntervalSince(lastMicRetry) >= (dead ? 5 : 60) else { return }
         lastMicRetry = now
         do { try audio.start(); NSLog("HARK mic: restarted") } catch { NSLog("HARK mic: still busy (%@)", error.localizedDescription) }
     }
@@ -449,7 +452,7 @@ final class Listener {
             state = .failed("Microphone access is off. Turn it on in Settings > Hark."); return
         }
         sessionID = UUID(); tracker.reset(); logged = [:]; clipBest = [:]; hearingNow = []; session = []
-        sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []
+        sessionSpecies = []; startedAt = .now; patchAt = nil; agreed = []; lastMicRetry = .now
         recentMaybes = [:]; maybes = []; manual = []; manualIndices = []; markers = []; lastMarker = [:]; notHere = []
         activeMode = mode; finishedCount = nil
         endsAt = mode == .point ? startedAt.addingTimeInterval(Double(pointMinutes) * 60) : nil

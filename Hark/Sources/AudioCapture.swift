@@ -10,8 +10,11 @@ final class AudioCapture {
     /// Called on the audio thread with converted samples and the chunk's RMS in dBFS.
     var onSamples: (([Float], Float) -> Void)?
     /// When audio last arrived (any thread), so the listener can tell the microphone has been taken away.
-    private var _lastSampleAt = Date()
+    private var _lastSampleAt = Date(), _lastSoundAt = Date()
     var lastSampleAt: Date { filterLock.lock(); defer { filterLock.unlock() }; return _lastSampleAt }
+    /// When anything other than digital silence last arrived. A real microphone never sends exact zeros; iOS does
+    /// when something else owns the mic but the tap keeps running (iPhone Mirroring, for one).
+    var lastSoundAt: Date { filterLock.lock(); defer { filterLock.unlock() }; return _lastSoundAt }
 
     // Rumble filter: 2nd-order Butterworth high-pass on the 32 kHz stream (feeds both Perch and the spectrogram).
     private let filterLock = NSLock()
@@ -89,7 +92,7 @@ final class AudioCapture {
         }
         engine.prepare()
         try engine.start()
-        filterLock.lock(); _lastSampleAt = Date(); filterLock.unlock()     // give the restarted mic a moment before calling it silent again
+        filterLock.lock(); _lastSampleAt = Date(); _lastSoundAt = Date(); filterLock.unlock()     // give the restarted mic a moment before calling it silent again
     }
 
     /// Testing aid (`-feedfile a.wav,b.wav`): stream files in real time through the same convert path as the mic.
@@ -134,7 +137,9 @@ final class AudioCapture {
         guard err == nil, let ch = out.floatChannelData?[0], out.frameLength > 0 else { return }
         let n = Int(out.frameLength)
         var samples = Array(UnsafeBufferPointer(start: ch, count: n))
-        filterLock.lock(); _lastSampleAt = Date(); filterLock.unlock()
+        var peak: Float = 0
+        vDSP_maxmgv(samples, 1, &peak, vDSP_Length(n))
+        filterLock.lock(); _lastSampleAt = Date(); if peak > 0 { _lastSoundAt = _lastSampleAt }; filterLock.unlock()
         highPass(&samples)
         amplify(&samples)
         var rms: Float = 0

@@ -360,7 +360,7 @@ struct ListenView: View {
                     Label("Hearing people or music: only IDs Hark is very sure of count right now", systemImage: "person.wave.2")
                         .font(.caption).foregroundStyle(.orange)
                 }
-                if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
+                if listener.hearingNow.isEmpty && listener.maybes.isEmpty && !listener.micStalled {
                     Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
                 }
                 ForEach(listener.hearingNow) { o in
