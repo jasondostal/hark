@@ -40,6 +40,9 @@ struct ListeningAttributes: ActivityAttributes {
         var latest: String?         // most recent new species
         var latestSymbol: String?
         var latestIsFirst: Bool     // first time ever ("New for you")
+        var finished = false        // a point count that ran its time: the card stays a while with the tally
     }
     var started: Date
+    var title = "Hark is listening" // "Point count", "Survey"
+    var endsAt: Date?               // point count: when it stops
 }

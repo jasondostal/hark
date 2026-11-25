@@ -9,11 +9,11 @@ final class LiveActivityController {
     private var activity: Activity<ListeningAttributes>?
     private var state = ListeningAttributes.ContentState(species: 0, latest: nil, latestSymbol: nil, latestIsFirst: false)
 
-    func start() {
+    func start(title: String = "Hark is listening", endsAt: Date? = nil) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         end()
         state = .init(species: 0, latest: nil, latestSymbol: nil, latestIsFirst: false)
-        activity = try? Activity.request(attributes: ListeningAttributes(started: .now),
+        activity = try? Activity.request(attributes: ListeningAttributes(started: .now, title: title, endsAt: endsAt),
                                          content: .init(state: state, staleDate: nil))
     }
 
@@ -25,6 +25,19 @@ final class LiveActivityController {
                                                     body: "\(name)", sound: .default) : nil
         let content = ActivityContent(state: state, staleDate: nil)
         Task { await activity.update(content, alertConfiguration: alert) }
+    }
+
+    /// A point count ran its time: say so (lighting the Lock Screen and buzzing), and leave the tally up for a while.
+    func finish(species: Int) {
+        guard let a = activity else { return }
+        activity = nil
+        state.finished = true; state.species = species
+        let content = ActivityContent(state: state, staleDate: nil)
+        let alert = AlertConfiguration(title: "Point count done", body: "\(species) species heard", sound: .default)
+        Task {
+            await a.update(content, alertConfiguration: alert)
+            await a.end(content, dismissalPolicy: .after(.now.addingTimeInterval(15 * 60)))
+        }
     }
 
     func end() {

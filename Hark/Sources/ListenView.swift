@@ -322,16 +322,14 @@ struct ListenView: View {
         }
         if active && listener.autoID {
             Section {
-                if listener.micStalled {
-                    Label("Something else has the microphone. Hark picks up again as soon as it's free.", systemImage: "mic.slash")
-                        .font(.caption).foregroundStyle(.orange)
-                }
-                if listener.guardActive {
-                    Label("Hearing people or music: only IDs Hark is very sure of count right now", systemImage: "person.wave.2")
-                        .font(.caption).foregroundStyle(.orange)
-                }
-                if listener.hearingNow.isEmpty && listener.maybes.isEmpty && !listener.micStalled {
-                    Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
+                if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
+                    // one row either way, so nothing below it moves
+                    if listener.micStalled {
+                        Label("Something else has the microphone. Hark picks up again when it's free.", systemImage: "mic.slash")
+                            .font(.callout).foregroundStyle(.orange)
+                    } else {
+                        Text(listener.state == .listening ? "Listening…" : "Stopped").foregroundStyle(.secondary)
+                    }
                 }
                 ForEach(listener.hearingNow) { o in
                     if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index))
@@ -340,7 +338,24 @@ struct ListenView: View {
                 ForEach(listener.maybes) { m in
                     if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index, maybe: m) }
                 }
-            } header: { Text("Hearing now").themedHeader() }
+            } header: {
+                // Notices sit beside the title, so they come and go without pushing the list around.
+                HStack(spacing: 6) {
+                    Text("Hearing now").themedHeader()
+                    Spacer(minLength: 4)
+                    Group {
+                        if listener.micStalled {
+                            Label("Mic in use elsewhere", systemImage: "mic.slash").labelStyle(.titleAndIcon)
+                                .accessibilityLabel("Something else has the microphone")
+                        } else if listener.guardActive {
+                            Label("People or music: sure IDs only", systemImage: "person.wave.2").labelStyle(.titleAndIcon)
+                                .accessibilityLabel("Hearing people or music: only IDs Hark is very sure of count right now")
+                        }
+                    }
+                    .font(.caption.weight(.medium)).foregroundStyle(.orange).textCase(nil).lineLimit(1).minimumScaleFactor(0.8)
+                }
+                .animation(.default, value: listener.guardActive)
+            }
         }
         if !listener.session.isEmpty || !listener.manual.isEmpty {
             Section {
@@ -500,15 +515,28 @@ struct ModeStrip: View {
     var vertical = false
     @Environment(\.theme) private var theme
     var body: some View {
+        // Narrow phones get the same row a size or two smaller rather than a clipped one.
+        ViewThatFits(in: .horizontal) {
+            row(size: vertical ? 11 : 13, pad: vertical ? 6 : 9)
+            row(size: 12, pad: 6)
+            row(size: 11, pad: 4)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.large)       // a fixed row, like the system tab bar
+        .disabled(locked)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Mode")
+    }
+
+    private func row(size: CGFloat, pad: CGFloat) -> some View {
         let layout = vertical ? AnyLayout(VStackLayout(spacing: 1)) : AnyLayout(HStackLayout(spacing: 2))
-        layout {
+        return layout {
             ForEach(ModeChoice.allCases) { c in
                 let on = c == choice
                 Button { withAnimation(.snappy) { choice = c } } label: {
                     Text(c.title)
-                        .font(theme.isPixel ? .pixel(vertical ? 8 : 9) : .system(size: vertical ? 11 : 13, weight: on ? .bold : .medium))
+                        .font(theme.isPixel ? .pixel(max(size - 4, 7)) : .system(size: size, weight: on ? .bold : .medium))
                         .lineLimit(1).fixedSize()
-                        .padding(.horizontal, vertical ? 6 : 9).padding(.vertical, vertical ? 3 : 5)
+                        .padding(.horizontal, pad).padding(.vertical, vertical ? 3 : 5)
                         .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                         .background { if on { Capsule().fill(.tint.opacity(0.14)) } }
                         .contentShape(Rectangle())
@@ -518,10 +546,6 @@ struct ModeStrip: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
-        .dynamicTypeSize(...DynamicTypeSize.large)       // a fixed row, like the system tab bar
-        .disabled(locked)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Mode")
     }
 }
 

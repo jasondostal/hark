@@ -202,6 +202,8 @@ final class FileAnalysis {
         }
         try? ctx.save()
         WidgetBridge.refresh(ctx, listening: false)
+        // "Open in Hark" hands over a copy in the app's Inbox; it has done its job.
+        if url.path.contains("/Documents/Inbox/") { try? FileManager.default.removeItem(at: url) }
     }
 }
 
@@ -255,7 +257,7 @@ struct FileAnalysisView: View {
                     Section {
                         ForEach(files.jobs) { j in row(j) }
                     } header: { Text("Recordings") } footer: {
-                        if files.running { Text("Keep Hark open while it works. An hour of audio takes a few minutes.") }
+                        if files.running { Text("Keep Hark open while it works: if you switch away it pauses, and carries on when you come back. An hour of audio takes a few minutes.") }
                     }
                     Section {
                         if files.running {

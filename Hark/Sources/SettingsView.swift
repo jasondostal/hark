@@ -318,12 +318,14 @@ struct SettingsView: View {
                              help: "How loud a sound must be, above the background, to reach full brightness.\n\nSoft spreads the colors over about 54 dB: loud and quiet calls look different, faint ones stay dim.\n\nPunchy squeezes them into about 24 dB: faint calls stand out, and so does more of the background.\n\nThis is the setting to reach for when a quiet call is hard to see.",
                              standard: "Medium", changed: abs(listener.contrast - 0.6) > 0.01) { listener.contrast = 0.6 }
                 Slider(value: $listener.contrast, in: 0...1)
+                    .accessibilityValue(listener.contrast < 0.34 ? "Soft" : listener.contrast > 0.67 ? "Punchy" : "Medium")
             }
             VStack(alignment: .leading) {
                 SettingLabel("Height", value: listener.spectrogramHeight >= 0.97 ? "Full screen" : "\(Int((listener.spectrogramHeight * 100).rounded()))%",
                              help: "How much of the screen the spectrogram takes when the phone is upright, as a share of the space above the buttons.\n\nAll the way right is full screen: no list, with what's being heard shown over the spectrogram. The arrows button on the spectrogram switches to full screen and back any time without changing this.",
                              standard: "32%", changed: abs(listener.spectrogramHeight - Listener.standardHeight) > 0.01) { listener.spectrogramHeight = Listener.standardHeight }
                 Slider(value: $listener.spectrogramHeight, in: 0.2...1, step: 0.04)
+                    .accessibilityValue(listener.spectrogramHeight >= 0.97 ? "Full screen" : "\(Int((listener.spectrogramHeight * 100).rounded())) percent")
             }
             Toggle(isOn: $listener.frequencyLabels) {
                 SettingLabel("Frequency labels", help: "The 1k, 2k, 4k, 8k marks down the left edge: pitch in kilohertz. A Great Horned Owl hoots near 0.3k, a robin sings around 2 to 4k, a Golden-crowned Kinglet is up near 8k.",

@@ -520,7 +520,7 @@ final class Listener {
         location.start(background: true, precise: activeMode == .survey)
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
         state = .listening
-        liveActivity.start()
+        liveActivity.start(title: activeMode == .live ? "Hark is listening" : activeMode.title, endsAt: endsAt)
         let rec = ListeningSession(id: sessionID, started: startedAt)
         rec.kind = activeMode.rawValue
         if activeMode == .point { rec.plannedSeconds = pointMinutes * 60 }
@@ -555,6 +555,7 @@ final class Listener {
     /// Time's up: stop, buzz, and offer the tally.
     private func finishPointCount() {
         let id = sessionID, n = sessionSpecies.count + Set(manual.map(\.scientific)).subtracting(sessionSpecies.compactMap { label($0)?.scientific }).count
+        liveActivity.finish(species: n)
         stop()
         finishedCount = (id, n)
         UINotificationFeedbackGenerator().notificationOccurred(.success)

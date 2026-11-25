@@ -28,11 +28,17 @@ struct ListeningLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ListeningAttributes.self) { ctx in
             HStack(spacing: 12) {
-                Image(systemName: "mic.fill").font(.title2).foregroundStyle(.green)
+                Image(systemName: ctx.state.finished ? "checkmark.circle.fill" : "mic.fill").font(.title2).foregroundStyle(.green)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("Hark is listening").font(.headline)
-                        Text(ctx.attributes.started, style: .timer).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(ctx.state.finished ? "\(ctx.attributes.title) done" : ctx.attributes.title).font(.headline)
+                        if ctx.state.finished {
+                        } else if let end = ctx.attributes.endsAt {     // point count: time left
+                            Text(timerInterval: ctx.attributes.started...max(end, ctx.attributes.started), countsDown: true)
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        } else {
+                            Text(ctx.attributes.started, style: .timer).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
                     }
                     if let latest = ctx.state.latest {
                         Label { Text(ctx.state.latestIsFirst ? "New for you: \(latest)" : latest) }
@@ -47,8 +53,10 @@ struct ListeningLiveActivity: Widget {
                     Text("\(ctx.state.species)").font(.title2.bold().monospacedDigit())
                     Text("species").font(.caption2).foregroundStyle(.secondary)
                 }
-                Button(intent: StopListeningIntent()) { Image(systemName: "stop.fill") }
-                    .tint(.red)
+                if !ctx.state.finished {
+                    Button(intent: StopListeningIntent()) { Image(systemName: "stop.fill") }
+                        .tint(.red)
+                }
             }
             .padding()
             .activityBackgroundTint(Color.black.opacity(0.6))
@@ -70,7 +78,12 @@ struct ListeningLiveActivity: Widget {
             } compactLeading: {
                 Image(systemName: "mic.fill").foregroundStyle(.green)
             } compactTrailing: {
-                Text("\(ctx.state.species)").monospacedDigit()
+                if let end = ctx.attributes.endsAt, !ctx.state.finished {
+                    Text(timerInterval: ctx.attributes.started...max(end, ctx.attributes.started), countsDown: true)
+                        .monospacedDigit().frame(maxWidth: 44)
+                } else {
+                    Text("\(ctx.state.species)").monospacedDigit()
+                }
             } minimal: {
                 Image(systemName: "mic.fill").foregroundStyle(.green)
             }
