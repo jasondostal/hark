@@ -158,8 +158,9 @@ struct SettingsView: View {
             if listener.lastInferenceMs > 0 {
                 LabeledContent("Last check took", value: String(format: "%.0f ms", listener.lastInferenceMs))
             }
+            Toggle(isOn: $listener.showSpeed) { Label("Show speed while listening", systemImage: "bolt.fill") }
         } footer: {
-            Text("Confidence threshold is the bar an ID must clear to be logged, in the same percentages as everywhere else in Hark (insects and \"other\" sit a little higher); it's the slider behind How picky. Check every: how often Hark scores the last 5 seconds. Once a second is the default; every 2 to 5 seconds is easier on the battery for a long walk and still hears everything, since each check covers 5 seconds. The models' own windows are fixed (Perch 5 s, BirdNET+ 3 s) and can't be changed.")
+            Text("Show speed puts the time each check takes next to the microphone level on the Listen screen. Confidence threshold is the bar an ID must clear to be logged, in the same percentages as everywhere else in Hark (insects and \"other\" sit a little higher); it's the slider behind How picky. Check every: how often Hark scores the last 5 seconds. Once a second is the default; every 2 to 5 seconds is easier on the battery for a long walk and still hears everything, since each check covers 5 seconds. The models' own windows are fixed (Perch 5 s, BirdNET+ 3 s) and can't be changed.")
         }
     }
 

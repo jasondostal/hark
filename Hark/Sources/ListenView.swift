@@ -254,9 +254,15 @@ struct ListenView: View {
                     .font(.subheadline.monospacedDigit().weight(.semibold)).foregroundStyle(listener.palette.labelColor)
                     .accessibilityLabel("Time left in the point count")
             }
+            if listening, listener.showSpeed, listener.lastInferenceMs > 0, listener.autoID {
+                Label(String(format: "%.0f ms", listener.lastInferenceMs), systemImage: "bolt.fill")
+                    .labelStyle(.titleAndIcon).font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(listener.palette.labelColor).lineLimit(1).fixedSize()
+                    .accessibilityLabel(String(format: "Last check took %.0f milliseconds", listener.lastInferenceMs))
+            }
             if listener.state == .listening {
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
-                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil ? 70 : 40)
+                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil && !listener.showSpeed ? 70 : 40)
                     .accessibilityLabel("Microphone level")
             }
         }

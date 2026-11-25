@@ -276,6 +276,11 @@ final class Listener {
         selection.unfreeze()      // a frozen minute was drawn the old way
     }
 
+    /// Show how long the last check took, next to the mic level on the Listen screen.
+    var showSpeed: Bool = UserDefaults.standard.bool(forKey: "showSpeed") {
+        didSet { UserDefaults.standard.set(showSpeed, forKey: "showSpeed") }
+    }
+
     // Modes (persisted)
     var mode: Mode = Mode(rawValue: UserDefaults.standard.string(forKey: "listenMode") ?? "") ?? .live {
         didSet { UserDefaults.standard.set(mode.rawValue, forKey: "listenMode") }
