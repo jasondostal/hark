@@ -151,7 +151,7 @@ the light one. Timing a live shot is guesswork, so take a burst and pick.
 
 ## 1.1 (build 5)
 
-SUBMITTED 2026-11-25 ~12:15 CST on Jason's go ("if we have any other bugs we discover screw it we'll patch 'em"):
+SUBMITTED 2026-11-25 ~12:15 CST on Jason's go (anything found later gets patched in a point release):
 build 5 attached, version 1.1 WAITING_FOR_REVIEW (review submission 2f0c50a9-07df-4d91-a935-112a8c38d8d4), releases
 automatically on approval. Eight new screenshots uploaded the same day.
 `tools/asc/update.py` makes the version and pushes What's New (below), the description and the review notes; it leaves
@@ -184,5 +184,6 @@ hint, the What's New card). Battery and heat in full screen were not measured ei
 The default look (stored as "classic", shown as "Hark") no longer follows the phone's light/dark setting: it follows the
 spectrogram's palette, so people updating in light mode get the dark look until they pick Paper or Field Notebook.
 
-Categories: App Store Connect has Sports / Utilities; the section above says Reference / Education, and listing.py
-sets Sports / Utilities. Left as it is; Jason to say which is meant.
+Categories: 1.0 went out as Sports / Utilities (listing.py set those, against the section above). Changed to
+Reference / Education on 2026-11-25, on the 1.1 version while it waited for review; the store shows the old pair until
+1.1 is approved. listing.py now sets Reference / Education too.

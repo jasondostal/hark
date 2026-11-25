@@ -5,7 +5,8 @@
 
 Sets: subtitle + privacy URL (appInfo localization), categories, age rating (all none),
 description / keywords / promo / URLs (version localization), copyright, review detail.
-Not settable here: App Privacy (web UI), and the build attach / submission (separate steps)."""
+Not settable here: App Privacy (web UI), and the build attach / submission (separate steps).
+The review contact (name, phone, email) is read from ~/.appstoreconnect/contact.json, never from the repo."""
 import json, os, re, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from asc import call
@@ -48,14 +49,16 @@ def patch(path, typ, id_, attrs=None, rels=None):
     if rels: data['relationships'] = rels
     return call('PATCH', path, {'data': data})
 
-info = call('GET', f'/v1/apps/{APP}/appInfos')['data'][0]['id']
+# Once the app is live there are two of these: the one on the store (locked) and the one for the next version.
+infos = call('GET', f'/v1/apps/{APP}/appInfos')['data']
+info = next((i for i in infos if i['attributes'].get('state') != 'READY_FOR_DISTRIBUTION'), infos[0])['id']
 loc = call('GET', f'/v1/appInfos/{info}/appInfoLocalizations')['data'][0]['id']
 ok('appInfo localization', patch(f'/v1/appInfoLocalizations/{loc}', 'appInfoLocalizations', loc,
                                  {'subtitle': subtitle, 'privacyPolicyUrl': privacy}))
 ok('content rights', patch(f'/v1/apps/{APP}', 'apps', APP, {'contentRightsDeclaration': 'USES_THIRD_PARTY_CONTENT'}))
 ok('categories', patch(f'/v1/appInfos/{info}', 'appInfos', info, rels={
-    'primaryCategory': {'data': {'type': 'appCategories', 'id': 'SPORTS'}},
-    'secondaryCategory': {'data': {'type': 'appCategories', 'id': 'UTILITIES'}}}))
+    'primaryCategory': {'data': {'type': 'appCategories', 'id': 'REFERENCE'}},
+    'secondaryCategory': {'data': {'type': 'appCategories', 'id': 'EDUCATION'}}}))
 
 age = call('GET', f'/v1/appInfos/{info}/ageRatingDeclaration')['data']
 attrs = {}
@@ -86,8 +89,11 @@ ok('version localization', patch(f'/v1/appStoreVersionLocalizations/{vloc}', 'ap
                                  {'description': desc, 'keywords': keywords, 'promotionalText': promo,
                                   'supportUrl': support, 'marketingUrl': marketing}))
 
-contact = {'contactFirstName': 'Jason', 'contactLastName': 'Dostal', 'contactPhone': '5555550100',
-           'contactEmail': 'jdostal@witekdivers.com', 'demoAccountRequired': False, 'notes': notes}
+# Who App Review can reach. Personal, so it lives beside the API key and not in the repo:
+# ~/.appstoreconnect/contact.json {"firstName": ..., "lastName": ..., "phone": ..., "email": ...}
+who = json.load(open(os.path.expanduser('~/.appstoreconnect/contact.json')))
+contact = {'contactFirstName': who['firstName'], 'contactLastName': who['lastName'], 'contactPhone': who['phone'],
+           'contactEmail': who['email'], 'demoAccountRequired': False, 'notes': notes}
 rd = call('GET', f'/v1/appStoreVersions/{vid}/appStoreReviewDetail').get('data')
 if rd:
     ok('review detail', patch(f'/v1/appStoreReviewDetails/{rd["id"]}', 'appStoreReviewDetails', rd['id'], contact))
