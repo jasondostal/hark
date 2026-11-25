@@ -103,7 +103,7 @@ struct DetectionSnapshot {
     return (snaps, { files.forEach { ClipStore.delete($0) } })
 }
 
-/// Delete one row from the Log, with Undo.
+/// Delete one row from the Journal, with Undo.
 @MainActor func deleteWithUndo(_ d: Detection, in ctx: ModelContext) {
     let name = d.displayName
     let (snaps, commit) = removeDetections([d], in: ctx)

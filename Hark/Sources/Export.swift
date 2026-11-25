@@ -40,7 +40,7 @@ struct CSVExport: Transferable {
                     r.latitude.map { String(format: "%.5f", $0) } ?? "", r.longitude.map { String(format: "%.5f", $0) } ?? "",
                     r.session.uuidString].joined(separator: ",") + "\n"
         }
-        let url = try exportFolder().appending(path: "Hark log \(fileStamp(.now)).csv")
+        let url = try exportFolder().appending(path: "Hark journal \(fileStamp(.now)).csv")
         try out.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -138,7 +138,7 @@ extension UIFont {
     }
 }
 
-/// Log toolbar: share what's shown (the current filter) as a PDF report or a spreadsheet.
+/// Journal toolbar: share what's shown (the current filter) as a PDF report or a spreadsheet.
 /// A Raven selection table (Cornell's Raven Pro / Raven Lite, and what BirdNET-Analyzer writes): one row per
 /// detection, times in seconds from the start of the session, which for an analyzed recording is the file itself.
 /// Hark knows when, not what pitch, so every box spans the whole frequency range.
@@ -178,14 +178,14 @@ struct LogExportMenu: View {
             ShareLink(item: PDFExport(rows: rows), preview: SharePreview("Hark field report", image: Image(systemName: "doc.richtext"))) {
                 Label("Field report (PDF)", systemImage: "doc.richtext")
             }
-            ShareLink(item: CSVExport(rows: rows), preview: SharePreview("Hark log", image: Image(systemName: "tablecells"))) {
+            ShareLink(item: CSVExport(rows: rows), preview: SharePreview("Hark journal", image: Image(systemName: "tablecells"))) {
                 Label("Spreadsheet (CSV)", systemImage: "tablecells")
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
         }
         .disabled(detections.isEmpty)
-        .accessibilityLabel("Share the log")
+        .accessibilityLabel("Share the Journal")
     }
 }
 

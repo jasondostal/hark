@@ -47,7 +47,7 @@ struct AcknowledgementsView: View {
             }
             Section {
                 NavigationLink("Apache License 2.0") { LicenseText(title: "Apache License 2.0", resource: "LICENSE-Apache-2.0") }
-            } header: { Text("License texts") }
+            } header: { Text("License texts").themedHeader() }
         }.themedRows() }.themedList()
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)

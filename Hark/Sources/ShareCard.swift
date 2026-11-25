@@ -78,10 +78,11 @@ struct ShareCardView: View {
     let theme: AppTheme
     let palette: SpectrogramPalette
 
-    private var bg: Color { theme.background ?? Color(hex: 0xF2F2F7) }
-    private var card: Color { theme.card ?? .white }
-    private var ink: Color { theme.ink ?? Color(hex: 0x111111) }
-    private var accent: Color { theme.accent ?? .accentColor }
+    private var look: Surface { theme.surface(palette) }
+    private var bg: Color { look.background }
+    private var card: Color { look.card }
+    private var ink: Color { look.ink }
+    private var accent: Color { look.accent }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -99,7 +100,7 @@ struct ShareCardView: View {
             }
             HStack(spacing: 8) {
                 chip("\(model.percent)%", symbol: "waveform", color: accent)
-                if model.confirmed { chip("Seen", symbol: "checkmark.seal.fill", color: theme.good) }
+                if model.confirmed { chip("Seen", symbol: "checkmark.seal.fill", color: look.good) }
                 Spacer(minLength: 0)
             }
             Label(model.when.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()), systemImage: "clock")
@@ -126,7 +127,8 @@ struct ShareCardView: View {
         .background(bg)
         .foregroundStyle(ink)
         .environment(\.theme, theme)
-        .environment(\.colorScheme, theme.scheme ?? .light)
+        .environment(\.surface, look)
+        .environment(\.colorScheme, look.scheme)
         .fontDesign(theme.fontDesign)
     }
 
@@ -231,7 +233,7 @@ struct ShareCardSheet: View {
         m.town = nil; m.map = nil
         if let c = coordinate {
             if place == .town || place == .map { m.town = await ShareCardModel.town(c) }
-            if place == .map { m.map = await ShareCardModel.map(c, dark: theme.scheme == .dark) }
+            if place == .map { m.map = await ShareCardModel.map(c, dark: theme.surface(listener.palette).scheme == .dark) }
         }
         model = m
         image = ShareCardView(model: m, theme: theme, palette: listener.palette).render()

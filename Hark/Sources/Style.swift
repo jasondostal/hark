@@ -112,10 +112,18 @@ struct TaxonIcon: View {
     var size: CGFloat = 34
     var faint = false
     @Environment(\.theme) private var theme
+    @Environment(\.surface) private var surface
     var body: some View {
         let tint = theme.tint(group)
         Group {
-            if theme.isPixel {
+            if theme == .classic {      // Hark's own look: ink on a quiet disc, like the ones over the spectrogram
+                Image(symbol: group.symbol)
+                    .font(.system(size: size * 0.46, weight: .bold))
+                    .foregroundStyle(surface.ink)
+                    .frame(width: size, height: size)
+                    .background(surface.ink.opacity(0.1), in: Circle())
+                    .overlay { Circle().strokeBorder(surface.ink.opacity(0.26), lineWidth: 1) }
+            } else if theme.isPixel {
                 Group {
                     if let s = AppTheme.sprite(group) {
                         Image(s).interpolation(.none).resizable().scaledToFit().padding(size * 0.1)
@@ -131,7 +139,7 @@ struct TaxonIcon: View {
                     .font(.system(size: size * 0.46, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(width: size, height: size)
-                    .background(tint.opacity(faint ? 0.08 : (theme == .classic ? 0.15 : 0.2)),
+                    .background(tint.opacity(faint ? 0.08 : 0.2),
                                 in: theme == .blind ? AnyShape(RoundedRectangle(cornerRadius: size * 0.3)) : AnyShape(Circle()))
             }
         }
@@ -141,7 +149,7 @@ struct TaxonIcon: View {
 }
 
 extension HarkCore.Label {
-    /// Labels loaded once, independent of the model (so the Log shows icons before Perch finishes loading).
+    /// Labels loaded once, independent of the model (so the Journal shows icons before Perch finishes loading).
     static let table: LabelTable? = Bundle.main.url(forResource: "labels", withExtension: "json").flatMap { try? LabelTable(contentsOf: $0) }
 }
 

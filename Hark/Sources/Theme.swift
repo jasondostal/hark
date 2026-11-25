@@ -3,7 +3,8 @@ import UIKit
 import HarkCore
 
 /// Whole-app looks (Settings > Look). Each sets the colors, type, row icons, Listen button and a matching
-/// spectrogram palette; the palette stays pickable on its own afterwards. Classic is the plain system look.
+/// spectrogram palette; the palette stays pickable on its own afterwards. Hark's own look (stored as "classic")
+/// has no colors of its own: it takes them from the spectrogram's palette, so the whole app follows the picture.
 /// The pixel and stencil faces are only for names and headings: small print stays in the system font.
 enum AppTheme: String, CaseIterable, Identifiable {
     case classic, night, arcade, owling, notebook, blind
@@ -13,12 +14,12 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .classic: "Classic"; case .night: "Night Sky"; case .arcade: "8-bit"; case .owling: "Owling"; case .notebook: "Field Notebook"; case .blind: "Duck Blind"
+        case .classic: "Hark"; case .night: "Night Sky"; case .arcade: "8-bit"; case .owling: "Owling"; case .notebook: "Field Notebook"; case .blind: "Duck Blind"
         }
     }
     var blurb: String {
         switch self {
-        case .classic: "Follows your phone's light or dark setting."
+        case .classic: "Colors come from the spectrogram you pick, with a field-guide serif for names."
         case .night: "The icon's night sky: indigo, mint and a glowing Listen button."
         case .arcade: "Pixel critters, square buttons and the 8-bit spectrogram."
         case .owling: "Everything red on black, so you keep your night vision."
@@ -35,7 +36,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     var scheme: ColorScheme? { switch self { case .classic: nil; case .notebook: .light; default: .dark } }
     var isPixel: Bool { self == .arcade }
 
-    // MARK: Colors (nil = the system's)
+    // MARK: Colors (nil = from the spectrogram's palette, see `surface`)
 
     var background: Color? {
         switch self {
@@ -62,14 +63,14 @@ enum AppTheme: String, CaseIterable, Identifiable {
         }
     }
     /// Seals, "Both models", "I saw it".
-    var good: Color {
+    var good: Color? {
         switch self {
-        case .classic: .green; case .night, .arcade: Color(hex: 0x5FE0A0); case .owling: Color(hex: 0xFF4A33); case .notebook: Color(hex: 0x4F7A3A); case .blind: Color(hex: 0xA3C45A)
+        case .classic: nil; case .night, .arcade: Color(hex: 0x5FE0A0); case .owling: Color(hex: 0xFF4A33); case .notebook: Color(hex: 0x4F7A3A); case .blind: Color(hex: 0xA3C45A)
         }
     }
-    var celebrate: Color {
+    var celebrate: Color? {
         switch self {
-        case .classic: .yellow; case .night: Color(hex: 0xA8F2C8); case .arcade: Color(hex: 0xF0D878)
+        case .classic: nil; case .night: Color(hex: 0xA8F2C8); case .arcade: Color(hex: 0xF0D878)
         case .owling: Color(hex: 0xFF4A33); case .notebook: Color(hex: 0x8A5A2B); case .blind: Color(hex: 0xD9A441)
         }
     }
@@ -130,7 +131,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         switch self {
         case .arcade: .custom("Silkscreen-Regular", size: Self.pixelSize(style), relativeTo: style)
         case .night: .system(style, design: .rounded, weight: style == .headline ? .heavy : .bold)
-        case .notebook: .system(style, design: .serif, weight: .semibold)
+        case .notebook, .classic: .system(style, design: .serif, weight: style == .title2 ? .bold : .semibold)
         default: .system(style, weight: style == .title2 ? .bold : nil)
         }
     }
@@ -141,6 +142,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .blind: .custom("SairaStencilOne-Regular", size: style == .subheadline ? 16 : 20, relativeTo: style)
         case .night: .system(style, design: .rounded, weight: .heavy)
         case .notebook: .system(style == .subheadline ? .headline : style, design: .serif, weight: .semibold).italic()
+        case .classic: .system(style == .subheadline ? .caption : style, weight: .semibold)      // small, spaced capitals
         default: nil
         }
     }
@@ -156,7 +158,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .arcade: UIFont(name: "Silkscreen-Regular", size: 15)
         case .blind: UIFont(name: "SairaStencilOne-Regular", size: 19)
         case .night: UIFont.systemFont(ofSize: 17, weight: .heavy).withDesign(.rounded)
-        case .notebook: UIFont.systemFont(ofSize: 17, weight: .semibold).withDesign(.serif)
+        case .notebook, .classic: UIFont.systemFont(ofSize: 17, weight: .semibold).withDesign(.serif)
         default: nil
         }
     }
@@ -165,7 +167,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .arcade: UIFont(name: "Silkscreen-Regular", size: 28)
         case .blind: UIFont(name: "SairaStencilOne-Regular", size: 34)
         case .night: UIFont.systemFont(ofSize: 34, weight: .heavy).withDesign(.rounded)
-        case .notebook: UIFont.systemFont(ofSize: 34, weight: .bold).withDesign(.serif)
+        case .notebook, .classic: UIFont.systemFont(ofSize: 34, weight: .bold).withDesign(.serif)
         default: nil
         }
     }
@@ -181,12 +183,12 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 
     /// Navigation titles are UIKit: set them for bars created from now on.
-    func applyAppearance() {
+    func applyAppearance(ink: Color) {
         let nav = UINavigationBar.appearance()
         var small: [NSAttributedString.Key: Any] = [:], large: [NSAttributedString.Key: Any] = [:]
         if let f = navTitleFont { small[.font] = f }
         if let f = navLargeTitleFont { large[.font] = f }
-        if let ink { small[.foregroundColor] = UIColor(ink); large[.foregroundColor] = UIColor(ink) }
+        small[.foregroundColor] = UIColor(ink); large[.foregroundColor] = UIColor(ink)
         nav.titleTextAttributes = small.isEmpty ? nil : small
         nav.largeTitleTextAttributes = large.isEmpty ? nil : large
     }
@@ -206,33 +208,69 @@ extension Color {
 
 extension EnvironmentValues {
     @Entry var theme: AppTheme = .classic
+    /// What this part of the app is drawn on and in (set by `themeRoot`, and again over the spectrogram in full screen).
+    @Entry var surface: Surface = SpectrogramPalette.aurora.surface
+}
+
+/// What a screen is drawn on and in: the colors everything on it takes. A named look brings its own; Hark's own
+/// look takes them from the spectrogram's palette.
+struct Surface: Equatable {
+    var background: Color
+    /// Grouped rows in the sheets (the Journal, Settings).
+    var card: Color
+    var cardBorder: Color?
+    var ink: Color
+    var accent: Color
+    /// Bottom bar and landscape rail.
+    var bar: Color
+    /// Seals, "Both models", "I saw it".
+    var good: Color
+    /// "New for you".
+    var celebrate: Color
+    var scheme: ColorScheme
+}
+
+extension AppTheme {
+    /// The look's colors, with the spectrogram's filling in whatever the look leaves open.
+    func surface(_ palette: SpectrogramPalette) -> Surface {
+        let p = palette.surface
+        return Surface(background: background ?? p.background, card: card ?? p.card, cardBorder: cardBorder, ink: ink ?? p.ink,
+                       accent: accent ?? p.accent, bar: bar ?? p.bar, good: good ?? p.good, celebrate: celebrate ?? p.celebrate,
+                       scheme: scheme ?? p.scheme)
+    }
 }
 
 // MARK: Styles that follow the look
 
-/// The look's "good" color (seals, "I saw it"); green in Classic.
+/// The look's "good" color (seals, "I saw it").
 struct GoodStyle: ShapeStyle {
-    func resolve(in env: EnvironmentValues) -> Color { env.theme.good }
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.good }
 }
 struct CelebrateStyle: ShapeStyle {
-    func resolve(in env: EnvironmentValues) -> Color { env.theme.celebrate }
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.celebrate }
 }
-/// Screen background: the look's, or the system grouped background.
+/// Screen background.
 struct AppBackgroundStyle: ShapeStyle {
-    func resolve(in env: EnvironmentValues) -> AnyShapeStyle {
-        env.theme.background.map { AnyShapeStyle($0) } ?? AnyShapeStyle(Color(.systemGroupedBackground))
-    }
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.background }
 }
-/// Bottom bar / rail: the look's, or the system bar material.
+/// Bottom bar / rail.
 struct AppBarStyle: ShapeStyle {
-    func resolve(in env: EnvironmentValues) -> AnyShapeStyle {
-        env.theme.bar.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.bar)
-    }
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.bar }
+}
+/// The surface's text color, straight (`.primary` follows it too, wherever `themeRoot` set it).
+struct InkStyle: ShapeStyle {
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.ink }
+}
+/// The surface's bright color.
+struct AccentStyle: ShapeStyle {
+    func resolve(in env: EnvironmentValues) -> Color { env.surface.accent }
 }
 extension ShapeStyle where Self == GoodStyle { static var good: GoodStyle { GoodStyle() } }
 extension ShapeStyle where Self == CelebrateStyle { static var celebrate: CelebrateStyle { CelebrateStyle() } }
 extension ShapeStyle where Self == AppBackgroundStyle { static var appBackground: AppBackgroundStyle { AppBackgroundStyle() } }
 extension ShapeStyle where Self == AppBarStyle { static var appBar: AppBarStyle { AppBarStyle() } }
+extension ShapeStyle where Self == InkStyle { static var ink: InkStyle { InkStyle() } }
+extension ShapeStyle where Self == AccentStyle { static var accent: AccentStyle { AccentStyle() } }
 
 // MARK: Modifiers
 
@@ -241,42 +279,38 @@ private struct ThemeRoot: ViewModifier {
     @AppStorage("theme") private var raw = AppTheme.classic.rawValue
     func body(content: Content) -> some View {
         let t = AppTheme(rawValue: raw) ?? .classic
+        let s = t.surface(Listener.shared.palette)
         content
             .environment(\.theme, t)
-            .preferredColorScheme(t.scheme)
-            .tint(t.accent)
+            .environment(\.surface, s)
+            .preferredColorScheme(s.scheme)
+            .tint(s.accent)
             .fontDesign(t.fontDesign)
-            .foregroundStyle(t.ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(.primary))
-            .onAppear { t.applyAppearance() }
-            .onChange(of: raw) { t.applyAppearance() }
+            .foregroundStyle(s.ink)
+            .onAppear { t.applyAppearance(ink: s.ink) }
+            .onChange(of: s) { t.applyAppearance(ink: s.ink) }
     }
 }
 
 /// A List or Form on the look's background.
 private struct ThemedList: ViewModifier {
-    @Environment(\.theme) private var theme
-    func body(content: Content) -> some View {
-        if let bg = theme.background {
-            content.scrollContentBackground(.hidden).background(bg)
-        } else {
-            content
-        }
-    }
+    @Environment(\.surface) private var surface
+    func body(content: Content) -> some View { content.scrollContentBackground(.hidden).background(surface.background) }
 }
 
 private struct ThemedRows: ViewModifier {
-    @Environment(\.theme) private var theme
-    func body(content: Content) -> some View { content.listRowBackground(theme.card) }
+    @Environment(\.surface) private var surface
+    func body(content: Content) -> some View { content.listRowBackground(surface.card) }
 }
 
 /// Section headers in the look's heading face.
 private struct ThemedHeader: ViewModifier {
     @Environment(\.theme) private var theme
     func body(content: Content) -> some View {
-        if let f = theme.headerFont() {
+        if theme != .classic, let f = theme.headerFont() {
             content.font(f).textCase(theme == .arcade || theme == .blind ? .uppercase : nil)
-        } else {
-            content
+        } else {      // small, spaced capitals
+            content.font(.caption.weight(.semibold)).kerning(1.3).textCase(.uppercase)
         }
     }
 }
@@ -288,12 +322,20 @@ private struct SpeciesName: ViewModifier {
     func body(content: Content) -> some View { content.font(theme.nameFont(style)) }
 }
 
+/// A list section titled in the look's heading face.
+struct ThemedSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+    init(_ title: String, @ViewBuilder content: () -> Content) { self.title = title; self.content = content() }
+    var body: some View { Section { content } header: { Text(title).themedHeader() } }
+}
+
 extension View {
     func themeRoot() -> some View { modifier(ThemeRoot()) }
     func themedList() -> some View { modifier(ThemedList()) }
     func themedHeader() -> some View { modifier(ThemedHeader()) }
     func speciesName(_ style: Font.TextStyle = .body) -> some View { modifier(SpeciesName(style: style)) }
-    /// Row background for the look's cards (Classic keeps the system's). Put it on a Group around a list's content.
+    /// Row background for the look's cards. Put it on a Group around a list's content.
     func themedRows() -> some View { modifier(ThemedRows()) }
 }
 
@@ -323,23 +365,25 @@ struct ThemePicker: View {
 }
 
 private struct ThemeSwatch: View {
+    @Environment(Listener.self) private var listener
     let theme: AppTheme
     let selected: Bool
     var body: some View {
-        let bg = theme.background ?? Color(white: 0.95)
-        let card = theme.card ?? .white
-        let ink = theme.ink ?? .black
+        // Hark's own look is drawn in the colors it would take from the spectrogram in use.
+        let palette = theme == .classic && selected ? listener.palette : theme.palette
+        let look = theme.surface(palette)
+        let bg = look.background, card = look.card, ink = look.ink
         let square = theme.isPixel
         VStack(spacing: 6) {
             VStack(spacing: 0) {
-                Rectangle().fill(theme.palette.gradient).frame(height: 26)
+                Rectangle().fill(palette.gradient).frame(height: 26)
                 VStack(spacing: 4) {
                     ForEach(0..<2, id: \.self) { i in
                         HStack(spacing: 4) {
                             if square, let s = AppTheme.sprite(i == 0 ? .bird : .amphibian) {
                                 Image(s).interpolation(.none).resizable().frame(width: 9, height: 9)
                             } else {
-                                Circle().fill(theme.tint(i == 0 ? .bird : .amphibian)).frame(width: 8, height: 8)
+                                Circle().fill(theme == .classic ? ink.opacity(0.5) : theme.tint(i == 0 ? .bird : .amphibian)).frame(width: 8, height: 8)
                             }
                             RoundedRectangle(cornerRadius: square ? 0 : 2).fill(ink.opacity(0.75)).frame(height: 3)
                         }

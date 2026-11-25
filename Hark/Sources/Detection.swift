@@ -19,7 +19,7 @@ final class Detection {
     var sessionID: UUID
     var source: String              // "live", "file" (found in an imported recording), or logged by hand: "maybe" (under the threshold) / "unusual" (out of range) / "selection" (picked out on the spectrogram; "rewind" in older logs)
     var clipFile: String?           // saved audio in ClipStore.directory
-    var isFirst: Bool = false       // the first time this species ever entered the log
+    var isFirst: Bool = false       // the first time this species ever entered the Journal
 
     init(id: UUID = UUID(), label: HarkCore.Label, confidence: Double, at: Date, windows: Int = 1,
          latitude: Double?, longitude: Double?, sessionID: UUID, source: String) {

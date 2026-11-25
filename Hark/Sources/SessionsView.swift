@@ -4,7 +4,7 @@ import MapKit
 import Charts
 import HarkCore
 
-/// A listening session as the log sees it: its record (if any; older sessions predate records) plus detections.
+/// A listening session as the Journal sees it: its record (if any; older sessions predate records) plus detections.
 struct SessionSummary: Identifiable, Hashable {
     let id: UUID
     let start: Date
@@ -133,7 +133,7 @@ struct SessionPage: View {
             }
             if let r = session.record {
                 @Bindable var r = r
-                Section("Notes") {
+                ThemedSection("Notes") {
                     TextField("Weather, habitat, who you were with…", text: $r.note, axis: .vertical).lineLimit(1...6)
                 }
             }
@@ -149,15 +149,15 @@ struct SessionPage: View {
                             }
                         }
                     }
-                } header: { Text("Tally") } footer: {
+                } header: { Text("Tally").themedHeader() } footer: {
                     Text("Each species once, in the order it was first heard, with the time into the \(session.kind == "file" ? "recording" : "session").")
                 }
             }
             if hasMap {
-                Section(session.kind == "point" ? "Where" : "Route") { routeMap.frame(height: 240).listRowInsets(EdgeInsets()) }
+                ThemedSection(session.kind == "point" ? "Where" : "Route") { routeMap.frame(height: 240).listRowInsets(EdgeInsets()) }
             }
             if !spans.isEmpty {
-                Section("When each was heard") {
+                ThemedSection("When each was heard") {
                     let names = session.species
                     Chart(spans) { s in
                         BarMark(xStart: .value("Start", s.start), xEnd: .value("End", s.end), y: .value("Species", s.name), height: 8)
@@ -176,7 +176,7 @@ struct SessionPage: View {
                     .padding(.vertical, 6)
                 }
             }
-            Section("Detections") {
+            ThemedSection("Detections") {
                 ForEach(session.detections.reversed()) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
             Section {
@@ -232,7 +232,7 @@ struct SessionPage: View {
         Map {
             if let r = session.record, r.trackLat.count > 1 {
                 MapPolyline(coordinates: zip(r.trackLat, r.trackLon).map { CLLocationCoordinate2D(latitude: $0, longitude: $1) })
-                    .stroke(.blue, lineWidth: 4)
+                    .stroke(.tint, lineWidth: 4)
             }
             if let r = session.record, session.kind == "point", let lat = r.latitude, let lon = r.longitude {
                 Annotation("Station", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {

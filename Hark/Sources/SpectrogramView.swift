@@ -389,7 +389,7 @@ struct SpectrogramView: View {
                             .frame(width: g.size.width + colW, height: g.size.height)
                             .offset(x: -f.fraction * colW)
                         critters(f, g.size)
-                    } else {
+                    } else if !stage {      // full screen says it in the caption corner
                         Text("Tap Listen to start").font(.callout).foregroundStyle(palette.labelColor)
                             .frame(width: g.size.width, height: g.size.height)
                     }
@@ -407,7 +407,7 @@ extension SpectrogramView {
         let placed = markers.map { ($0, f.x(ofColumn: $0.column) * size.width) }
         ForEach(placed.filter { $0.1 > -12 && $0.1 < size.width + 12 }, id: \.0.id) { m, x in
             let y = size.height * (1 - (CGFloat(m.band) + 0.5) / CGFloat(SpectrogramDSP.bins))
-            CritterMarker(group: m.group, name: named ? m.name : nil, pixel: palette.isPixel, glass: stage ? palette : nil)
+            CritterMarker(group: m.group, name: named ? m.name : nil, pixel: palette.isPixel, glass: true)
                 .position(x: x, y: min(max(y - (named ? 22 : 16), topInset + 16), size.height - 24))
                 // On the stage a pin rides its call across and dissolves before it reaches the captions' corner.
                 .opacity(stage ? Double(min(max((x / size.width - 0.2) / 0.2, 0), 1)) : 1)
@@ -423,9 +423,11 @@ struct CritterMarker: View {
     let group: TaxonGroup
     var name: String?
     var pixel = false
-    /// Full screen: dark glass and bare lettering in the spectrogram's ink, instead of the group's color.
-    var glass: SpectrogramPalette?
+    /// Over the live picture: glass and bare lettering in the spectrogram's ink, instead of the group's color.
+    var glass = false
+    @Environment(\.surface) private var surface
     var body: some View {
+        let glass: Surface? = self.glass ? surface : nil
         VStack(spacing: 2) {
             Group {
                 if pixel, let s = AppTheme.sprite(group) {

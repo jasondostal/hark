@@ -18,7 +18,7 @@ struct SettingsView: View {
             Form { Group {
                 Section {
                     ThemePicker()
-                } header: { Text("Look") } footer: {
+                } header: { Text("Look").themedHeader() } footer: {
                     Text("\(AppTheme.stored.title): \(AppTheme.stored.blurb) Each look brings its own spectrogram colors; change those under Spectrogram.")
                 }
                 Section {
@@ -26,7 +26,7 @@ struct SettingsView: View {
                         ForEach(NameBook.Style.allCases) { Text($0.title).tag($0) }
                     }
                 } footer: {
-                    Text("Which name leads. Give a species your own name on its page in the Log.")
+                    Text("Which name leads. Give a species your own name on its page in the Journal.")
                 }
                 detection
                 Section {
@@ -144,7 +144,7 @@ struct SettingsView: View {
                 SettingLabel("Show maybes", help: "A maybe is a species Hark half-heard: under the bar, but not nothing. On, maybes show faintly under Hearing now with a \"?\" and you can log one by hand. They're never logged automatically.\n\nIn a quiet room maybes are mostly noise, so this starts off. Turn it on when you're trying to pull a faint or distant call out.",
                              standard: "Off", changed: listener.showMaybes) { listener.showMaybes = false }
             }
-        } header: { Text("Detection") } footer: { Text("Tap any ⓘ for what a setting does and how to put it back.") }
+        } header: { Text("Detection").themedHeader() } footer: { Text("Tap any ⓘ for what a setting does and how to put it back.") }
     }
 
     /// What How picky comes to, in the numbers shown next to every ID.
@@ -191,7 +191,7 @@ struct SettingsView: View {
                 NavigationLink { ThresholdsView() } label: {
                     LabeledContent("By group", value: groupsDiffer ? "Some have their own bar" : "All follow the slider")
                 }
-            } header: { Text("How sure") } footer: {
+            } header: { Text("How sure").themedHeader() } footer: {
                 Text("One bar, three ways to set it: How picky picks a preset, this slider sets it exactly, and By group lets one group differ. The slider and the presets move every group, so they undo anything set by group.")
             }
             Section {
@@ -204,7 +204,7 @@ struct SettingsView: View {
                         .accessibilityValue("every \(Self.seconds(listener.scoreInterval))")
                 }
                 hearItFor
-            } header: { Text("How often, how long") }
+            } header: { Text("How often, how long").themedHeader() }
             Section {
                 if listener.lastInferenceMs > 0 {
                     LabeledContent("Last check took", value: String(format: "%.0f ms", listener.lastInferenceMs))
@@ -213,7 +213,7 @@ struct SettingsView: View {
                     SettingLabel("Show speed while listening", help: "Puts the time each check takes, in milliseconds, next to the microphone level on the Listen screen.\n\nWith both models on a recent iPhone it's a few tens of milliseconds. If it climbs toward your Check every time, the phone is hot or busy and checks are running back to back.",
                                  standard: "Off", changed: listener.showSpeed) { listener.showSpeed = false }
                 }
-            } header: { Text("Speed") }
+            } header: { Text("Speed").themedHeader() }
         }
     }
 
@@ -229,7 +229,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented).labelsHidden()
                 }
-            } header: { Text("People sounds") } footer: {
+            } header: { Text("People sounds").themedHeader() } footer: {
                 Text("Hark doesn't hide what it hears: your own cough, breathing or footsteps show up under Hearing now like any other non-animal sound (never logged). Don't want to see one? Swipe left on it and choose Never show. Don't want any of them? Turn off Non-animal sounds under Listen for.")
             }
             resetPage("Detection tuning") {
@@ -312,7 +312,7 @@ struct SettingsView: View {
                     Label("Get a free key from eBird", systemImage: "key")
                 }
             }
-        } header: { Text("eBird (optional)") } footer: {
+        } header: { Text("eBird (optional)").themedHeader() } footer: {
             Text("With your own eBird key, species birders reported within 25 km in the last 30 days are never flagged, so this week's migrants count. Hark sends eBird your location rounded to about 1 km, only while a key is set.")
         }
     }
@@ -395,7 +395,7 @@ struct SettingsView: View {
                     SettingLabel("Quality", help: "How much work goes into drawing the live spectrogram.\n\nHigh: every column drawn, smoother scaling. Sharpest, most battery.\n\nStandard: neighboring columns share a pixel on longer time spans.\n\nBattery saver: half the columns at half the frame rate (30 a second). For long sessions with the screen on.",
                                  standard: "Standard", changed: listener.quality != .standard) { listener.quality = .standard }
                 }
-            } header: { Text("Tuning") }
+            } header: { Text("Tuning").themedHeader() }
             resetPage("Spectrogram") {
                 listener.spectrogramSeconds = 10; listener.contrast = 0.6; listener.spectrogramHeight = Listener.standardHeight
                 listener.frequencyLabels = true; listener.critters = true
@@ -466,7 +466,7 @@ struct SettingsView: View {
                 Text("Add a control or widget and search for Hark.").font(.callout).foregroundStyle(.secondary)
             }
             Text("Or ask Siri: \"Listen with Hark.\"").font(.callout).foregroundStyle(.secondary)
-        } header: { Text("Start listening in one press") }
+        } header: { Text("Start listening in one press").themedHeader() }
     }
 
     private var muted: some View {
@@ -478,7 +478,7 @@ struct SettingsView: View {
                     Button("Unmute") { listener.unmute(name) }.font(.caption).buttonStyle(.bordered)
                 }
             }
-        } header: { Text("Never show") } footer: { Text("Swipe left on any ID to add it here.") }
+        } header: { Text("Never show").themedHeader() } footer: { Text("Swipe left on any ID to add it here.") }
     }
 
     private var about: some View {
@@ -492,8 +492,8 @@ struct SettingsView: View {
             Button("Reset all settings", role: .destructive) { confirmReset = true }
                 .confirmationDialog("Put every setting back the way Hark came?", isPresented: $confirmReset, titleVisibility: .visible) {
                     Button("Reset settings", role: .destructive) { listener.resetSettings() }
-                } message: { Text("Your log, names, never-show list, eBird key and look stay as they are.") }
-        } header: { Text("About") } footer: {
+                } message: { Text("Your Journal, names, never-show list, eBird key and look stay as they are.") }
+        } header: { Text("About").themedHeader() } footer: {
             Text("Everything runs on this iPhone. Audio never leaves it.")
         }
     }

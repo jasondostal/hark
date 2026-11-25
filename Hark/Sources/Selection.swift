@@ -212,29 +212,29 @@ struct SelectionOverview: View {
 /// Results for the selection, shown at the top of the list while the spectrogram is frozen.
 struct SelectionSection: View {
     @Environment(Listener.self) private var listener
+    @Environment(\.compactRows) private var compact
+    @Environment(\.surface) private var surface
     let selection: Selection
     var body: some View {
-        Section {
-            if selection.range.isEmpty {
-                Text("Drag across a call to identify it, or tap to grab 5 seconds.").foregroundStyle(.secondary)
-            } else {
-                SelectionStats(selection: selection)
+        SurfaceHeader("Selection")
+        if selection.range.isEmpty {
+            Text("Drag across a call to identify it, or tap to grab 5 seconds.").font(.callout).foregroundStyle(.secondary)
+        } else {
+            SelectionStats(selection: selection).surfacePanel()
+        }
+        if !selection.range.isEmpty && selection.analyzing {
+            HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }.frame(minHeight: 44)
+        }
+        if let t = selection.result, !selection.analyzing {
+            if t.hits.isEmpty && t.unusual.isEmpty && t.maybes.isEmpty {
+                Text("Nothing identified here. Try selecting the whole call, or a clearer one.").font(.callout).foregroundStyle(.secondary)
             }
-            if !selection.range.isEmpty && selection.analyzing {
-                HStack(spacing: 10) { ProgressView(); Text("Identifying…").foregroundStyle(.secondary) }
-            }
-            if let t = selection.result, !selection.analyzing {
-                if t.hits.isEmpty && t.unusual.isEmpty && t.maybes.isEmpty {
-                    Text("Nothing identified here. Try selecting the whole call, or a clearer one.").foregroundStyle(.secondary)
-                }
-                ForEach(t.hits, id: \.index) { h in row(h.index, h.confidence, kind: nil) }
-                ForEach(t.unusual, id: \.index) { h in row(h.index, h.confidence, kind: listener.unusualReason(h.index)) }
-                ForEach(t.maybes, id: \.index) { h in row(h.index, h.confidence, kind: "maybe") }
-            }
-        } header: { Text("Selection") } footer: {
-            if selection.isWidened && !selection.range.isEmpty {
-                Text("Short selections are scored with the 5 seconds around them; Perch needs the context.")
-            }
+            ForEach(t.hits, id: \.index) { h in row(h.index, h.confidence, kind: nil) }
+            ForEach(t.unusual, id: \.index) { h in row(h.index, h.confidence, kind: listener.unusualReason(h.index)) }
+            ForEach(t.maybes, id: \.index) { h in row(h.index, h.confidence, kind: "maybe") }
+        }
+        if selection.isWidened && !selection.range.isEmpty {
+            SurfaceNote("Short selections are scored with the 5 seconds around them; Perch needs the context.")
         }
     }
 
@@ -242,21 +242,24 @@ struct SelectionSection: View {
         if let l = listener.label(i) {
             VStack(alignment: .leading, spacing: 6) {
                 NowRow(label: l, confidence: p, agreed: selection.result?.agreed.contains(i) == true)
-                if let kind {
-                    Text(kind).font(.caption).foregroundStyle(kind == "maybe" ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
-                }
-                if l.group.isSpecies {
-                    if selection.logged.contains(i) {
-                        HStack(spacing: 4) { Image(systemName: "checkmark"); Text("Logged") }.font(.caption).foregroundStyle(.good)
-                    } else {
-                        HStack {
-                            Button("Log") { selection.log(i, p, confirmed: false, listener) }.buttonStyle(.bordered)
-                            Button { selection.log(i, p, confirmed: true, listener) } label: { Label("I saw it", systemImage: "eye") }
-                                .buttonStyle(.bordered).tint(GoodStyle())
+                VStack(alignment: .leading, spacing: 6) {
+                    if let kind {
+                        Text(kind).font(.caption.weight(.medium)).foregroundStyle(kind == "maybe" ? AnyShapeStyle(surface.ink.opacity(0.6)) : AnyShapeStyle(.orange))
+                    }
+                    if l.group.isSpecies {
+                        if selection.logged.contains(i) {
+                            HStack(spacing: 4) { Image(systemName: "checkmark"); Text("Logged") }.font(.caption.weight(.semibold)).foregroundStyle(.good)
+                        } else {
+                            HStack(spacing: 7) {
+                                Button { selection.log(i, p, confirmed: false, listener) } label: { Label("Log it", systemImage: "plus") }
+                                    .buttonStyle(SurfaceChip())
+                                Button { selection.log(i, p, confirmed: true, listener) } label: { Label("I saw it", systemImage: "eye") }
+                                    .buttonStyle(SurfaceChip(tint: surface.good))
+                            }
                         }
-                        .font(.caption)
                     }
                 }
+                .padding(.leading, compact ? 48 : 62)      // under the name, past the disc
             }
         }
     }
@@ -265,16 +268,17 @@ struct SelectionSection: View {
 /// What you selected, at a glance: how long, when (and how long ago), and the loudest pitch in it.
 struct SelectionStats: View {
     let selection: Selection
+    @Environment(\.compactRows) private var compact
     var body: some View {
         if let clip = selection.clip {
             let r = selection.range
             let start = clip.time(atSample: r.lowerBound), end = clip.time(atSample: r.upperBound)
             HStack(alignment: .top, spacing: 0) {
                 stat("Length", String(format: "%.1f s", Double(r.count) / Double(Selection.sr)), nil)
-                Divider().padding(.horizontal, 10)
+                Divider().padding(.horizontal, compact ? 7 : 10)
                 stat("Heard", start.formatted(date: .omitted, time: .standard),
-                     "to \(end.formatted(date: .omitted, time: .standard)) · \(ago(start))")
-                Divider().padding(.horizontal, 10)
+                     compact ? ago(start) : "to \(end.formatted(date: .omitted, time: .standard)) · \(ago(start))")
+                Divider().padding(.horizontal, compact ? 7 : 10)
                 stat("Peak", selection.peakHz.map { $0 >= 1000 ? String(format: "%.1f kHz", $0 / 1000) : "\(Int($0)) Hz" } ?? "—", nil)
             }
             .fixedSize(horizontal: false, vertical: true)

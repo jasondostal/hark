@@ -104,10 +104,10 @@ Hark needs no login, has no accounts, no content shared between users and no pai
 Hark identifies wildlife by sound: birds, frogs, insects and mammals. It is for birders, naturalists and anyone curious about what is calling outside. It listens through the microphone, shows a live spectrogram, and identifies calls with two machine-learning models that run entirely on the device (Google DeepMind's Perch 2.0 and BirdNET+ 3.0, both published under the Apache 2.0 license). Detections are kept in a log on the phone with time, place and a short clip. It is free, with no account, advertising or purchases.
 
 2. HOW TO TEST IT
-- Open the app and tap the large green microphone button at the bottom. Allow microphone access (and location, optionally).
+- Open the app and tap the large round microphone button at the bottom. Allow microphone access (and location, optionally).
 - Play birdsong from another device near the iPhone. Test recordings are at https://ducktyping.dev/hark/#test-sounds (a Canada Goose, Blue Jay or Barred Owl works well). Within a few seconds the species appears under "Hearing now" and is logged under "This session". The same page has rain, wind and coughing, which should not be logged.
-- Touch the spectrogram at the top: it pauses on the last minute of sound. Drag across a call to identify just that stretch; results appear at the top of the list with Log and "I saw it" buttons. "Back to live" returns to the live view.
-- The Log button (bottom left) opens the detection log (Timeline, Sessions, Species, Map). Settings (bottom right) has the model choice, sensitivity, spectrogram colors and the optional eBird key.
+- Touch the spectrogram at the top: it pauses on the last minute of sound. Drag across a call to identify just that stretch; results appear at the top of the list with "Log it" and "I saw it" buttons. "Back to live" returns to the live view.
+- The Journal button (bottom left) opens everything Hark has logged (Timeline, Sessions, Species, Map). Settings (bottom right) has the model choice, sensitivity, spectrogram colors and the optional eBird key.
 No credentials or sample files are needed.
 
 3. BACKGROUND AUDIO (UIBackgroundModes: audio)
@@ -141,8 +141,10 @@ What's New (draft):
 Hark 1.1 is for people who want more control.
 
 • Modes: Live as before, plus Point count (stand still for a set time and get a tally) and Survey (walk a route; no time limit, finer track).
-• Analyze recordings: pick one audio file or many, and Hark listens to them the way it listens live. Each becomes a session in your Log.
+• Analyze recordings: pick one audio file or many, and Hark listens to them the way it listens live. Each becomes a session in your Journal.
 • Sessions: name them, add notes, see the tally, share or delete a single session.
+• A new look: the whole app is drawn in the colors of the spectrogram you pick, with names in a field-guide serif. Prefer it light? Pick the Paper spectrogram or the Field Notebook look.
+• The Log is now the Journal.
 • Full screen, redone: the spectrogram fills the phone, what's calling appears as captions over it, and earlier species fade below. Works upright and on its side.
 • Spectrogram: twice the frequency detail; set its height up to full screen in portrait (it zooms in rather than stretching), FFT size, top frequency, background fade, and drawing quality.
 • Audio: microphone gain, and a high-pass filter you set in Hz.
@@ -155,4 +157,7 @@ TestFlight: 1.1 (4) uploaded 2026-11-25 from ead0e7a, internal group "Me" only (
 automatic distribution off, so each build is added to it by hand; with it on, TestFlight also offered the 1.0 builds.
 The next upload needs CURRENT_PROJECT_VERSION 5.
 
-Not yet done before submitting: run on the phone (gain, modes, a real file from Files), new screenshots if we want them.
+Not yet done before submitting: run on the phone (gain, modes, a real file from Files), new screenshots (the 1.0 ones
+show the old light screens and say "Log"), and the description's "Your log stays on your phone" could become "journal".
+The default look (stored as "classic", shown as "Hark") no longer follows the phone's light/dark setting: it follows the
+spectrogram's palette, so people updating in light mode get the dark look until they pick Paper or Field Notebook.

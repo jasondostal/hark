@@ -289,7 +289,7 @@ final class Listener {
         didSet { UserDefaults.standard.set(showSpeed, forKey: "showSpeed") }
     }
 
-    /// Settings > Reset: everything Hark shipped with. Leaves what's yours alone (the log, names, never-show list,
+    /// Settings > Reset: everything Hark shipped with. Leaves what's yours alone (the Journal, names, never-show list,
     /// eBird key, look).
     func resetSettings() {
         policy = DetectionPolicy(); showMaybes = false; confirmSeconds = 2; scoreInterval = 1; model = .both
@@ -310,7 +310,7 @@ final class Listener {
     private(set) var activeMode: Mode = .live
     /// Point count: when it ends.
     private(set) var endsAt: Date?
-    /// The session that just ended, for the "see it in the Log" row. Cleared by the next Listen.
+    /// The session that just ended, for the "see it in the Journal" row. Cleared by the next Listen.
     /// `complete`: a point count that ran its full time.
     private(set) var finished: (session: UUID, species: Int, mode: Mode, complete: Bool)?
     /// Microphone access is switched off for Hark in iOS Settings (the failure row offers the way there).
@@ -617,7 +617,7 @@ final class Listener {
     }
     func unmute(_ scientific: String) { mutedNames.removeAll { $0 == scientific } }
 
-    /// "Not it": this ID was wrong just now. Takes it off the screen and out of the log, and ignores the species
+    /// "Not it": this ID was wrong just now. Takes it off the screen and out of the Journal, and ignores the species
     /// for the rest of this session (the siren keeps going), without muting it for good. Noted for tuning. Undoable.
     func notIt(_ index: Int) {
         guard let l = label(index) else { return }
@@ -649,7 +649,7 @@ final class Listener {
             guard let self else { return }
             WrongIDs.forget(tag)
             guard self.sessionID == session else {
-                // a new session started since: just put the rows back in the log
+                // a new session started since: just put the rows back in the Journal
                 if let ctx = self.modelContext { undoFiles?.snapshots.forEach { _ = $0.restore(in: ctx) }; try? ctx.save() }
                 return
             }
@@ -676,7 +676,7 @@ final class Listener {
         hearingNow = tracker.active(at: .now)
         session = tracker.occurrences.sorted { $0.firstHeard > $1.firstHeard }
     }
-    /// From the Log: if it's from the session that's running, treat it like "Not it" there too.
+    /// From the Journal: if it's from the session that's running, treat it like "Not it" there too.
     func notIt(_ d: Detection) {
         if state == .listening, d.sessionID == sessionID, let i = labels?.index(ofScientific: d.scientific),
            logged.values.contains(where: { $0.id == d.id }) || manual.contains(where: { $0.id == d.id }) {

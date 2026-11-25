@@ -77,7 +77,7 @@ struct LogView: View {
                 if !landscapeBar {
                     HStack(spacing: 10) { modePicker; filterMenu }
                         .padding(.horizontal).padding(.vertical, 8)
-                        .background(.bar)
+                        .background(.appBar)
                 }
             }
             .toolbar {
@@ -87,7 +87,7 @@ struct LogView: View {
                 }
             }
             .modifier(SearchInBottomBar(on: landscapeBar))
-            .navigationTitle("Log")
+            .navigationTitle("Journal")
             .searchable(text: $search, prompt: "Search species")
             .modifier(MinimizedSearch(on: verticalSize == .compact))   // landscape: search shrinks to a button
             .navigationBarTitleDisplayMode(.inline)
@@ -161,10 +161,10 @@ private struct TimelineList: View {
             }
             if detections.isEmpty {
                 ContentUnavailableView(filtered ? "Nothing matches the filter" : "Nothing logged yet", systemImage: "mic",
-                                       description: Text("Everything Hark identifies is saved here with time, place and a clip."))
+                                       description: Text("Everything Hark identifies is kept here with its time, place and a clip."))
             }
             ForEach(days, id: \.0) { day, items in
-                Section(day.formatted(date: .complete, time: .omitted)) {
+                ThemedSection(day.formatted(date: .complete, time: .omitted)) {
                     ForEach(items) { d in
                         NavigationLink(value: d) { LogRow(detection: d) }
                             .swipeActions(edge: .leading) {
@@ -183,7 +183,7 @@ private struct TimelineList: View {
     }
 
     private func stat(_ n: String, _ label: String) -> some View {
-        VStack { Text(n).font(.title2.bold().monospacedDigit()); Text(label).font(.caption).foregroundStyle(.secondary) }
+        VStack(spacing: 2) { Text(n).speciesName(.title2).monospacedDigit(); Text(label).font(.caption).foregroundStyle(.secondary) }
             .frame(maxWidth: .infinity)
     }
 }
@@ -216,10 +216,12 @@ struct LogRow: View {
     }
 }
 
+/// The first time a species has ever been logged.
 struct NewBadge: View {
     var body: some View {
-        Text("NEW").font(.caption2.weight(.heavy)).foregroundStyle(.white)
-            .padding(.horizontal, 5).padding(.vertical, 1).background(.orange, in: Capsule())
+        HStack(spacing: 2) { Image(systemName: "sparkles"); Text("New") }
+            .font(.caption2.weight(.bold)).foregroundStyle(.celebrate).fixedSize()
+            .accessibilityElement(children: .ignore).accessibilityLabel("New for you")
     }
 }
 
@@ -272,7 +274,7 @@ private struct SpeciesList: View {
         }
     }
 
-    /// Cumulative distinct species over time (whole log, not the current filter).
+    /// Cumulative distinct species over time (the whole Journal, not the current filter).
     private var growth: [(Date, Int)] {
         var seen = Set<String>(), out: [(Date, Int)] = []
         for d in all.sorted(by: { $0.firstHeard < $1.firstHeard }) where seen.insert(d.scientific).inserted {
@@ -288,7 +290,7 @@ private struct SpeciesList: View {
                 Picker("Sort", selection: $sort) { ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
             } footer: { Text("\(rows.count) species") }
             if growth.count > 1 {
-                Section("Life list") {
+                ThemedSection("Life list") {
                     Chart(growth, id: \.0) { p in
                         LineMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
                         AreaMark(x: .value("Date", p.0), y: .value("Species", p.1)).interpolationMethod(.stepEnd)
@@ -362,10 +364,10 @@ struct SpeciesPage: View {
                     NavigationLink(value: best) {
                         Text("\(best.confidence.shownPercent)% · \(best.firstHeard.formatted(date: .abbreviated, time: .shortened))").font(.callout)
                     }
-                } header: { Text("Best recording") }
+                } header: { Text("Best recording").themedHeader() }
             }
             if detections.count >= 2 {
-                Section("Time of day") {
+                ThemedSection("Time of day") {
                     Chart(hours, id: \.0) { h in
                         BarMark(x: .value("Hour", h.0), y: .value("Detections", h.1)).foregroundStyle(.tint)
                     }
@@ -377,7 +379,7 @@ struct SpeciesPage: View {
                     .frame(height: 110)
                 }
                 if Set(detections.map { Calendar.current.component(.month, from: $0.firstHeard) }).count > 1 {
-                    Section("Through the year") {
+                    ThemedSection("Through the year") {
                         Chart(months, id: \.0) { m in
                             BarMark(x: .value("Month", m.0, unit: .month), y: .value("Detections", m.1)).foregroundStyle(.tint)
                         }
@@ -387,13 +389,13 @@ struct SpeciesPage: View {
             }
             let located = detections.filter { $0.latitude != nil }
             if !located.isEmpty {
-                Section("Where") { DetectionMap(detections: located).frame(height: 200).listRowInsets(EdgeInsets()) }
+                ThemedSection("Where") { DetectionMap(detections: located).frame(height: 200).listRowInsets(EdgeInsets()) }
             }
-            Section("All detections") {
+            ThemedSection("All detections") {
                 ForEach(detections) { d in NavigationLink(value: d) { LogRow(detection: d) } }
             }
             if let first = detections.first, first.isSpecies {
-                Section { NicknameRow(scientific: scientific) } header: { Text("Your name for it") } footer: {
+                Section { NicknameRow(scientific: scientific) } header: { Text("Your name for it").themedHeader() } footer: {
                     Text("Shows instead of its name everywhere in Hark, like \"Fred\" for the cardinal at your feeder. Clear it to go back.")
                 }
                 LearnMoreSection(scientific: scientific, common: first.common, group: first.taxon)
@@ -450,7 +452,7 @@ struct DetectionDetail: View {
                 }
             }
             if let file = detection.clipFile {
-                Section("Recording") { ClipSpectrogram(file: file) }
+                ThemedSection("Recording") { ClipSpectrogram(file: file) }
             }
             Section {
                 Toggle(isOn: $detection.confirmed) { Label("I saw it", systemImage: "eye") }
@@ -462,7 +464,7 @@ struct DetectionDetail: View {
                 LabeledContent("How", value: ["live": "Live", "maybe": "Logged from a maybe", "unusual": "Logged though unusual here", "rewind": "Picked out on the spectrogram", "selection": "Picked out on the spectrogram", "file": "Found in a recording"][detection.source] ?? detection.source)
             }
             if detection.latitude != nil {
-                Section("Where") { DetectionMap(detections: [detection], links: false).frame(height: 180).listRowInsets(EdgeInsets()) }
+                ThemedSection("Where") { DetectionMap(detections: [detection], links: false).frame(height: 180).listRowInsets(EdgeInsets()) }
             }
             LearnMoreSection(scientific: detection.scientific, common: detection.common, group: detection.taxon)
             Section {

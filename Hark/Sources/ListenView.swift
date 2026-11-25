@@ -4,7 +4,8 @@ import TipKit
 import HarkCore
 
 /// Home: a big live spectrogram on top, what's being heard in the middle, and a camera-style bar at the bottom
-/// (Log · Listen · Settings) where the thumb already is.
+/// (Journal · Listen · Settings) where the thumb already is. It's all one surface: the list and the bar are drawn
+/// straight on the look's background, and the picture melts into it.
 struct ListenView: View {
     @Environment(Listener.self) private var listener
     @Environment(\.modelContext) private var ctx
@@ -17,12 +18,14 @@ struct ListenView: View {
     @Environment(\.verticalSizeClass) private var verticalSize
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.theme) private var theme
+    /// The look's colors: what the list and the bar are drawn in when the picture doesn't have the whole screen.
+    @Environment(\.surface) private var look
+    /// The picture's own colors: everything drawn over it, and the bar and rail in full screen.
+    private var stage: Surface { theme.stage(listener.palette) }
     private var landscape: Bool { verticalSize == .compact }
-    /// Landscape opens full screen, the spectrogram spanning the phone with captions over it; the button brings the
-    /// list in as a column beside it. The column also comes back while a selection is open, since that's where
-    /// the results are.
-    @AppStorage("landscapeFull") private var fullScreen = true
-    private var showColumn: Bool { !fullScreen || selection.isFrozen }
+    /// On its side the spectrogram always has the screen, with captions over it. A column comes in beside it only
+    /// while a selection is open, since that's where its results are.
+    private var showColumn: Bool { selection.isFrozen }
     /// Portrait full screen: by the expand button, or because Settings > Spectrogram > Height is all the way up.
     /// The list comes back while a selection is open, as in landscape.
     @AppStorage("portraitFull") private var portraitFull = false
@@ -31,7 +34,7 @@ struct ListenView: View {
     /// The spectrogram has the screen to itself right now.
     private var fullNow: Bool { landscape ? !showColumn : portraitIsFull }
     @State private var showFiles = ProcessInfo.processInfo.arguments.contains("-files")   // screenshot aid
-    /// A session to open the Log on (a finished point count, an analyzed file).
+    /// A session to open the Journal on (a finished point count, an analyzed file).
     @State private var logSession: UUID?
     /// A detection tapped in the list: its page, right here.
     @State private var opened: Detection?
@@ -75,7 +78,7 @@ struct ListenView: View {
     }
 
     /// Portrait: spectrogram on top, list, thumb bar. Landscape (phone on its side, a tripod, a dash): the spectrogram
-    /// takes the width and shows twice the time, the list is a column beside it and the buttons a camera-style rail.
+    /// takes the width and shows twice the time, with captions over it and the buttons on a camera-style rail.
     @ViewBuilder private var layout: some View {
         if landscape {
             GeometryReader { g in
@@ -89,8 +92,7 @@ struct ListenView: View {
                         }
                     if showColumn {
                         list
-                            .frame(width: 270)
-                            .overlay(alignment: .bottom) { celebration.padding(.bottom, 16) }
+                            .frame(width: 280)
                             .transition(.move(edge: .trailing))
                     }
                     sideRail
@@ -102,15 +104,15 @@ struct ListenView: View {
             GeometryReader { g in
                 // A selection needs room for its results, however tall the spectrogram is set.
                 let share = selection.isFrozen ? min(listener.spectrogramHeight, 0.45) : listener.spectrogramHeight
+                let top = g.safeAreaInsets.top
                 VStack(spacing: 0) {
-                    // Full screen: the picture runs up under the status bar, which steps aside.
-                    spectrogramPanel(height: portraitIsFull ? nil : max(140, g.size.height * share),
-                                     topInset: portraitIsFull ? g.safeAreaInsets.top : 0)
-                        .ignoresSafeArea(.container, edges: portraitIsFull ? .top : [])
+                    // The picture runs up under the status bar (which steps aside in full screen).
+                    spectrogramPanel(height: portraitIsFull ? nil : max(140, (g.size.height - top) * share) + top, topInset: top)
                     if !portraitIsFull { list.transition(.move(edge: .bottom)) }
                 }
                 .animation(.snappy, value: portraitIsFull)
             }
+            .ignoresSafeArea(.container, edges: .top)
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .overlay(alignment: .bottom) { if !portraitIsFull { celebration.padding(.bottom, 120) } }   // full screen says it in the caption
             .statusBarHidden(portraitIsFull)
@@ -118,15 +120,20 @@ struct ListenView: View {
         }
     }
 
+    /// Rows straight on the surface: no cards, no rules, the way captions sit on the picture.
     private var list: some View {
-        List { Group { content }.themedRows() }
-            .environment(\.openDetection) { opened = $0 }
-            .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
-            .listStyle(.insetGrouped)
-            .themedList()
-            .contentMargins(.top, 8, for: .scrollContent)
-            .contentMargins(.horizontal, landscape ? 8 : nil, for: .scrollContent)
-            .listSectionSpacing(landscape ? .compact : .default)
+        List {
+            Group { content }
+                .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 5, leading: landscape ? 12 : 18, bottom: 5, trailing: landscape ? 12 : 16))
+        }
+        .environment(\.openDetection) { opened = $0 }
+        .environment(\.defaultMinListRowHeight, 1)
+        .overlay(alignment: .bottom) { UndoToast().padding(.bottom, 12) }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.top, 6, for: .scrollContent)
+        .contentMargins(.bottom, 16, for: .scrollContent)
     }
 
     // MARK: Spectrogram
@@ -173,23 +180,22 @@ struct ListenView: View {
             }
         }
         .overlay(alignment: landscape ? .trailing : .bottom) {
-            if fullNow {      // the picture melts into the bar's darkness instead of stopping at it
-                let bg = listener.palette.background
-                LinearGradient(colors: [bg.opacity(0), bg], startPoint: landscape ? .leading : .top, endPoint: landscape ? .trailing : .bottom)
-                    .frame(width: landscape ? 14 : nil, height: landscape ? nil : 18)
-                    .allowsHitTesting(false)
-            }
+            // The picture melts into what's next to it (the list, the bar, the rail) instead of stopping at it.
+            let bg = fullNow ? stage.background : look.background
+            LinearGradient(colors: [bg.opacity(0), bg], startPoint: landscape ? .leading : .top, endPoint: landscape ? .trailing : .bottom)
+                .frame(width: landscape ? 14 : nil, height: landscape ? nil : fullNow ? 18 : 30)
+                .allowsHitTesting(false)
         }
         .overlay(alignment: .leading) {
             if fullNow && landscape {      // and out of the gutter beside the island
-                let bg = listener.palette.background
+                let bg = stage.background
                 LinearGradient(colors: [bg, bg.opacity(0)], startPoint: .leading, endPoint: .trailing).frame(width: 22).allowsHitTesting(false)
             }
         }
         .overlay {
             if fullNow {      // full screen: what's calling, as captions in the corner
                 Color.clear.overlay(alignment: .topLeading) {
-                    CaptionFeed(compact: landscape) { logSession = listener.sessionID; showLog = true }
+                    CaptionFeed(compact: landscape, more: { logSession = listener.sessionID; showLog = true }, notes: AnyView(stageNotes))
                         .environment(\.openDetection) { opened = $0 }
                         .padding(.top, topInset + 12).padding(.leading, listener.frequencyLabels ? 46 : 16).padding(.trailing, 16)
                 }
@@ -199,6 +205,8 @@ struct ListenView: View {
         }
         .overlay(alignment: .bottom) { if fullNow { UndoToast().padding(.bottom, 14) } }      // "Not it" from a caption
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
+        .environment(\.surface, stage)
+        .environment(\.colorScheme, stage.scheme)
     }
 
     private func touchMoved(_ v: DragGesture.Value, width: CGFloat) {
@@ -234,11 +242,6 @@ struct ListenView: View {
         Task { await selection.analyze(listener) }
     }
 
-    private var overlayTint: Color { listener.palette.overlayTint }
-    private var overlayShade: LinearGradient {
-        LinearGradient(colors: [.clear, .black.opacity(listener.palette == .paper ? 0 : 0.45)], startPoint: .top, endPoint: .bottom)
-    }
-
     private var liveControls: some View {
         @Bindable var listener = listener
         let listening = listener.state == .listening
@@ -256,23 +259,16 @@ struct ListenView: View {
                     .foregroundStyle(listener.palette.labelColor).lineLimit(1).fixedSize()
                     .accessibilityLabel(String(format: "Last check took %.0f milliseconds", listener.lastInferenceMs))
             }
-            if listener.state == .listening && !fullNow {      // full screen: the Listen button's ring is the level meter
-                Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
-                LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil && !listener.showSpeed ? 70 : 40)
-                    .accessibilityLabel("Microphone level")
-            }
-            if landscape || !heightIsFull {
-                let full = landscape ? fullScreen : portraitFull
-                Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
-                    // On its side the button brings the list in and out beside the spectrogram; upright it's full screen.
-                    Image(systemName: landscape ? "sidebar.right" : full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+            // (The microphone level is the Listen button's ring.)
+            if !landscape && !heightIsFull {
+                Button { portraitFull.toggle() } label: {
+                    Image(systemName: portraitFull ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 }
-                .buttonStyle(GlassCircle(palette: listener.palette))
-                .accessibilityLabel(full ? "Show the list" : landscape ? "Hide the list" : "Full screen spectrogram")
+                .buttonStyle(GlassCircle())
+                .accessibilityLabel(portraitFull ? "Show the list" : "Full screen spectrogram")
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(overlayShade.allowsHitTesting(false))
+        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, fullNow ? 10 : 16)
     }
 
     private var frozenControls: some View {
@@ -283,8 +279,7 @@ struct ListenView: View {
                     .padding(.horizontal, 4).padding(.vertical, 4)
                     .fixedSize()
             }
-            .buttonStyle(.bordered)
-            .tint(overlayTint)
+            .buttonStyle(SurfaceChip())
             if selection.range.isEmpty {      // once there's a selection, its numbers are in the list below
                 Text("Paused · drag across a call")
                     .font(.caption).foregroundStyle(listener.palette.labelColor)
@@ -304,14 +299,12 @@ struct ListenView: View {
                         .padding(.horizontal, 4).padding(.vertical, 4)
                         .fixedSize()
                 }
-                .buttonStyle(.bordered)
-                .tint(overlayTint)
+                .buttonStyle(SurfaceChip(tint: stage.accent))
                 .popoverTip(HearTip(), arrowEdge: .bottom)
                 .accessibilityLabel(playing ? "Stop playback" : "Hear the selection")
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(overlayShade.allowsHitTesting(false))
+        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 16)
     }
 
     // MARK: Hearing now / this session
@@ -319,139 +312,198 @@ struct ListenView: View {
     @ViewBuilder private var content: some View {
         switch listener.state {
         case .loading:
-            Section { HStack(spacing: 10) { ProgressView(); Text("Setting up the models on this iPhone. Only after installing or updating; a few seconds.").font(.callout) } }
+            HStack(spacing: 10) { ProgressView(); Text("Setting up the models on this iPhone. Only after installing or updating; a few seconds.").font(.callout) }
+                .surfacePanel()
         case .failed(let msg):
-            Section {
+            VStack(alignment: .leading, spacing: 10) {
                 Label(msg, systemImage: "exclamationmark.triangle").foregroundStyle(.red).font(.callout)
                 if listener.micDenied, let url = URL(string: UIApplication.openSettingsURLString) {
                     Button { UIApplication.shared.open(url) } label: { Label("Open Settings to turn it on", systemImage: "gear") }
+                        .buttonStyle(SurfaceChip(tint: look.accent))
+                    SurfaceNote("In Settings, switch on Microphone, then come back and tap the button.")
                 }
-            } footer: {
-                if listener.micDenied { Text("In Settings, switch on Microphone, then come back and tap the button.") }
             }
+            .surfacePanel()
         default:
             if listener.perchPending {
-                Section { HStack(spacing: 10) { ProgressView(); Text("Perch is still setting up; listening with BirdNET+ until it joins.").font(.callout).foregroundStyle(.secondary) } }
+                HStack(spacing: 10) { ProgressView(); Text("Perch is still setting up; listening with BirdNET+ until it joins.").font(.callout).foregroundStyle(.secondary) }
+                    .surfacePanel()
             }
         }
         if FileAnalysis.shared.running {
             let jobs = FileAnalysis.shared.jobs
             let left = jobs.filter { if case .waiting = $0.state { true } else if case .running = $0.state { true } else { false } }.count
-            Section {
-                Button { showFiles = true } label: {
+            Button { showFiles = true } label: {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 10) {
                         ProgressView()
-                        Text(left == 1 ? "Analyzing a recording" : "Analyzing recordings, \(left) to go").foregroundStyle(.primary)
+                        Text(left == 1 ? "Analyzing a recording" : "Analyzing recordings, \(left) to go").font(.callout.weight(.medium))
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                     }
+                    SurfaceNote("Hark can't listen until it's done: the models do one thing at a time. Tap to watch it or stop it.")
                 }
-            } footer: { Text("Hark can't listen until it's done: the models do one thing at a time. Tap to watch it or stop it.") }
+                .surfacePanel()
+            }
+            .buttonStyle(.plain)
         }
         if selection.isFrozen { SelectionSection(selection: selection) }
         let active = listener.state == .listening || !listener.session.isEmpty || !listener.manual.isEmpty
         if !active && listener.state == .ready && !selection.isFrozen && choice == .live {
-            Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Hear something?").font(.title3.bold())
-                    Tip(symbol: "mic.fill", text: "Tap the **green button**. Birds, frogs, insects and mammals show up here as Hark hears them.")
-                    Tip(symbol: "hand.draw", text: "Missed it? **Touch the spectrogram** to pause it, then drag across the call. It reaches back a full minute.")
-                    Tip(symbol: "chevron.up.chevron.down", text: "**Live** above the button is the mode. Tap it for a timed **point count**, a walked **survey**, or audio **recordings**.")
-                }
-                .padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hear something?").font(theme.captionFont(30)).padding(.bottom, 2)
+                Tip(symbol: "mic.fill", text: "Tap the **big button**. Birds, frogs, insects and mammals show up here as Hark hears them.")
+                Tip(symbol: "hand.draw", text: "Missed it? **Touch the spectrogram** to pause it, then drag across the call. It reaches back a full minute.")
+                Tip(symbol: "chevron.up.chevron.down", text: "**Live** above the button is the mode. Tap it for a timed **point count**, a walked **survey**, or audio **recordings**.")
             }
+            .padding(.top, 14)
         }
         if let done = listener.finished, listener.state != .listening, !selection.isFrozen {
-            Section {
-                Button { logSession = done.session; showLog = true } label: {
-                    HStack {
-                        Label("\(done.species) species. \(done.mode == .point ? "See the tally" : done.mode == .survey ? "See the route" : "See the session")",
-                              systemImage: done.mode == .point ? "checklist" : done.mode == .survey ? "map" : "list.bullet.rectangle.portrait")
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                    }
+            SurfaceHeader(done.mode == .point ? (done.complete ? "Point count done" : "Point count stopped") : done.mode == .survey ? "Survey done" : "Stopped listening")
+            Button { logSession = done.session; showLog = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: done.mode == .point ? "checklist" : done.mode == .survey ? "map" : "book.pages")
+                        .font(.body.weight(.semibold)).foregroundStyle(.accent).frame(width: 26)
+                    Text("\(done.species) species. \(done.mode == .point ? "See the tally" : done.mode == .survey ? "See the route" : "See the session")")
+                        .font(.callout.weight(.medium))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
                 }
-            } header: {
-                Text(done.mode == .point ? (done.complete ? "Point count done" : "Point count stopped") : done.mode == .survey ? "Survey done" : "Stopped listening").themedHeader()
+                .surfacePanel()
             }
+            .buttonStyle(.plain)
         }
         if listener.state == .ready && choice != .live && !selection.isFrozen {
-            Section {
-                Label(choice.hint, systemImage: choice.symbol).font(.callout).foregroundStyle(.secondary)
-                if choice == .point {
-                    Picker("Count for", selection: Binding(get: { listener.pointMinutes }, set: { listener.pointMinutes = $0 })) {
-                        ForEach([3, 5, 10, 15, 20, 30], id: \.self) { Text("\($0) min").tag($0) }
-                    }
+            SurfaceHeader(choice.title)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Image(systemName: choice.symbol).foregroundStyle(.accent).frame(width: 26)
+                    Text(choice.hint).font(.callout).foregroundStyle(.secondary)
                 }
-            } header: { Text(choice.title).themedHeader() }
+                if choice == .point {
+                    HStack {
+                        Text("Count for").font(.callout.weight(.medium))
+                        Spacer(minLength: 0)
+                        Picker("Count for", selection: Binding(get: { listener.pointMinutes }, set: { listener.pointMinutes = $0 })) {
+                            ForEach([3, 5, 10, 15, 20, 30], id: \.self) { Text("\($0) min").tag($0) }
+                        }
+                        .pickerStyle(.menu).labelsHidden()
+                    }
+                    .padding(.leading, 38)
+                }
+            }
+            .surfacePanel()
         }
         if active && !listener.autoID && listener.state == .listening && !selection.isFrozen {
-            Section {
-                Label("Hark only identifies what you pick. Touch the spectrogram and drag across a call.", systemImage: "hand.draw")
-                    .font(.callout).foregroundStyle(.secondary)
-            } header: { Text("Manual mode").themedHeader() }
+            SurfaceHeader("Manual mode")
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: "hand.draw").foregroundStyle(.accent).frame(width: 26)
+                Text("Hark only identifies what you pick. Touch the spectrogram and drag across a call.").font(.callout).foregroundStyle(.secondary)
+            }
+            .surfacePanel()
         }
         if active && listener.autoID && listener.state == .listening {
-            Section {
-                if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
-                    // one row either way, so nothing below it moves
+            // Notices sit beside the title, so they come and go without pushing the list around.
+            SurfaceHeader("Hearing now") {
+                Group {
                     if listener.micStalled {
-                        Label("Something else has the microphone. Hark picks up again when it's free.", systemImage: "mic.slash")
-                            .font(.callout).foregroundStyle(.orange)
-                    } else {
-                        Text("Listening…").foregroundStyle(.secondary)
+                        Label("Mic in use elsewhere", systemImage: "mic.slash").labelStyle(.titleAndIcon)
+                            .accessibilityLabel("Something else has the microphone")
+                    } else if listener.guardActive {
+                        Label("People or music: sure IDs only", systemImage: "person.wave.2").labelStyle(.titleAndIcon)
+                            .accessibilityLabel("Hearing people or music: only IDs Hark is very sure of count right now")
                     }
                 }
-                ForEach(listener.hearingNow) { o in
-                    if let l = listener.label(o.index) { NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index))
-                            .muteSwipe(o.index, detection: listener.detection(for: o)) }
+                .font(.caption.weight(.medium)).foregroundStyle(.orange).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .animation(.default, value: listener.guardActive)
+            if listener.hearingNow.isEmpty && listener.maybes.isEmpty {
+                // one row either way, so nothing below it moves
+                if listener.micStalled {
+                    Label("Something else has the microphone. Hark picks up again when it's free.", systemImage: "mic.slash")
+                        .font(.callout).foregroundStyle(.orange).frame(minHeight: 50)
+                } else {
+                    ListeningRow()
                 }
-                ForEach(listener.maybes) { m in
-                    if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index, maybe: m) }
+            }
+            ForEach(listener.hearingNow) { o in
+                if let l = listener.label(o.index) {
+                    let d = listener.detection(for: o)
+                    NowRow(label: l, confidence: o.bestConfidence, agreed: listener.agreed.contains(o.index), detection: d)
+                        .muteSwipe(o.index, detection: d)
                 }
-            } header: {
-                // Notices sit beside the title, so they come and go without pushing the list around.
-                HStack(spacing: 6) {
-                    Text("Hearing now").themedHeader()
-                    Spacer(minLength: 4)
-                    Group {
-                        if listener.micStalled {
-                            Label("Mic in use elsewhere", systemImage: "mic.slash").labelStyle(.titleAndIcon)
-                                .accessibilityLabel("Something else has the microphone")
-                        } else if listener.guardActive {
-                            Label("People or music: sure IDs only", systemImage: "person.wave.2").labelStyle(.titleAndIcon)
-                                .accessibilityLabel("Hearing people or music: only IDs Hark is very sure of count right now")
-                        }
-                    }
-                    .font(.caption.weight(.medium)).foregroundStyle(.orange).textCase(nil).lineLimit(1).minimumScaleFactor(0.8)
-                }
-                .animation(.default, value: listener.guardActive)
+            }
+            ForEach(listener.maybes) { m in
+                if let l = listener.label(m.index) { MaybeRow(label: l, maybe: m).muteSwipe(m.index, maybe: m) }
             }
         }
         if !listener.session.isEmpty || !listener.manual.isEmpty {
-            Section {
-                ForEach(listener.manual) { d in
-                    if let i = listener.labels?.index(ofScientific: d.scientific) { ManualRow(detection: d).muteSwipe(i, detection: d) } else { ManualRow(detection: d) }
+            SurfaceHeader("This session") {
+                let n = Set(listener.session.map(\.index)).count + listener.manual.count
+                Text("\(n) species").font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(look.ink.opacity(0.45))
+            }
+            ForEach(listener.manual) { d in
+                if let i = listener.labels?.index(ofScientific: d.scientific) { ManualRow(detection: d).muteSwipe(i, detection: d) } else { ManualRow(detection: d) }
+            }
+            ForEach(listener.session) { o in
+                if let l = listener.label(o.index) {
+                    SessionRow(label: l, occurrence: o, detection: listener.detection(for: o))
+                        .muteSwipe(o.index, detection: listener.detection(for: o))
                 }
-                ForEach(listener.session) { o in
-                    if let l = listener.label(o.index) {
-                        SessionRow(label: l, occurrence: o, detection: listener.detection(for: o))
-                            .muteSwipe(o.index, detection: listener.detection(for: o))
-                    }
+            }
+        }
+    }
+
+    /// Full screen has no list, so what the list would say besides species goes over the picture, above the captions:
+    /// the first-run line, trouble with the microphone, a mode that needs setting up.
+    @ViewBuilder private var stageNotes: some View {
+        let listening = listener.state == .listening
+        if case .failed(let msg) = listener.state {
+            VStack(alignment: .leading, spacing: 8) {
+                StageNote(symbol: "exclamationmark.triangle.fill", text: msg, color: .red)
+                if listener.micDenied, let url = URL(string: UIApplication.openSettingsURLString) {
+                    Button { UIApplication.shared.open(url) } label: { Label("Open Settings to turn it on", systemImage: "gear") }
+                        .buttonStyle(SurfaceChip())
                 }
-            } header: { Text("This session").themedHeader() }
+            }
+        } else if listener.state == .loading {
+            StageNote(symbol: "hourglass", text: "Setting up the models on this iPhone. A few seconds.")
+        } else if FileAnalysis.shared.running {
+            Button { showFiles = true } label: { Label("Analyzing recordings. Hark can't listen until it's done", systemImage: "folder") }
+                .buttonStyle(SurfaceChip())
+        } else if listening && listener.micStalled {
+            StageNote(symbol: "mic.slash.fill", text: "Something else has the microphone. Hark picks up again when it's free.", color: .orange)
+        } else if listening && listener.guardActive && listener.autoID {
+            StageNote(symbol: "person.wave.2.fill", text: "People or music: sure IDs only", color: .orange)
+        } else if listening && !listener.autoID {
+            StageNote(symbol: "hand.draw.fill", text: "Manual: touch the picture and drag across a call.")
+        } else if !listening && listener.state == .ready && choice == .point {
+            Picker("Count for", selection: Binding(get: { listener.pointMinutes }, set: { listener.pointMinutes = $0 })) {
+                ForEach([3, 5, 10, 15, 20, 30], id: \.self) { Text("Count for \($0) min").tag($0) }
+            }
+            .pickerStyle(.menu).tint(stage.ink).font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 2).frame(height: 32)
+            .background { Capsule().fill(.ultraThinMaterial) }
+            .overlay { Capsule().strokeBorder(stage.ink.opacity(0.28), lineWidth: 1) }
+        } else if !listening && listener.state == .ready && listener.session.isEmpty && listener.manual.isEmpty && choice == .live {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hear something?").font(theme.captionFont(landscape ? 22 : 26))
+                Text("Tap the big button. Touch the picture to pick out a call.").font(.system(size: 13, weight: .medium)).opacity(0.75)
+            }
+            .foregroundStyle(stage.ink)
+            .shadow(color: stage.background.opacity(0.9), radius: 7).shadow(color: stage.background.opacity(0.7), radius: 1.5)
         }
     }
 
     // MARK: Bottom bar
 
     private var bottomBar: some View {
-        // Full screen: the bar sits on the spectrogram's own darkness, in its ink.
-        let stage = portraitIsFull ? listener.palette : nil
+        // Full screen: the bar sits on the spectrogram's own darkness, in its ink. Otherwise on the look's.
+        let surface = portraitIsFull ? stage : look
         return VStack(spacing: 6) {
             ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil)
             HStack(alignment: .center) {
-                BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
+                BarButton(title: "Journal", symbol: "book.pages") { showLog = true }
                 Spacer()
                 ListenButton(choice: choice) { showFiles = true }
                 Spacer()
@@ -460,9 +512,9 @@ struct ListenView: View {
             .padding(.horizontal, 30)
         }
         .padding(.top, 8).padding(.bottom, 2)
-        .background(stage.map { AnyShapeStyle($0.background) } ?? AnyShapeStyle(.appBar))
-        .environment(\.stage, stage)
-        .environment(\.colorScheme, stage?.scheme ?? colorScheme)
+        .background(surface.bar)
+        .environment(\.surface, surface)
+        .environment(\.colorScheme, surface.scheme)
         .animation(.snappy, value: portraitIsFull)
     }
 
@@ -491,21 +543,21 @@ struct ListenView: View {
 
     /// Landscape: the same three buttons, top to bottom, on the trailing edge where the right thumb is.
     private var sideRail: some View {
-        let stage = fullNow ? listener.palette : nil
+        let surface = fullNow ? stage : look
         return VStack {
             BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
             Spacer(minLength: 0)
             ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil, narrow: true)
             ListenButton(choice: choice) { showFiles = true }
             Spacer(minLength: 0)
-            BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
+            BarButton(title: "Journal", symbol: "book.pages") { showLog = true }
         }
         .padding(.vertical, 8)
         .frame(width: 104)      // room for the longest mode name ("Point count") with a margin
         .frame(maxHeight: .infinity)
-        .background(stage.map { AnyShapeStyle($0.background) } ?? AnyShapeStyle(.appBar))
-        .environment(\.stage, stage)
-        .environment(\.colorScheme, stage?.scheme ?? colorScheme)
+        .background(surface.bar)
+        .environment(\.surface, surface)
+        .environment(\.colorScheme, surface.scheme)
         .animation(.snappy, value: fullNow)
     }
 
@@ -515,12 +567,13 @@ struct ListenView: View {
                 Image(systemName: "sparkles").font(.title2).foregroundStyle(.celebrate)
                 VStack(alignment: .leading) {
                     Text("New for you!").font(.caption.weight(.bold)).foregroundStyle(.celebrate)
-                    Text(c.name).speciesName(.headline)
+                    Text(c.name).font(theme.captionFont(19))
                 }
             }
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .background(.regularMaterial, in: Capsule())
-            .shadow(radius: 8)
+            .padding(.horizontal, 20).padding(.vertical, 12)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay { Capsule().strokeBorder(look.ink.opacity(0.18), lineWidth: 1) }
+            .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
@@ -530,10 +583,83 @@ private struct Tip: View {
     let symbol: String
     let text: LocalizedStringKey
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(.tint).frame(width: 22)
-            Text(text).font(.callout).foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(.accent).frame(width: 26)
+            Text(text).font(.callout).foregroundStyle(.ink.opacity(0.72))
         }
+    }
+}
+
+/// A section's name, straight on the surface, with room beside it for a count or a notice.
+struct SurfaceHeader<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: Trailing
+    init(_ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) { self.title = title; self.trailing = trailing() }
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(title).themedHeader().foregroundStyle(.ink.opacity(0.55)).lineLimit(1)
+            Spacer(minLength: 4)
+            trailing
+        }
+        .padding(.top, 12)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Small print under something on the surface.
+struct SurfaceNote: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View { Text(text).font(.caption).foregroundStyle(.ink.opacity(0.5)).fixedSize(horizontal: false, vertical: true) }
+}
+
+/// A quiet panel on the surface, for notes and the few rows that aren't a species.
+private struct SurfacePanel: ViewModifier {
+    @Environment(\.surface) private var surface
+    @Environment(\.theme) private var theme
+    func body(content: Content) -> some View {
+        let shape = theme.isPixel ? AnyShape(Rectangle()) : AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        content
+            .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(surface.ink.opacity(0.07), in: shape)
+            .overlay { shape.stroke(surface.ink.opacity(0.1), lineWidth: 1) }
+            .contentShape(Rectangle())
+    }
+}
+extension View {
+    func surfacePanel() -> some View { modifier(SurfacePanel()) }
+}
+
+/// One line over the picture in full screen: what the list's notices say when there's no list.
+struct StageNote: View {
+    let symbol: String
+    let text: String
+    var color: Color?
+    @Environment(\.surface) private var surface
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: symbol)
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 13, weight: .semibold)).foregroundStyle(color ?? surface.ink)
+        .shadow(color: surface.background.opacity(0.9), radius: 6).shadow(color: surface.background.opacity(0.7), radius: 1.5)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// "Listening…", as tall as the row that will take its place.
+private struct ListeningRow: View {
+    @Environment(\.surface) private var surface
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "waveform").font(.system(size: 18, weight: .semibold)).foregroundStyle(surface.accent)
+                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: !reduceMotion)
+                .frame(width: 48, height: 48)
+            Text("Listening…").font(.callout).foregroundStyle(surface.ink.opacity(0.55))
+        }
+        .frame(minHeight: 50)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -579,7 +705,7 @@ struct ModeButton: View {
     /// The landscape rail: narrower, and the running time goes under the name.
     var narrow = false
     @Environment(\.theme) private var theme
-    @Environment(\.stage) private var stage
+    @Environment(\.surface) private var surface
     private var font: Font { theme.isPixel ? .pixel(narrow ? 8 : 10) : (narrow ? Font.caption : Font.subheadline).weight(.semibold) }
 
     var body: some View {
@@ -593,7 +719,7 @@ struct ModeButton: View {
                             .accessibilityLabel("Listening time")
                     }
                 }
-                .font(font).foregroundStyle(stage.map { AnyShapeStyle($0.ink.opacity(0.75)) } ?? AnyShapeStyle(.secondary)).lineLimit(1)
+                .font(font).foregroundStyle(surface.ink.opacity(0.75)).lineLimit(1)
                 .padding(.horizontal, narrow ? 6 : 14).padding(.vertical, narrow ? 2 : 6)
                 .accessibilityElement(children: .combine)
             } else {
@@ -608,9 +734,9 @@ struct ModeButton: View {
                         Text(choice.title).lineLimit(1).fixedSize()
                         Image(systemName: "chevron.up.chevron.down").imageScale(.small).fontWeight(.bold).opacity(0.7)
                     }
-                    .font(font).foregroundStyle(stage.map { AnyShapeStyle($0.ink) } ?? AnyShapeStyle(.tint))
+                    .font(font).foregroundStyle(surface.ink)
                     .padding(.horizontal, narrow ? 8 : 14).padding(.vertical, 6)
-                    .background(stage.map { AnyShapeStyle($0.ink.opacity(0.12)) } ?? AnyShapeStyle(.tint.opacity(0.14)), in: Capsule())
+                    .background(surface.ink.opacity(0.12), in: theme.isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule()))
                     .contentShape(Capsule())
                 }
                 .menuOrder(.fixed)
@@ -627,7 +753,7 @@ struct ModeButton: View {
 struct ListenButton: View {
     @Environment(Listener.self) private var listener
     @Environment(\.theme) private var theme
-    @Environment(\.stage) private var stage
+    @Environment(\.surface) private var surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var choice: ModeChoice = .live
     /// Recordings: the button opens the file analysis instead of the microphone.
@@ -645,9 +771,9 @@ struct ListenButton: View {
                     Rectangle().fill(style.fill).frame(width: 62, height: 62)
                         .overlay { Rectangle().stroke(style.ring, lineWidth: 3) }
                 } else {
-                    Circle().stroke(style.ring, lineWidth: 4).frame(width: 78, height: 78)
+                    Circle().stroke(theme == .classic ? surface.ink.opacity(0.16) : style.ring, lineWidth: 4).frame(width: 78, height: 78)
                     // The ring listens: it lights up and swells a touch with the microphone level.
-                    Circle().stroke(stage.map { AnyShapeStyle($0.accent) } ?? style.fill, lineWidth: 4).frame(width: 78, height: 78)
+                    Circle().stroke(surface.accent, lineWidth: 4).frame(width: 78, height: 78)
                         .opacity(level).scaleEffect(reduceMotion ? 1 : 1 + 0.045 * level)
                         .animation(.linear(duration: 0.12), value: level)
                     Circle().fill(style.fill).frame(width: 66, height: 66)
@@ -675,68 +801,79 @@ private struct BarButton: View {
     let title: String
     let symbol: String
     let action: () -> Void
-    @Environment(\.stage) private var stage
+    @Environment(\.surface) private var surface
+    @Environment(\.theme) private var theme
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: symbol).font(stage == nil ? .title2 : .title3).frame(width: 44, height: stage == nil ? 28 : 42)
-                    .background { if let stage { Circle().fill(stage.ink.opacity(0.1)).frame(width: 42, height: 42) } }
-                Text(title).font(.caption2.weight(.medium)).lineLimit(1).opacity(stage == nil ? 1 : 0.75)
+                Image(systemName: symbol).font(.title3).frame(width: 44, height: 42)
+                    .background { (theme.isPixel ? AnyShape(Rectangle()) : AnyShape(Circle())).fill(surface.ink.opacity(0.1)).frame(width: 42, height: 42) }
+                Text(title).font(.caption2.weight(.medium)).lineLimit(1).opacity(0.75)
             }
             .dynamicTypeSize(...DynamicTypeSize.xLarge)       // like the system tab bar: labels stop growing
-            .frame(width: 76, height: stage == nil ? 54 : 62)
+            .frame(width: 76, height: 62)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(stage.map { AnyShapeStyle($0.ink) } ?? AnyShapeStyle(.primary))
+        .foregroundStyle(surface.ink)
     }
 }
 
 // MARK: Rows
 
+/// The columns every row on the Listen list shares, so discs of every size center on one line.
+private enum RowMetrics {
+    static func column(_ compact: Bool) -> CGFloat { compact ? 38 : 48 }
+    static func spacing(_ compact: Bool) -> CGFloat { compact ? 10 : 14 }
+}
+
+/// The small line under a name on the list: numbers in the surface's ink, a little quieter than the name.
+private struct RowDetail<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(\.surface) private var surface
+    var body: some View {
+        HStack(spacing: 5) { content }
+            .font(.caption.weight(.medium).monospacedDigit()).foregroundStyle(surface.ink.opacity(0.62)).lineLimit(1).minimumScaleFactor(0.8)
+    }
+}
+
+/// Something calling right now: the biggest name on the list, with a ring around its disc for how sure Hark is.
 struct NowRow: View {
     let label: HarkCore.Label
     let confidence: Float
     /// Both models backed it (Both mode).
     var agreed = false
-    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Its Journal entry, once it has one.
+    var detection: Detection?
     @Environment(\.compactRows) private var compact
+    @Environment(\.theme) private var theme
+    @Environment(\.surface) private var surface
+    @ScaledMetric(relativeTo: .title3) private var scale = 1.0
     var body: some View {
-        if compact { compactBody } else { fullBody }
-    }
-
-    /// Landscape column: name, a seal when both models agree, and the percentage.
-    private var compactBody: some View {
-        HStack(spacing: 10) {
-            TaxonIcon(group: label.group, size: 26)
-            SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .subheadline).fontWeight(.semibold).lineLimit(2).minimumScaleFactor(0.85)
-            Spacer(minLength: 4)
-            if agreed {
-                Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.good)
-                    .accessibilityLabel("Perch and BirdNET+ agree")
-            }
-            Text("\(confidence.shownPercent)%").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var fullBody: some View {
-        HStack(spacing: 12) {
-            TaxonIcon(group: label.group)
-            VStack(alignment: .leading) {
-                SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: .headline)
-                SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies)
-                if agreed {      // not a Label: in a list row its icon would sit in the list's icon column
-                    HStack(spacing: 3) { Image(systemName: "checkmark.seal.fill"); Text("Both models") }
-                        .font(.caption2.weight(.semibold)).foregroundStyle(.good)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Perch and BirdNET+ agree")
+        let name = NameBook.shared.primary(label.common, label.scientific, species: label.group.isSpecies)
+        HStack(spacing: RowMetrics.spacing(compact)) {
+            StageDisc(group: label.group, size: compact ? 30 : 36, ring: Fusion.display(confidence))
+                .frame(width: RowMetrics.column(compact), height: RowMetrics.column(compact))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name.text).font(theme.captionFont((compact ? 18 : 22) * scale)).italic(name.italic)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                RowDetail {
+                    if agreed {
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(surface.accent).accessibilityLabel("Perch and BirdNET+ agree")
+                    }
+                    Text("\(confidence.shownPercent)%")
+                    if detection?.confirmed == true {
+                        Image(systemName: "eye.fill").foregroundStyle(surface.accent).accessibilityLabel("You saw it")
+                    }
+                    if detection?.isFirst == true { NewBadge() }
+                    if !compact, let other = NameBook.shared.secondary(label.common, label.scientific, species: label.group.isSpecies) {
+                        Text(other.text).font(theme.captionFont(13 * scale, strong: false)).italic(other.italic)
+                    }
                 }
-                if typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }   // big text: bar under the name
             }
             Spacer(minLength: 0)
-            if !typeSize.isAccessibilitySize { ConfidenceBar(value: confidence) }
         }
+        .frame(minHeight: 50)
         .accessibilityElement(children: .combine)
     }
 }
@@ -749,82 +886,84 @@ struct MaybeRow: View {
     let label: HarkCore.Label
     let maybe: Maybe
     @Environment(\.compactRows) private var compact
+    @Environment(\.theme) private var theme
+    @Environment(\.surface) private var surface
+    @ScaledMetric(relativeTo: .title3) private var scale = 1.0
     var body: some View {
-        if compact { compactBody } else { fullBody }
-    }
-
-    private func icon(size: CGFloat) -> some View {
-        TaxonIcon(group: label.group, size: size, faint: !maybe.unusual)
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
-                    .font(.caption).foregroundStyle(.white, maybe.unusual ? Color.orange : Color.gray)
-                    .offset(x: 3, y: 3)
-            }
-    }
-
-    /// Landscape column: the name keeps the top line to itself and the two buttons share the one under it.
-    private var compactBody: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                icon(size: 26)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(maybe.unusual ? label.displayName : "\(label.displayName)?").font(.subheadline).lineLimit(2).minimumScaleFactor(0.85)
-                        .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                    if maybe.unusual { Text(listener.unusualReason(maybe.index)).font(.caption2).foregroundStyle(.orange).lineLimit(2) }
-                }
-                Spacer(minLength: 4)
-                Text("\(maybe.best.shownPercent)%").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            HStack(spacing: 8) {
-                Button { listener.logMaybe(maybe, confirmed: false) } label: { Text("Log it").frame(maxWidth: .infinity) }
-                    .buttonStyle(.bordered)
-                Button { listener.logMaybe(maybe, confirmed: true) } label: { Label("Saw it", systemImage: "eye").frame(maxWidth: .infinity) }
-                    .buttonStyle(.bordered).tint(GoodStyle())
-            }
-            .font(.caption.weight(.medium)).controlSize(.small)
-        }
-    }
-
-    private var fullBody: some View {
-        HStack(spacing: 12) {
-            icon(size: 34)
-            VStack(alignment: .leading) {
+        let below = compact || typeSize.isAccessibilitySize      // no room beside the name: the buttons go under it
+        HStack(spacing: RowMetrics.spacing(compact)) {
+            StageDisc(group: label.group, size: compact ? 26 : 30, mark: maybe.unusual ? "exclamationmark.circle.fill" : "questionmark.circle.fill")
+                .frame(width: RowMetrics.column(compact))
+                .opacity(maybe.unusual ? 1 : 0.75)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(maybe.unusual ? label.displayName : "\(label.displayName)?")
-                    .foregroundStyle(maybe.unusual ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                Text("\(maybe.unusual ? listener.unusualReason(maybe.index) : "maybe") · \(maybe.best.shownPercent)%")
-                    .font(.caption).foregroundStyle(maybe.unusual ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
-                if typeSize.isAccessibilitySize { HStack { buttons } }
+                    .font(theme.captionFont((compact ? 16 : 18) * scale, strong: maybe.unusual))
+                    .foregroundStyle(surface.ink.opacity(maybe.unusual ? 1 : 0.72)).lineLimit(2).minimumScaleFactor(0.8)
+                RowDetail {
+                    if maybe.unusual {
+                        Text("\(listener.unusualReason(maybe.index)) · \(maybe.best.shownPercent)%").foregroundStyle(.orange)
+                    } else {
+                        Text("maybe · \(maybe.best.shownPercent)%")
+                    }
+                }
+                if below { HStack(spacing: 7) { buttons }.padding(.top, 4) }
             }
             Spacer(minLength: 0)
-            if !typeSize.isAccessibilitySize { buttons }
+            if !below { buttons }
         }
+        .frame(minHeight: 44)
     }
 
     @ViewBuilder private var buttons: some View {
         Button("Log it") { listener.logMaybe(maybe, confirmed: false) }
-            .buttonStyle(.bordered).fixedSize()
+            .buttonStyle(SurfaceChip())
         Button { listener.logMaybe(maybe, confirmed: true) } label: { Image(systemName: "eye") }
-            .buttonStyle(.bordered).tint(GoodStyle()).accessibilityLabel("I saw it")
+            .buttonStyle(SurfaceChip(tint: surface.accent)).accessibilityLabel("I saw it")
+    }
+}
+
+/// Heard earlier this session (or logged by hand): quieter than what's calling now, with "I saw it" beside it.
+private struct HeardRow: View {
+    let group: TaxonGroup
+    let common: String
+    let scientific: String
+    let detail: String
+    let detection: Detection?
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.compactRows) private var compact
+    @Environment(\.theme) private var theme
+    @Environment(\.surface) private var surface
+    @ScaledMetric(relativeTo: .body) private var scale = 1.0
+    var body: some View {
+        let name = NameBook.shared.primary(common, scientific, species: group.isSpecies)
+        HStack(spacing: RowMetrics.spacing(compact)) {
+            StageDisc(group: group, size: compact ? 24 : 28).frame(width: RowMetrics.column(compact))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name.text).font(theme.captionFont((compact ? 15 : 17) * scale, strong: false)).italic(name.italic)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                if let other = NameBook.shared.rowSecondary(common, scientific, species: group.isSpecies) {
+                    Text(other.text).font(theme.captionFont(12 * scale, strong: false)).italic(other.italic).foregroundStyle(surface.ink.opacity(0.62)).lineLimit(1)
+                }
+                RowDetail {      // the badge sits here so the name keeps the whole line
+                    if detection?.isFirst == true { NewBadge() }
+                    Text(detail)
+                }
+                if typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d).padding(.top, 4) }
+            }
+            .foregroundStyle(surface.ink.opacity(0.9))
+            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
+        }
+        .frame(minHeight: 42)
     }
 }
 
 struct ManualRow: View {
     let detection: Detection
     var body: some View {
-        HStack(spacing: 12) {
-            TaxonIcon(group: detection.taxon)
-            VStack(alignment: .leading) {
-                SpeciesTitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies)
-                SpeciesSubtitle(common: detection.common, scientific: detection.scientific, species: detection.isSpecies, row: true)
-                HStack(spacing: 6) {      // the badge sits here so the name keeps the whole line
-                    if detection.isFirst { NewBadge() }
-                    Text("\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · logged by hand · \(detection.confidence.shownPercent)%")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            ConfirmButton(detection: detection)
-        }
+        HeardRow(group: detection.taxon, common: detection.common, scientific: detection.scientific,
+                 detail: "\(detection.firstHeard.formatted(date: .omitted, time: .shortened)) · by hand · \(detection.confidence.shownPercent)%",
+                 detection: detection)
     }
 }
 
@@ -832,8 +971,6 @@ struct SessionRow: View {
     let label: HarkCore.Label
     let occurrence: DetectionTracker.Occurrence
     let detection: Detection?
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.compactRows) private var compact
     private var subtitle: String {
         var s = "\(occurrence.firstHeard.formatted(date: .omitted, time: .shortened)) · \(occurrence.bestConfidence.shownPercent)%"
         let mins = Int(occurrence.lastHeard.timeIntervalSince(occurrence.firstHeard) / 60)
@@ -841,31 +978,18 @@ struct SessionRow: View {
         return s
     }
     var body: some View {
-        HStack(spacing: compact ? 10 : 12) {
-            TaxonIcon(group: label.group, size: compact ? 26 : 34)
-            VStack(alignment: .leading) {
-                SpeciesTitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, style: compact ? .subheadline : .body)
-                SpeciesSubtitle(common: label.common, scientific: label.scientific, species: label.group.isSpecies, row: true)
-                HStack(spacing: 6) {      // the badge sits here so the name keeps the whole line
-                    if detection?.isFirst == true { NewBadge() }
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
-                }
-                if typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
-            }
-            Spacer(minLength: 0)
-            if !typeSize.isAccessibilitySize, let d = detection { ConfirmButton(detection: d) }
-        }
+        HeardRow(group: label.group, common: label.common, scientific: label.scientific, detail: subtitle, detection: detection)
     }
 }
 
 extension EnvironmentValues {
     /// Narrow landscape column: rows drop secondary detail and buttons go icon-only.
     @Entry var compactRows = false
-    /// Show a detection's page from wherever this is: pushed in the Log, a sheet over the Listen screen.
+    /// Show a detection's page from wherever this is: pushed in the Journal, a sheet over the Listen screen.
     @Entry var openDetection: ((Detection) -> Void)?
 }
 
-/// A detection's page over the Listen screen, with the same ways onward as in the Log (its species, its session).
+/// A detection's page over the Listen screen, with the same ways onward as in the Journal (its species, its session).
 struct DetectionSheet: View {
     let detection: Detection
     @Environment(\.dismiss) private var dismiss
@@ -886,47 +1010,14 @@ struct DetectionSheet: View {
 struct ConfirmButton: View {
     @Bindable var detection: Detection
     @Environment(\.compactRows) private var compact
+    @Environment(\.surface) private var surface
     var body: some View {
         Button { detection.confirmed.toggle() } label: {
-            Label(detection.confirmed ? "Saw it" : "I saw it",
-                  systemImage: detection.confirmed ? "checkmark.seal.fill" : "eye")
-                .font(.caption)
+            Label(detection.confirmed ? "Saw it" : "I saw it", systemImage: detection.confirmed ? "checkmark" : "eye")
                 .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
         }
-        .buttonStyle(.bordered)
-        .tint(detection.confirmed ? AnyShapeStyle(.good) : AnyShapeStyle(.secondary))
-    }
-}
-
-struct ConfidenceBar: View {
-    let value: Float
-    var body: some View {
-        HStack(spacing: 6) {
-            GeometryReader { g in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.quaternary)
-                    Capsule().fill(.tint).frame(width: g.size.width * CGFloat(Fusion.display(value)))
-                }
-            }
-            .frame(width: 56, height: 6)
-            Text("\(value.shownPercent)%").font(.caption.monospacedDigit()).fixedSize().frame(minWidth: 36, alignment: .trailing)
-        }
-    }
-}
-
-struct LevelBar: View {
-    let db: Float
-    var color: Color = .green
-    var body: some View {
-        let v = CGFloat(min(max((db + 80) / 70, 0), 1))
-        GeometryReader { g in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.25))
-                Capsule().fill(color.gradient).frame(width: g.size.width * v)
-            }
-        }
-        .frame(height: 5)
-        .animation(.linear(duration: 0.1), value: v)
+        .buttonStyle(SurfaceChip(tint: detection.confirmed ? surface.good : surface.ink.opacity(0.85), on: detection.confirmed))
+        .sensoryFeedback(.selection, trigger: detection.confirmed)
     }
 }
 

@@ -47,7 +47,7 @@ actor AudioFileReader {
 
 /// Analyze recordings from anywhere (a recorder's SD card, a voice memo, a trail-cam clip) exactly as if Hark had
 /// been listening: the same models, thresholds and wait-before-logging rule, one check per second of the file. Each file
-/// becomes a session in the Log; what's found is logged at the file's own date, with a clip, and no place.
+/// becomes a session in the Journal; what's found is logged at the file's own date, with a clip, and no place.
 @MainActor
 @Observable
 final class FileAnalysis {
@@ -59,7 +59,7 @@ final class FileAnalysis {
         let url: URL
         var name: String { url.lastPathComponent }
         var state: State = .waiting
-        /// The Log session it became.
+        /// The Journal session it became.
         var session: UUID?
     }
 
@@ -127,7 +127,7 @@ final class FileAnalysis {
         let reader: AudioFileReader
         do { reader = try AudioFileReader(url: url) } catch { jobs[i].state = .failed(error.localizedDescription); return }
 
-        // The file's own date if it has one (or the date given): detections land in the Log when the recording was made.
+        // The file's own date if it has one (or the date given): detections land in the Journal when the recording was made.
         let made = useFileDate ? ((try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .now) : date
         let duration = reader.duration
         let base = min(made, Date.now.addingTimeInterval(-duration))
@@ -190,7 +190,7 @@ final class FileAnalysis {
 
         if Task.isCancelled {
             rec.ended = base.addingTimeInterval(Double(heard) / 32_000)
-            jobs[i].state = .failed("Stopped at \(SessionsList.clock(Double(heard) / 32_000)); what it found so far is in the Log")
+            jobs[i].state = .failed("Stopped at \(SessionsList.clock(Double(heard) / 32_000)); what it found so far is in the Journal")
         } else {
             let found = Set(logged.values.map(\.scientific))
             let out = leftOut.filter { !found.contains(labels[$0].scientific) }
@@ -226,7 +226,7 @@ struct FileAnalysisView: View {
                 Section {
                     Button { picking = true } label: { Label(files.jobs.isEmpty ? "Choose recordings…" : "Add more…", systemImage: "folder.badge.plus") }
                 } footer: {
-                    Text("Pick one file or many (WAV, FLAC, MP3, M4A, or the sound from a video). Hark listens to each from start to finish with your current model and pickiness, and saves what it finds as a session in the Log.")
+                    Text("Pick one file or many (WAV, FLAC, MP3, M4A, or the sound from a video). Hark listens to each from start to finish with your current model and pickiness, and saves what it finds as a session in the Journal.")
                 }
                 Section {
                     Picker("Recorded", selection: $files.place) {
@@ -247,16 +247,16 @@ struct FileAnalysisView: View {
                         Toggle("Use each file's own date", isOn: $files.useFileDate)
                         if !files.useFileDate { DatePicker("Recorded on", selection: $files.date, in: ...Date.now, displayedComponents: .date) }
                     }
-                } header: { Text("Where and when") } footer: {
+                } header: { Text("Where and when").themedHeader() } footer: {
                     Text(files.place == .unknown
                          ? "A file doesn't say where it was recorded. With no place, Hark logs every confident ID, wherever that species lives."
-                         : "Hark checks each ID against the species found at that place at that time of year, as it does when you listen live. IDs that don't fit are left out of the Log and listed in the session's notes, so you can see what was dropped.")
+                         : "Hark checks each ID against the species found at that place at that time of year, as it does when you listen live. IDs that don't fit are left out of the Journal and listed in the session's notes, so you can see what was dropped.")
                 }
                 .disabled(files.running)
                 if !files.jobs.isEmpty {
                     Section {
                         ForEach(files.jobs) { j in row(j) }
-                    } header: { Text("Recordings") } footer: {
+                    } header: { Text("Recordings").themedHeader() } footer: {
                         if files.running { Text("Keep Hark open while it works: if you switch away it pauses, and carries on when you come back. An hour of audio takes a few minutes.") }
                     }
                     Section {
