@@ -370,8 +370,10 @@ struct SpectrogramView: View {
     var frequencyLabels = true
     /// Critters pinned on the calls they were identified from; they scroll with the audio.
     var markers: [Listener.Marker] = []
-    /// Collect the critters that scroll off the left edge in a stack there (full screen).
-    var dock = false
+    /// Full screen: critters are glass pins that carry their names along and dissolve before the far edge.
+    var stage = false
+    /// Room to leave at the top (the status bar's, when the picture runs under it).
+    var topInset: CGFloat = 0
     var quality: SpectrogramQuality = .standard
     /// Top of the frequency axis (so the labels move when the setting does).
     var topHz: Float = 15_000
@@ -400,35 +402,17 @@ struct SpectrogramView: View {
 
 extension SpectrogramView {
     @ViewBuilder fileprivate func critters(_ f: LiveSpectrogram.Frame, _ size: CGSize) -> some View {
-        let wide = size.width > 560
+        let named = size.width > 560      // upright there's no room for a name to ride along; the captions carry it
         let placed = markers.map { ($0, f.x(ofColumn: $0.column) * size.width) }
         ForEach(placed.filter { $0.1 > -12 && $0.1 < size.width + 12 }, id: \.0.id) { m, x in
             let y = size.height * (1 - (CGFloat(m.band) + 0.5) / CGFloat(SpectrogramDSP.bins))
-            CritterMarker(group: m.group, name: wide ? m.name : nil, pixel: palette.isPixel)
-                .position(x: x, y: min(max(y - (wide ? 22 : 16), 16), size.height - 24))
+            CritterMarker(group: m.group, name: named ? m.name : nil, pixel: palette.isPixel, glass: stage ? palette : nil)
+                .position(x: x, y: min(max(y - (named ? 22 : 16), topInset + 16), size.height - 24))
+                // On the stage a pin rides its call across and dissolves before it reaches the captions' corner.
+                .opacity(stage ? Double(min(max((x / size.width - 0.2) / 0.2, 0), 1)) : 1)
                 .transition(.scale(scale: 0.2).combined(with: .opacity))
         }
         .animation(.spring(duration: 0.35, bounce: 0.5), value: markers.count)
-        if dock {
-            // Passed off the left edge: newest first, one per species.
-            let passed = placed.filter { $0.1 <= -12 }.sorted { $0.0.column > $1.0.column }
-            var seen = Set<Int>()
-            let shelf = passed.map(\.0).filter { seen.insert($0.index).inserted }.prefix(6)
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(shelf)) { m in
-                    HStack(spacing: 6) {
-                        CritterMarker(group: m.group, name: nil, pixel: palette.isPixel)
-                        Text(m.name).font(palette.isPixel ? .pixel(9) : .caption.weight(.semibold))
-                            .foregroundStyle(.white).lineLimit(1)
-                            .shadow(color: .black.opacity(0.6), radius: 2)
-                    }
-                    .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
-                }
-            }
-            .animation(.spring(duration: 0.4, bounce: 0.4), value: shelf.map(\.index))
-            .padding(.leading, 36).padding(.top, 10)
-            .allowsHitTesting(false)
-        }
     }
 }
 
@@ -438,24 +422,38 @@ struct CritterMarker: View {
     let group: TaxonGroup
     var name: String?
     var pixel = false
+    /// Full screen: dark glass and bare lettering in the spectrogram's ink, instead of the group's color.
+    var glass: SpectrogramPalette?
     var body: some View {
         VStack(spacing: 2) {
             Group {
                 if pixel, let s = AppTheme.sprite(group) {
                     Image(s).interpolation(.none).resizable().scaledToFit().padding(2)
                 } else {
-                    Image(symbol: group.symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                    Image(symbol: group.symbol).font(.system(size: 12, weight: .bold)).foregroundStyle(glass?.ink ?? .white)
                 }
             }
                 .frame(width: 24, height: 24)
-                .background(pixel ? Color(hex: 0x1B1240) : theme.tint(group), in: pixel ? AnyShape(Rectangle()) : AnyShape(Circle()))
-                .overlay { (pixel ? AnyShape(Rectangle()) : AnyShape(Circle())).stroke(.white.opacity(0.85), lineWidth: pixel ? 2 : 1.5) }
+                .background {
+                    if let glass, !pixel {
+                        Circle().fill(.ultraThinMaterial).environment(\.colorScheme, glass.scheme)
+                    } else {
+                        (pixel ? AnyShape(Rectangle()) : AnyShape(Circle())).fill(pixel ? Color(hex: 0x1B1240) : theme.tint(group))
+                    }
+                }
+                .overlay { (pixel ? AnyShape(Rectangle()) : AnyShape(Circle())).stroke((glass?.ink ?? .white).opacity(glass == nil ? 0.85 : 0.6), lineWidth: pixel ? 2 : glass == nil ? 1.5 : 1) }
                 .shadow(color: .black.opacity(0.4), radius: 3)
             if let name {
-                Text(name).font(pixel ? .pixel(8) : .system(size: 10, weight: .semibold)).foregroundStyle(.white)
-                    .lineLimit(1).fixedSize()
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(.black.opacity(0.45), in: Capsule())
+                if let glass, !pixel {
+                    Text(name).font(theme.captionFont(12, strong: false)).foregroundStyle(glass.ink)
+                        .lineLimit(1).fixedSize()
+                        .shadow(color: glass.background.opacity(0.95), radius: 4).shadow(color: glass.background.opacity(0.8), radius: 1)
+                } else {
+                    Text(name).font(pixel ? .pixel(8) : .system(size: 10, weight: .semibold)).foregroundStyle(.white)
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(.black.opacity(0.45), in: Capsule())
+                }
             }
         }
         .allowsHitTesting(false)

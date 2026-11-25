@@ -49,6 +49,7 @@
 		AB7439855DDEDE99F4C39DCD /* Perch.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = CF97FC47703776066607E58A /* Perch.mlpackage */; };
 		B0C74ADA8A77EA7769B62059 /* FileAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDDAAD87DE38DE646CB6DD5 /* FileAnalysis.swift */; };
 		B8209E716EA13B18517C48CD /* OFL-SairaStencilOne.txt in Resources */ = {isa = PBXBuildFile; fileRef = BD63D45D2FF339617FD4D1C1 /* OFL-SairaStencilOne.txt */; };
+		B89884EF551762D19DB4BA55 /* Stage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6887F6FDDD098FDD619A31B /* Stage.swift */; };
 		BBA3711A72B549BB16A49B5C /* Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860137325B2388EC7A479ED4 /* Export.swift */; };
 		BCACFA1D3D52B8CC5139E967 /* HarkShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D36FB1797813E0E083FC8B /* HarkShortcuts.swift */; };
 		BF261F607E9ED9A46775A850 /* BirdNET3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1379501FCF44762E4B8AA561 /* BirdNET3.swift */; };
@@ -146,6 +147,7 @@
 		DB3D7E53640FF8E1FB5BC53D /* HarkIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarkIntents.swift; sourceTree = "<group>"; };
 		E3499EF8200DD71390F7DF3D /* Symbols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Symbols.swift; sourceTree = "<group>"; };
 		E57057B4556BAF1B8EB58C1F /* UndoToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoToast.swift; sourceTree = "<group>"; };
+		E6887F6FDDD098FDD619A31B /* Stage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stage.swift; sourceTree = "<group>"; };
 		F449E99AED17F3A96C2DB25C /* LICENSE-Apache-2.0.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-Apache-2.0.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -251,6 +253,7 @@
 				BA4DFC26EC236DF754FAB4FB /* SettingsView.swift */,
 				586101C1A764D2C07942457C /* ShareCard.swift */,
 				180D52A9CD94D53DCE390487 /* SpectrogramView.swift */,
+				E6887F6FDDD098FDD619A31B /* Stage.swift */,
 				D941B45C78432B52FF73B873 /* Style.swift */,
 				58B6C9AE043448A282C4B970 /* Theme.swift */,
 				E57057B4556BAF1B8EB58C1F /* UndoToast.swift */,
@@ -457,6 +460,7 @@
 				927AC30A0275E18074BCD37B /* SettingsView.swift in Sources */,
 				CB4E8C99C697397DC80AB14A /* ShareCard.swift in Sources */,
 				2823D7D3F281896F5A0FFC63 /* SpectrogramView.swift in Sources */,
+				B89884EF551762D19DB4BA55 /* Stage.swift in Sources */,
 				2E5F3B2CDE697038E4EB9522 /* Style.swift in Sources */,
 				5AEC4CA8D87C0A9AE1673A90 /* Symbols.swift in Sources */,
 				A8E6E6E0C0D2DBEF187C3DB4 /* Theme.swift in Sources */,

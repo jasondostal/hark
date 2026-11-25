@@ -15,6 +15,7 @@ struct ListenView: View {
     @State private var dragStarted = false
 
     @Environment(\.verticalSizeClass) private var verticalSize
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.theme) private var theme
     private var landscape: Bool { verticalSize == .compact }
     /// Landscape full screen: the list column hides so the spectrogram spans the phone. It comes back while a
@@ -85,7 +86,6 @@ struct ListenView: View {
                         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { w in
                             listener.widthScale = w / max(portraitWidth, 1)
                         }
-                        .overlay(alignment: .bottom) { if !showColumn { celebration.padding(.bottom, 70) } }
                     if showColumn {
                         list
                             .frame(width: 270)
@@ -102,13 +102,17 @@ struct ListenView: View {
                 // A selection needs room for its results, however tall the spectrogram is set.
                 let share = selection.isFrozen ? min(listener.spectrogramHeight, 0.45) : listener.spectrogramHeight
                 VStack(spacing: 0) {
-                    spectrogramPanel(height: portraitIsFull ? nil : max(140, g.size.height * share))
+                    // Full screen: the picture runs up under the status bar, which steps aside.
+                    spectrogramPanel(height: portraitIsFull ? nil : max(140, g.size.height * share),
+                                     topInset: portraitIsFull ? g.safeAreaInsets.top : 0)
+                        .ignoresSafeArea(.container, edges: portraitIsFull ? .top : [])
                     if !portraitIsFull { list.transition(.move(edge: .bottom)) }
                 }
                 .animation(.snappy, value: portraitIsFull)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
-            .overlay(alignment: .bottom) { celebration.padding(.bottom, 120) }
+            .overlay(alignment: .bottom) { if !portraitIsFull { celebration.padding(.bottom, 120) } }   // full screen says it in the caption
+            .statusBarHidden(portraitIsFull)
             .onAppear { listener.widthScale = 1 }
         }
     }
@@ -129,7 +133,7 @@ struct ListenView: View {
     private var selection: Selection { listener.selection }
 
     /// Live, it scrolls; the first touch freezes it (listening carries on) and a drag picks out a call.
-    private func spectrogramPanel(height: CGFloat?) -> some View {
+    private func spectrogramPanel(height: CGFloat?, topInset: CGFloat = 0) -> some View {
         GeometryReader { g in
             Group {
                 if selection.isFrozen {
@@ -138,7 +142,7 @@ struct ListenView: View {
                     SpectrogramView(source: listener.live, running: listener.state == .listening,
                                     palette: listener.palette, frequencyLabels: listener.frequencyLabels,
                                     markers: listener.critters ? listener.markers : [],
-                                    dock: listener.critters && fullNow,
+                                    stage: fullNow, topInset: topInset,
                                     quality: listener.quality, topHz: Float(listener.topKHz * 1000))
                 }
             }
@@ -167,7 +171,31 @@ struct ListenView: View {
                 SelectionOverview(selection: selection).padding(.horizontal, 12).padding(.top, 8)
             }
         }
-        .overlay(alignment: .topLeading) { if fullNow && !listener.critters { hearingTags } }
+        .overlay(alignment: landscape ? .trailing : .bottom) {
+            if fullNow {      // the picture melts into the bar's darkness instead of stopping at it
+                let bg = listener.palette.background
+                LinearGradient(colors: [bg.opacity(0), bg], startPoint: landscape ? .leading : .top, endPoint: landscape ? .trailing : .bottom)
+                    .frame(width: landscape ? 14 : nil, height: landscape ? nil : 18)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .leading) {
+            if fullNow && landscape {      // and out of the gutter beside the island
+                let bg = listener.palette.background
+                LinearGradient(colors: [bg, bg.opacity(0)], startPoint: .leading, endPoint: .trailing).frame(width: 22).allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if fullNow {      // full screen: what's calling, as captions in the corner
+                Color.clear.overlay(alignment: .topLeading) {
+                    CaptionFeed(compact: landscape)
+                        .environment(\.openDetection) { opened = $0 }
+                        .padding(.top, topInset + 12).padding(.leading, listener.frequencyLabels ? 46 : 16).padding(.trailing, 16)
+                }
+                .clipped()
+                .transition(.opacity)
+            }
+        }
         .overlay(alignment: .bottom) { selection.isFrozen ? AnyView(frozenControls) : AnyView(liveControls) }
     }
 
@@ -226,7 +254,7 @@ struct ListenView: View {
                     .foregroundStyle(listener.palette.labelColor).lineLimit(1).fixedSize()
                     .accessibilityLabel(String(format: "Last check took %.0f milliseconds", listener.lastInferenceMs))
             }
-            if listener.state == .listening {
+            if listener.state == .listening && !fullNow {      // full screen: the Listen button's ring is the level meter
                 Image(systemName: "mic.fill").font(.caption).foregroundStyle(listener.palette.labelColor)
                 LevelBar(db: listener.levelDB, color: listener.palette == .owling ? listener.palette.overlayTint : .green).frame(width: listener.endsAt == nil && !listener.showSpeed ? 70 : 40)
                     .accessibilityLabel("Microphone level")
@@ -236,11 +264,8 @@ struct ListenView: View {
                 Button { if landscape { fullScreen.toggle() } else { portraitFull.toggle() } } label: {
                     // On its side the button brings the list in and out beside the spectrogram; upright it's full screen.
                     Image(systemName: landscape ? "sidebar.right" : full ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.vertical, 4)
                 }
-                .buttonStyle(.bordered)
-                .tint(overlayTint)
+                .buttonStyle(GlassCircle(palette: listener.palette))
                 .accessibilityLabel(full ? "Show the list" : landscape ? "Hide the list" : "Full screen spectrogram")
             }
         }
@@ -419,7 +444,9 @@ struct ListenView: View {
     // MARK: Bottom bar
 
     private var bottomBar: some View {
-        VStack(spacing: 6) {
+        // Full screen: the bar sits on the spectrogram's own darkness, in its ink.
+        let stage = portraitIsFull ? listener.palette : nil
+        return VStack(spacing: 6) {
             ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil)
             HStack(alignment: .center) {
                 BarButton(title: "Log", symbol: "list.bullet.rectangle.portrait") { showLog = true }
@@ -431,7 +458,10 @@ struct ListenView: View {
             .padding(.horizontal, 30)
         }
         .padding(.top, 8).padding(.bottom, 2)
-        .background(.appBar)
+        .background(stage.map { AnyShapeStyle($0.background) } ?? AnyShapeStyle(.appBar))
+        .environment(\.stage, stage)
+        .environment(\.colorScheme, stage?.scheme ?? colorScheme)
+        .animation(.snappy, value: portraitIsFull)
     }
 
     /// What the big button does, as one choice (the mode button above it): the listening mode, Manual folded in
@@ -457,36 +487,10 @@ struct ListenView: View {
         })
     }
 
-    /// Full screen: what's calling right now, as small tags over the old (left) end of the spectrogram.
-    private var hearingTags: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(listener.autoID ? Array(listener.hearingNow.prefix(4)) : []) { o in
-                if let l = listener.label(o.index) {
-                    HStack(spacing: 6) {
-                        Image(symbol: l.group.symbol).font(.caption)
-                        Text(l.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                        if listener.agreed.contains(o.index) {
-                            Image(systemName: "checkmark.seal.fill").font(.caption2).foregroundStyle(.good)
-                        }
-                        Text("\(o.bestConfidence.shownPercent)%").font(.caption.monospacedDigit()).opacity(0.75)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .environment(\.colorScheme, listener.palette == .paper ? .light : .dark)
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
-                }
-            }
-        }
-        .animation(.snappy, value: listener.hearingNow.map(\.index))
-        .padding(.leading, 44).padding(.top, 10)
-        .allowsHitTesting(false)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Hearing now")
-    }
-
     /// Landscape: the same three buttons, top to bottom, on the trailing edge where the right thumb is.
     private var sideRail: some View {
-        VStack {
+        let stage = fullNow ? listener.palette : nil
+        return VStack {
             BarButton(title: "Settings", symbol: "slider.horizontal.3") { showSettings = true }
             Spacer(minLength: 0)
             ModeButton(choice: choiceBinding, running: listener.state == .listening ? listener.startedAt : nil, narrow: true)
@@ -497,7 +501,10 @@ struct ListenView: View {
         .padding(.vertical, 8)
         .frame(width: 104)      // room for the longest mode name ("Point count") with a margin
         .frame(maxHeight: .infinity)
-        .background(.appBar)
+        .background(stage.map { AnyShapeStyle($0.background) } ?? AnyShapeStyle(.appBar))
+        .environment(\.stage, stage)
+        .environment(\.colorScheme, stage?.scheme ?? colorScheme)
+        .animation(.snappy, value: fullNow)
     }
 
     @ViewBuilder private var celebration: some View {
@@ -570,6 +577,7 @@ struct ModeButton: View {
     /// The landscape rail: narrower, and the running time goes under the name.
     var narrow = false
     @Environment(\.theme) private var theme
+    @Environment(\.stage) private var stage
     private var font: Font { theme.isPixel ? .pixel(narrow ? 8 : 10) : (narrow ? Font.caption : Font.subheadline).weight(.semibold) }
 
     var body: some View {
@@ -583,7 +591,7 @@ struct ModeButton: View {
                             .accessibilityLabel("Listening time")
                     }
                 }
-                .font(font).foregroundStyle(.secondary).lineLimit(1)
+                .font(font).foregroundStyle(stage.map { AnyShapeStyle($0.ink.opacity(0.75)) } ?? AnyShapeStyle(.secondary)).lineLimit(1)
                 .padding(.horizontal, narrow ? 6 : 14).padding(.vertical, narrow ? 2 : 6)
                 .accessibilityElement(children: .combine)
             } else {
@@ -598,9 +606,9 @@ struct ModeButton: View {
                         Text(choice.title).lineLimit(1).fixedSize()
                         Image(systemName: "chevron.up.chevron.down").imageScale(.small).fontWeight(.bold).opacity(0.7)
                     }
-                    .font(font).foregroundStyle(.tint)
+                    .font(font).foregroundStyle(stage.map { AnyShapeStyle($0.ink) } ?? AnyShapeStyle(.tint))
                     .padding(.horizontal, narrow ? 8 : 14).padding(.vertical, 6)
-                    .background(.tint.opacity(0.14), in: Capsule())
+                    .background(stage.map { AnyShapeStyle($0.ink.opacity(0.12)) } ?? AnyShapeStyle(.tint.opacity(0.14)), in: Capsule())
                     .contentShape(Capsule())
                 }
                 .menuOrder(.fixed)
@@ -617,12 +625,15 @@ struct ModeButton: View {
 struct ListenButton: View {
     @Environment(Listener.self) private var listener
     @Environment(\.theme) private var theme
+    @Environment(\.stage) private var stage
     var choice: ModeChoice = .live
     /// Recordings: the button opens the file analysis instead of the microphone.
     var files: () -> Void = {}
     var body: some View {
         let listening = listener.state == .listening
         let style = ListenStyle(theme: theme, listening: listening)
+        // -70 dB (a still room) to -25 dB (a bird close by)
+        let level: CGFloat = listening ? CGFloat(min(max((listener.levelDB + 70) / 45, 0), 1)) : 0
         let analyzing = FileAnalysis.shared.running      // the models are busy: the button leads to what's keeping them
         Button { if (choice == .files || analyzing) && !listening { files() } else { Task { await listener.toggle() } } } label: {
             ZStack {
@@ -632,6 +643,10 @@ struct ListenButton: View {
                         .overlay { Rectangle().stroke(style.ring, lineWidth: 3) }
                 } else {
                     Circle().stroke(style.ring, lineWidth: 4).frame(width: 78, height: 78)
+                    // The ring listens: it lights up and swells a touch with the microphone level.
+                    Circle().stroke(stage.map { AnyShapeStyle($0.accent) } ?? style.fill, lineWidth: 4).frame(width: 78, height: 78)
+                        .opacity(level).scaleEffect(1 + 0.045 * level)
+                        .animation(.linear(duration: 0.12), value: level)
                     Circle().fill(style.fill).frame(width: 66, height: 66)
                         .shadow(color: style.glow ?? .clear, radius: style.glow == nil ? 0 : 14)
                 }
@@ -657,18 +672,20 @@ private struct BarButton: View {
     let title: String
     let symbol: String
     let action: () -> Void
+    @Environment(\.stage) private var stage
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: symbol).font(.title2).frame(height: 28)
-                Text(title).font(.caption2.weight(.medium)).lineLimit(1)
+                Image(systemName: symbol).font(stage == nil ? .title2 : .title3).frame(width: 44, height: stage == nil ? 28 : 42)
+                    .background { if let stage { Circle().fill(stage.ink.opacity(0.1)).frame(width: 42, height: 42) } }
+                Text(title).font(.caption2.weight(.medium)).lineLimit(1).opacity(stage == nil ? 1 : 0.75)
             }
             .dynamicTypeSize(...DynamicTypeSize.xLarge)       // like the system tab bar: labels stop growing
-            .frame(width: 76, height: 54)
+            .frame(width: 76, height: stage == nil ? 54 : 62)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(stage.map { AnyShapeStyle($0.ink) } ?? AnyShapeStyle(.primary))
     }
 }
 
