@@ -628,6 +628,7 @@ struct ListenButton: View {
     @Environment(Listener.self) private var listener
     @Environment(\.theme) private var theme
     @Environment(\.stage) private var stage
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var choice: ModeChoice = .live
     /// Recordings: the button opens the file analysis instead of the microphone.
     var files: () -> Void = {}
@@ -647,7 +648,7 @@ struct ListenButton: View {
                     Circle().stroke(style.ring, lineWidth: 4).frame(width: 78, height: 78)
                     // The ring listens: it lights up and swells a touch with the microphone level.
                     Circle().stroke(stage.map { AnyShapeStyle($0.accent) } ?? style.fill, lineWidth: 4).frame(width: 78, height: 78)
-                        .opacity(level).scaleEffect(1 + 0.045 * level)
+                        .opacity(level).scaleEffect(reduceMotion ? 1 : 1 + 0.045 * level)
                         .animation(.linear(duration: 0.12), value: level)
                     Circle().fill(style.fill).frame(width: 66, height: 66)
                         .shadow(color: style.glow ?? .clear, radius: style.glow == nil ? 0 : 14)

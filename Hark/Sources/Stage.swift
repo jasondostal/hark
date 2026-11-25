@@ -50,6 +50,7 @@ struct CaptionFeed: View {
     @Environment(Listener.self) private var listener
     @Environment(\.openDetection) private var open
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Landscape: smaller type and a shorter trail, since the phone is only so tall.
     var compact = false
     /// Show the whole session (the "and 5 more" line).
@@ -116,7 +117,7 @@ struct CaptionFeed: View {
                             .environment(\.theme, theme)
                             .padding(.horizontal, 18).padding(.vertical, 14).background(palette.background)
                     }
-                    .transition(.caption)
+                    .transition(reduceMotion ? .opacity : .caption)
             }
             if feed.more > 0, let more {
                 Button(action: more) {
@@ -139,7 +140,7 @@ struct CaptionFeed: View {
                     .allowsHitTesting(false).transition(.opacity)
             }
         }
-        .animation(.spring(duration: 0.6, bounce: 0.16), value: items.map(\.key))
+        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(duration: 0.6, bounce: 0.16), value: items.map(\.key))
         .animation(.snappy(duration: 0.25), value: expanded)
         .sheet(item: $sharing) { d in ShareCardSheet(detection: d).themeRoot() }
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)

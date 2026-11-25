@@ -930,6 +930,12 @@ final class Listener {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
         liveActivity.newSpecies(l.displayName, symbol: l.group.symbol, count: sessionSpecies.count, firstEver: firstEver)
+        // VoiceOver: say it, queued behind whatever is being read rather than cutting it off.
+        if UIAccessibility.isVoiceOverRunning, UIApplication.shared.applicationState == .active {
+            var said = AttributedString(firstEver ? "\(l.displayName), new for you" : l.displayName)
+            said.accessibilitySpeechAnnouncementPriority = .default
+            AccessibilityNotification.Announcement(said).post()
+        }
     }
 
     /// Log a maybe by hand ("Log", or "I saw it" = logged and confirmed).

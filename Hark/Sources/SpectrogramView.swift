@@ -377,6 +377,7 @@ struct SpectrogramView: View {
     var quality: SpectrogramQuality = .standard
     /// Top of the frequency axis (so the labels move when the setting does).
     var topHz: Float = 15_000
+    @Environment(\.accessibilityReduceMotion) fileprivate var reduceMotion
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / quality.framesPerSecond, paused: !running)) { tl in
             GeometryReader { g in
@@ -410,9 +411,9 @@ extension SpectrogramView {
                 .position(x: x, y: min(max(y - (named ? 22 : 16), topInset + 16), size.height - 24))
                 // On the stage a pin rides its call across and dissolves before it reaches the captions' corner.
                 .opacity(stage ? Double(min(max((x / size.width - 0.2) / 0.2, 0), 1)) : 1)
-                .transition(.scale(scale: 0.2).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.2).combined(with: .opacity))
         }
-        .animation(.spring(duration: 0.35, bounce: 0.5), value: markers.count)
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35, bounce: 0.5), value: markers.count)
     }
 }
 
