@@ -131,15 +131,15 @@ struct SettingsView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                SettingLabel("How picky", help: "How confident Hark must be before it logs an ID.\n\nSensitive (70%): catches faint and distant calls, with more wrong guesses.\n\nBalanced (85%): confident IDs. A good default.\n\nStrict (92%): only the surest. Misses some real calls, rarely wrong.\n\nCustom means you've moved the sliders under Detection tuning or Listen for; picking a preset puts them back.",
+                SettingLabel("How picky", help: "How confident Hark must be before it logs an ID.\n\nSensitive (70%): catches faint and distant calls, with more wrong guesses.\n\nBalanced (85%): confident IDs. A good default.\n\nStrict (92%): only the surest. Misses some real calls, rarely wrong.\n\nThese three are one setting, the confidence bar, at three positions. The slider under Detection tuning is the same bar, for anything in between; the line under the buttons always says where it is.\n\nCustom means you've moved that slider or given a group its own bar; picking a preset puts every group back.",
                              standard: "Balanced", changed: listener.policy.preset != .balanced) { listener.policy.apply(.balanced) }
                 Picker("How picky", selection: presetBinding) {
                     ForEach(Preset.allCases, id: \.self) { Text($0.title).tag(Preset?.some($0)) }
                     if listener.policy.preset == nil { Text("Custom").tag(Preset?.none) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
+                Text(pickySummary).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            hearItFor
             Toggle(isOn: $listener.showMaybes) {
                 SettingLabel("Show maybes", help: "A maybe is a species Hark half-heard: under the bar, but not nothing. On, maybes show faintly under Hearing now with a \"?\" and you can log one by hand. They're never logged automatically.\n\nIn a quiet room maybes are mostly noise, so this starts off. Turn it on when you're trying to pull a faint or distant call out.",
                              standard: "Off", changed: listener.showMaybes) { listener.showMaybes = false }
@@ -147,12 +147,30 @@ struct SettingsView: View {
         } header: { Text("Detection") } footer: { Text("Tap any ⓘ for what a setting does and how to put it back.") }
     }
 
+    /// What How picky comes to, in the numbers shown next to every ID.
+    private var pickySummary: String {
+        let p = listener.policy
+        func pct(_ g: ListenGroup) -> String { "\(p.setting(g).threshold.shownPercent)%" }
+        if p.preset == nil, Set(ListenGroup.allCases.filter { $0 != .insect && $0 != .other }.map { p.setting($0).threshold.shownPercent }).count > 1 {
+            return "Custom: each group has its own bar, set under Detection tuning."
+        }
+        return "Logs an ID at \(pct(.bird)) or higher (insects at \(pct(.insect)), where the models are shakier)." + (p.preset == nil ? " Custom, set under Detection tuning." : "")
+    }
+
+    /// Whether any group has been moved off the one bar the slider sets.
+    private var groupsDiffer: Bool {
+        let p = listener.policy, insect = Preset.shownInsect(for: p.shown)
+        return ListenGroup.allCases.contains { g in
+            abs(Fusion.display(p.setting(g).threshold) - (g == .insect || g == .other ? insect : p.shown)) > 0.006
+        }
+    }
+
     private var hearItFor: some View {
         Picker(selection: Binding(get: { listener.confirmSeconds }, set: { listener.confirmSeconds = $0 })) {
-            Text("Off").tag(1); Text("2 s").tag(2); Text("3 s").tag(3); Text("4 s").tag(4)
+            Text("The first time").tag(1); Text("After 2 s").tag(2); Text("After 3 s").tag(3); Text("After 4 s").tag(4)
         } label: {
-            SettingLabel("Hear it for", help: "How long a new species must keep being heard before it's logged.\n\nLonger means fewer one-off mistakes from a single odd noise, and a slightly slower first ID. A bird that calls once, briefly, can be missed: touch the spectrogram to pick that one out by hand.\n\nOff logs the first check that clears the bar.",
-                         standard: "2 s", changed: listener.confirmSeconds != 2) { listener.confirmSeconds = 2 }
+            SettingLabel("Log a new species", help: "How long a species has to keep calling before Hark logs it.\n\nThe first time: logged the moment one check clears the bar. Fastest, and a single odd noise can slip in.\n\nAfter 2, 3 or 4 s: it has to still be there that much later. Fewer one-off mistakes, and a slightly slower first ID. A bird that calls once, briefly, can be missed: touch the spectrogram to pick that one out by hand.\n\nOther apps call this a minimum number of detections in a row.",
+                         standard: "After 2 s", changed: listener.confirmSeconds != 2) { listener.confirmSeconds = 2 }
         }
     }
 
@@ -165,11 +183,18 @@ struct SettingsView: View {
         return Group {
             Section {
                 VStack(alignment: .leading) {
-                    SettingLabel("Confidence threshold", value: "\(pct)%", help: "The bar an ID must clear to be logged, as the same percentage you see next to every ID. It's the slider behind How picky.\n\nLower (toward 50%): more faint and distant calls, more wrong IDs.\n\nHigher (toward 98%): fewer wrong IDs, more real calls missed.\n\n70% is Sensitive, 85% Balanced, 92% Strict. Insects and \"other animals\" always sit a little higher, since the models are least reliable there. Each group can have its own bar under Thresholds by group.",
+                    SettingLabel("Log at", value: "\(pct)% or higher", help: "The bar an ID must clear to be logged, as the same percentage you see next to every ID. This is How picky as a slider: 70% is Sensitive, 85% Balanced, 92% Strict.\n\nLower (toward 50%): more faint and distant calls, more wrong IDs.\n\nHigher (toward 98%): fewer wrong IDs, more real calls missed.\n\nMoving it moves every group together. Insects and \"other animals\" follow a little higher, since the models are least reliable there. To give one group a bar of its own, use By group below.",
                                  standard: "85%", changed: listener.policy.preset != .balanced) { listener.policy.apply(.balanced) }
                     Slider(value: Binding(get: { Double(listener.policy.shown) }, set: { listener.policy.apply(shown: Float($0)) }), in: 0.5...0.98, step: 0.01)
                         .accessibilityValue("\(pct) percent")
                 }
+                NavigationLink { ThresholdsView() } label: {
+                    LabeledContent("By group", value: groupsDiffer ? "Some have their own bar" : "All follow the slider")
+                }
+            } header: { Text("How sure") } footer: {
+                Text("One bar, three ways to set it: How picky picks a preset, this slider sets it exactly, and By group lets one group differ. The slider and the presets move every group, so they undo anything set by group.")
+            }
+            Section {
                 VStack(alignment: .leading) {
                     SettingLabel("Check every", value: Self.seconds(listener.scoreInterval) + String(format: " · %.2f Hz", 1 / listener.scoreInterval),
                                  help: "How often Hark scores the last 5 seconds of sound while listening. Right is faster.\n\nOnce a second (1 Hz) is the default. Every 2 to 5 seconds uses less battery on a long walk and still hears everything, because each check covers 5 seconds; a new ID just shows up a few seconds later. Twice a second catches a brief call a beat sooner and uses more battery.\n\nThe models' own windows are fixed (Perch 5 s, BirdNET+ 3 s); this is how often they run, not how much they hear.",
@@ -179,8 +204,7 @@ struct SettingsView: View {
                         .accessibilityValue("every \(Self.seconds(listener.scoreInterval))")
                 }
                 hearItFor
-                NavigationLink("Thresholds by group") { ThresholdsView() }
-            }
+            } header: { Text("How often, how long") }
             Section {
                 if listener.lastInferenceMs > 0 {
                     LabeledContent("Last check took", value: String(format: "%.0f ms", listener.lastInferenceMs))
@@ -234,8 +258,8 @@ struct SettingsView: View {
                     }
                 }
             }
-            NavigationLink("Fine-tune thresholds") { ThresholdsView() }
-        } footer: { Text("Switch off what you don't want to hear about. Fine-tune sets each group's own bar.") }
+            NavigationLink("Thresholds by group") { ThresholdsView() }
+        } footer: { Text("Switch off what you don't want to hear about. Thresholds by group gives one group its own bar.") }
     }
 
     private func caption(_ g: ListenGroup, _ s: GroupSetting) -> String {
@@ -498,7 +522,7 @@ struct ThresholdsView: View {
                     .opacity(s.enabled ? 1 : 0.4)
                 }
             } footer: {
-                Text("A sound at or above its group's bar is logged; with Show maybes on, a little under it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls. Percentages read like BirdNET's: 85% is a confident ID.")
+                Text("These start out following How picky and the Log at slider, and either of those puts them all back in step. Move one here to make that group pickier or looser than the rest.\n\nA sound at or above its group's bar is logged; with Show maybes on, a little under it shows as a maybe you can log by hand. Raise a group that gives you wrong IDs (insects are the usual suspect); lower one that misses quiet calls. Percentages read like BirdNET's: 85% is a confident ID.")
             }
             Section {
                 ForEach(Preset.allCases, id: \.self) { p in
@@ -506,7 +530,7 @@ struct ThresholdsView: View {
                 }
             }
         }.themedRows() }.themedList()
-        .navigationTitle("Thresholds")
+        .navigationTitle("Thresholds by group")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

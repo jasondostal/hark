@@ -191,7 +191,7 @@ final class Listener {
     var scoreInterval: Double = min(max(UserDefaults.standard.object(forKey: "scoreInterval") as? Double ?? 1, 0.5), 5) {
         didSet { UserDefaults.standard.set(scoreInterval, forKey: "scoreInterval"); applyConfirm() }
     }
-    /// "Hear it for" in checks: at one check a second, 2 s is 2 checks in a row. Slower checking still needs two
+    /// "Log a new species: after N s" in checks: at one check a second, 2 s is 2 checks in a row. Slower checking still needs two
     /// (each already covers 5 s of sound); faster checking needs proportionally more.
     static func confirm(seconds: Int, interval: Double) -> (windows: Int, span: TimeInterval) {
         let w = seconds <= 1 ? 1 : max(2, Int((Double(seconds) / interval).rounded()))

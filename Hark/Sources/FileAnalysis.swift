@@ -46,7 +46,7 @@ actor AudioFileReader {
 }
 
 /// Analyze recordings from anywhere (a recorder's SD card, a voice memo, a trail-cam clip) exactly as if Hark had
-/// been listening: the same models, thresholds and "hear it for" rule, one check per second of the file. Each file
+/// been listening: the same models, thresholds and wait-before-logging rule, one check per second of the file. Each file
 /// becomes a session in the Log; what's found is logged at the file's own date, with a clip, and no place.
 @MainActor
 @Observable
