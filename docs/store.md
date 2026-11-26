@@ -176,9 +176,9 @@ Hark 1.1 is a new look and more ways to listen.
 ## 1.1 notes
 
 Ships with it: I-1 (siren), I-2 (OFL texts), I-3 (no selftest audio in the bundle).
-TestFlight: 1.1 (4) uploaded 2026-11-25 from ead0e7a, internal group "Me" only (no beta review). The group was made with
+TestFlight: 1.1 (4) uploaded 2026-11-25 from 29a11b5, internal group "Me" only (no beta review). The group was made with
 automatic distribution off, so each build is added to it by hand; with it on, TestFlight also offered the 1.0 builds.
-1.1 (5) uploaded 2026-11-25 from 7ed03b2 and added to the same group.
+1.1 (5) uploaded 2026-11-25 from 4402753 and added to the same group.
 
 Never run on a phone before submitting: everything after build 4 (the app-wide look, the Journal rename, the caption
 hint, the What's New card). Battery and heat in full screen were not measured either. Jason's call.
